@@ -182,6 +182,13 @@ export function QuickActionsModal(props: QuickActionsModalProps) {
     setFirstVisibleIndex(0);
   }, [search, mode]);
 
+  // Clear search when switching to move-to-group mode
+  useEffect(() => {
+    if (mode === 'move-to-group') {
+      setSearch('');
+    }
+  }, [mode]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (renamingSession) {
       if (e.key === 'Enter') {
@@ -245,7 +252,7 @@ export function QuickActionsModal(props: QuickActionsModalProps) {
             <input
               ref={inputRef}
               className="flex-1 bg-transparent outline-none text-lg placeholder-opacity-50"
-              placeholder="Type a command or jump to agent..."
+              placeholder={mode === 'move-to-group' ? 'Search groups...' : 'Type a command or jump to agent...'}
               style={{ color: theme.colors.textMain }}
               value={search}
               onChange={e => setSearch(e.target.value)}
