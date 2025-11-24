@@ -33,6 +33,7 @@ interface MainPanelProps {
   markdownRawMode: boolean;
   shortcuts: Record<string, Shortcut>;
   rightPanelOpen: boolean;
+  maxOutputLines: number;
 
   // Setters
   setLogViewerOpen: (open: boolean) => void;
@@ -192,6 +193,7 @@ export function MainPanel(props: MainPanelProps) {
             setLightboxImage={setLightboxImage}
             inputRef={inputRef}
             logsEndRef={logsEndRef}
+            maxOutputLines={maxOutputLines}
           />
 
           {/* Input Area */}

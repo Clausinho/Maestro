@@ -31,6 +31,8 @@ interface SettingsModalProps {
   setTerminalWidth: (width: number) => void;
   logLevel: string;
   setLogLevel: (level: string) => void;
+  maxOutputLines: number;
+  setMaxOutputLines: (lines: number) => void;
   initialTab?: 'general' | 'llm' | 'shortcuts' | 'theme' | 'network';
 }
 
@@ -772,6 +774,76 @@ export function SettingsModal(props: SettingsModalProps) {
                 </div>
                 <p className="text-xs opacity-50 mt-2">
                   Higher levels show fewer logs. Debug shows all logs, Error shows only errors.
+                </p>
+              </div>
+
+              {/* Max Output Lines */}
+              <div>
+                <label className="block text-xs font-bold opacity-70 uppercase mb-2">Max Output Lines per Response</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => props.setMaxOutputLines(15)}
+                    className={`flex-1 py-2 px-3 rounded border transition-all ${props.maxOutputLines === 15 ? 'ring-2' : ''}`}
+                    style={{
+                      borderColor: theme.colors.border,
+                      backgroundColor: props.maxOutputLines === 15 ? theme.colors.accentDim : 'transparent',
+                      ringColor: theme.colors.accent,
+                      color: theme.colors.textMain
+                    }}
+                  >
+                    15
+                  </button>
+                  <button
+                    onClick={() => props.setMaxOutputLines(25)}
+                    className={`flex-1 py-2 px-3 rounded border transition-all ${props.maxOutputLines === 25 ? 'ring-2' : ''}`}
+                    style={{
+                      borderColor: theme.colors.border,
+                      backgroundColor: props.maxOutputLines === 25 ? theme.colors.accentDim : 'transparent',
+                      ringColor: theme.colors.accent,
+                      color: theme.colors.textMain
+                    }}
+                  >
+                    25
+                  </button>
+                  <button
+                    onClick={() => props.setMaxOutputLines(50)}
+                    className={`flex-1 py-2 px-3 rounded border transition-all ${props.maxOutputLines === 50 ? 'ring-2' : ''}`}
+                    style={{
+                      borderColor: theme.colors.border,
+                      backgroundColor: props.maxOutputLines === 50 ? theme.colors.accentDim : 'transparent',
+                      ringColor: theme.colors.accent,
+                      color: theme.colors.textMain
+                    }}
+                  >
+                    50
+                  </button>
+                  <button
+                    onClick={() => props.setMaxOutputLines(100)}
+                    className={`flex-1 py-2 px-3 rounded border transition-all ${props.maxOutputLines === 100 ? 'ring-2' : ''}`}
+                    style={{
+                      borderColor: theme.colors.border,
+                      backgroundColor: props.maxOutputLines === 100 ? theme.colors.accentDim : 'transparent',
+                      ringColor: theme.colors.accent,
+                      color: theme.colors.textMain
+                    }}
+                  >
+                    100
+                  </button>
+                  <button
+                    onClick={() => props.setMaxOutputLines(Infinity)}
+                    className={`flex-1 py-2 px-3 rounded border transition-all ${props.maxOutputLines === Infinity ? 'ring-2' : ''}`}
+                    style={{
+                      borderColor: theme.colors.border,
+                      backgroundColor: props.maxOutputLines === Infinity ? theme.colors.accentDim : 'transparent',
+                      ringColor: theme.colors.accent,
+                      color: theme.colors.textMain
+                    }}
+                  >
+                    All
+                  </button>
+                </div>
+                <p className="text-xs opacity-50 mt-2">
+                  Long outputs will be collapsed into a scrollable window. Set to "All" to always show full output.
                 </p>
               </div>
             </div>

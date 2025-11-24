@@ -173,6 +173,9 @@ export default function MaestroConsole() {
   // Logging Config
   const [logLevel, setLogLevelState] = useState('info');
 
+  // Output Config
+  const [maxOutputLines, setMaxOutputLinesState] = useState(25);
+
   // Wrapper functions that persist to electron-store
   const setLlmProviderPersist = (value: LLMProvider) => {
     setLlmProvider(value);
@@ -224,6 +227,11 @@ export default function MaestroConsole() {
     await window.maestro.logger.setLogLevel(value);
   };
 
+  const setMaxOutputLines = (value: number) => {
+    setMaxOutputLinesState(value);
+    window.maestro.settings.set('maxOutputLines', value);
+  };
+
   // Load settings from electron-store on mount
   useEffect(() => {
     const loadSettings = async () => {
@@ -243,6 +251,7 @@ export default function MaestroConsole() {
       const savedMarkdownRawMode = await window.maestro.settings.get('markdownRawMode');
       const savedShortcuts = await window.maestro.settings.get('shortcuts');
       const savedLogLevel = await window.maestro.logger.getLogLevel();
+      const savedMaxOutputLines = await window.maestro.settings.get('maxOutputLines');
 
       if (savedEnterToSend !== undefined) setEnterToSendState(savedEnterToSend);
       if (savedLlmProvider !== undefined) setLlmProvider(savedLlmProvider);
@@ -259,6 +268,7 @@ export default function MaestroConsole() {
       if (savedRightPanelWidth !== undefined) setRightPanelWidthState(savedRightPanelWidth);
       if (savedMarkdownRawMode !== undefined) setMarkdownRawModeState(savedMarkdownRawMode);
       if (savedLogLevel !== undefined) setLogLevelState(savedLogLevel);
+      if (savedMaxOutputLines !== undefined) setMaxOutputLinesState(savedMaxOutputLines);
 
       // Merge saved shortcuts with defaults (in case new shortcuts were added)
       if (savedShortcuts !== undefined) {
@@ -1946,6 +1956,7 @@ export default function MaestroConsole() {
         markdownRawMode={markdownRawMode}
         shortcuts={shortcuts}
         rightPanelOpen={rightPanelOpen}
+        maxOutputLines={maxOutputLines}
         setLogViewerOpen={setLogViewerOpen}
         setActiveFocus={setActiveFocus}
         setOutputSearchOpen={setOutputSearchOpen}
@@ -2051,6 +2062,8 @@ export default function MaestroConsole() {
         setTerminalWidth={setTerminalWidth}
         logLevel={logLevel}
         setLogLevel={setLogLevel}
+        maxOutputLines={maxOutputLines}
+        setMaxOutputLines={setMaxOutputLines}
         initialTab={settingsTab}
       />
     </div>

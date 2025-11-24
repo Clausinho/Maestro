@@ -45,6 +45,10 @@ export interface UseSettingsReturn {
   logLevel: string;
   setLogLevel: (value: string) => void;
 
+  // Output settings
+  maxOutputLines: number;
+  setMaxOutputLines: (value: number) => void;
+
   // Shortcuts
   shortcuts: Record<string, Shortcut>;
   setShortcuts: (value: Record<string, Shortcut>) => void;
@@ -77,6 +81,9 @@ export function useSettings(): UseSettingsReturn {
 
   // Logging Config
   const [logLevel, setLogLevelState] = useState('info');
+
+  // Output Config
+  const [maxOutputLines, setMaxOutputLinesState] = useState(25);
 
   // Shortcuts
   const [shortcuts, setShortcutsState] = useState<Record<string, Shortcut>>(DEFAULT_SHORTCUTS);
@@ -162,6 +169,11 @@ export function useSettings(): UseSettingsReturn {
     await window.maestro.logger.setLogLevel(value);
   };
 
+  const setMaxOutputLines = (value: number) => {
+    setMaxOutputLinesState(value);
+    window.maestro.settings.set('maxOutputLines', value);
+  };
+
   // Load settings from electron-store on mount
   useEffect(() => {
     const loadSettings = async () => {
@@ -181,6 +193,7 @@ export function useSettings(): UseSettingsReturn {
       const savedShortcuts = await window.maestro.settings.get('shortcuts');
       const savedActiveThemeId = await window.maestro.settings.get('activeThemeId');
       const savedLogLevel = await window.maestro.logger.getLogLevel();
+      const savedMaxOutputLines = await window.maestro.settings.get('maxOutputLines');
 
       if (savedEnterToSend !== undefined) setEnterToSendState(savedEnterToSend);
       if (savedLlmProvider !== undefined) setLlmProviderState(savedLlmProvider);
@@ -197,6 +210,7 @@ export function useSettings(): UseSettingsReturn {
       if (savedMarkdownRawMode !== undefined) setMarkdownRawModeState(savedMarkdownRawMode);
       if (savedActiveThemeId !== undefined) setActiveThemeIdState(savedActiveThemeId);
       if (savedLogLevel !== undefined) setLogLevelState(savedLogLevel);
+      if (savedMaxOutputLines !== undefined) setMaxOutputLinesState(savedMaxOutputLines);
 
       // Merge saved shortcuts with defaults (in case new shortcuts were added)
       if (savedShortcuts !== undefined) {
@@ -242,6 +256,8 @@ export function useSettings(): UseSettingsReturn {
     setMarkdownRawMode,
     logLevel,
     setLogLevel,
+    maxOutputLines,
+    setMaxOutputLines,
     shortcuts,
     setShortcuts,
   };

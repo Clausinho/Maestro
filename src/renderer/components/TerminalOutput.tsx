@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useMemo, forwardRef } from 'react';
-import { Activity, X } from 'lucide-react';
+import React, { useRef, useEffect, useMemo, forwardRef, useState } from 'react';
+import { Activity, X, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Session, Theme, LogEntry } from '../types';
 import Convert from 'ansi-to-html';
 import DOMPurify from 'dompurify';
@@ -16,17 +16,33 @@ interface TerminalOutputProps {
   setLightboxImage: (image: string | null) => void;
   inputRef: React.RefObject<HTMLTextAreaElement>;
   logsEndRef: React.RefObject<HTMLDivElement>;
+  maxOutputLines: number;
 }
 
 export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((props, ref) => {
   const {
     session, theme, activeFocus, outputSearchOpen, outputSearchQuery,
     setOutputSearchOpen, setOutputSearchQuery, setActiveFocus, setLightboxImage,
-    inputRef, logsEndRef
+    inputRef, logsEndRef, maxOutputLines
   } = props;
 
   // Use the forwarded ref if provided, otherwise create a local one
   const terminalOutputRef = (ref as React.RefObject<HTMLDivElement>) || useRef<HTMLDivElement>(null);
+
+  // Track which log entries are expanded (by log ID)
+  const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (logId: string) => {
+    setExpandedLogs(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(logId)) {
+        newSet.delete(logId);
+      } else {
+        newSet.add(logId);
+      }
+      return newSet;
+    });
+  };
 
   // Auto-focus on search input when opened
   useEffect(() => {
@@ -192,6 +208,20 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
           ? DOMPurify.sanitize(ansiConverter.toHtml(processedText))
           : processedText;
 
+        // Count lines in the processed text
+        const lineCount = processedText.split('\n').length;
+        const shouldCollapse = lineCount > maxOutputLines && maxOutputLines !== Infinity;
+        const isExpanded = expandedLogs.has(log.id);
+
+        // Truncate text if collapsed
+        const displayText = shouldCollapse && !isExpanded
+          ? processedText.split('\n').slice(0, maxOutputLines).join('\n')
+          : processedText;
+
+        const displayHtmlContent = shouldCollapse && !isExpanded && isTerminal && log.source !== 'user'
+          ? DOMPurify.sanitize(ansiConverter.toHtml(displayText))
+          : htmlContent;
+
         return (
           <div key={log.id} className={`flex gap-4 group ${log.source === 'user' ? 'flex-row-reverse' : ''}`}>
             <div className="w-12 shrink-0 text-[10px] opacity-40 pt-2 font-mono text-center">
@@ -209,14 +239,76 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
                   ))}
                 </div>
               )}
-              {isTerminal && log.source !== 'user' ? (
-                <div
-                  className="whitespace-pre-wrap text-sm font-mono overflow-x-auto"
-                  dangerouslySetInnerHTML={{ __html: htmlContent }}
-                  style={{ color: theme.colors.textMain }}
-                />
+              {shouldCollapse && !isExpanded ? (
+                <div>
+                  <div
+                    className={`${isTerminal && log.source !== 'user' ? 'whitespace-pre-wrap text-sm font-mono overflow-x-auto' : 'whitespace-pre-wrap text-sm'}`}
+                    style={{
+                      maxHeight: `${maxOutputLines * 1.5}em`,
+                      overflow: 'hidden',
+                      color: theme.colors.textMain
+                    }}
+                  >
+                    {isTerminal && log.source !== 'user' ? (
+                      <div dangerouslySetInnerHTML={{ __html: displayHtmlContent }} />
+                    ) : (
+                      displayText
+                    )}
+                  </div>
+                  <button
+                    onClick={() => toggleExpanded(log.id)}
+                    className="flex items-center gap-2 mt-2 text-xs px-3 py-1.5 rounded border hover:opacity-70 transition-opacity"
+                    style={{
+                      borderColor: theme.colors.border,
+                      backgroundColor: theme.colors.bgActivity,
+                      color: theme.colors.accent
+                    }}
+                  >
+                    <ChevronDown className="w-3 h-3" />
+                    Show all {lineCount} lines
+                  </button>
+                </div>
+              ) : shouldCollapse && isExpanded ? (
+                <div>
+                  <div
+                    className={`${isTerminal && log.source !== 'user' ? 'whitespace-pre-wrap text-sm font-mono overflow-x-auto' : 'whitespace-pre-wrap text-sm'}`}
+                    style={{
+                      maxHeight: '600px',
+                      overflow: 'auto',
+                      color: theme.colors.textMain
+                    }}
+                  >
+                    {isTerminal && log.source !== 'user' ? (
+                      <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+                    ) : (
+                      processedText
+                    )}
+                  </div>
+                  <button
+                    onClick={() => toggleExpanded(log.id)}
+                    className="flex items-center gap-2 mt-2 text-xs px-3 py-1.5 rounded border hover:opacity-70 transition-opacity"
+                    style={{
+                      borderColor: theme.colors.border,
+                      backgroundColor: theme.colors.bgActivity,
+                      color: theme.colors.accent
+                    }}
+                  >
+                    <ChevronUp className="w-3 h-3" />
+                    Show less
+                  </button>
+                </div>
               ) : (
-                <div className="whitespace-pre-wrap text-sm">{processedText}</div>
+                <>
+                  {isTerminal && log.source !== 'user' ? (
+                    <div
+                      className="whitespace-pre-wrap text-sm font-mono overflow-x-auto"
+                      dangerouslySetInnerHTML={{ __html: htmlContent }}
+                      style={{ color: theme.colors.textMain }}
+                    />
+                  ) : (
+                    <div className="whitespace-pre-wrap text-sm">{processedText}</div>
+                  )}
+                </>
               )}
             </div>
           </div>
