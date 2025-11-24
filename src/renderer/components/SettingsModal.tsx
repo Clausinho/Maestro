@@ -1212,7 +1212,15 @@ export function SettingsModal(props: SettingsModalProps) {
                       <span className="text-sm font-medium" style={{ color: theme.colors.textMain }}>{sc.label}</span>
                       <button
                         onClick={() => setRecordingId(sc.id)}
-                        onKeyDown={(e) => recordingId === sc.id && handleRecord(e, sc.id)}
+                        onKeyDownCapture={(e) => {
+                          if (recordingId === sc.id) {
+                            // Prevent default in capture phase to catch all key combinations
+                            // (including browser/system shortcuts like Option+Arrow)
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleRecord(e, sc.id);
+                          }
+                        }}
                         className={`px-3 py-1.5 rounded border text-xs font-mono min-w-[80px] text-center transition-colors ${recordingId === sc.id ? 'ring-2' : ''}`}
                         style={{
                           borderColor: recordingId === sc.id ? theme.colors.accent : theme.colors.border,
