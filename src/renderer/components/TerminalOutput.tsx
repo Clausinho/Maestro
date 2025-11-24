@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useMemo, forwardRef, useState } from 'react';
-import { Activity, X, ChevronDown, ChevronUp, Filter } from 'lucide-react';
+import { Activity, X, ChevronDown, ChevronUp, Filter, PlusCircle, MinusCircle, Code } from 'lucide-react';
 import type { Session, Theme, LogEntry } from '../types';
 import Convert from 'ansi-to-html';
 import DOMPurify from 'dompurify';
@@ -35,6 +35,9 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
   // Track local filters per log entry (log ID -> filter query)
   const [localFilters, setLocalFilters] = useState<Map<string, string>>(new Map());
   const [activeLocalFilter, setActiveLocalFilter] = useState<string | null>(null);
+
+  // Track filter modes per log entry (log ID -> {mode: 'include'|'exclude', regex: boolean})
+  const [filterModes, setFilterModes] = useState<Map<string, { mode: 'include' | 'exclude'; regex: boolean }>>(new Map());
 
   const toggleExpanded = (logId: string) => {
     setExpandedLogs(prev => {
@@ -148,16 +151,38 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
   };
 
   // Helper function to filter text by lines containing the query (local filter)
-  const filterTextByLines = (text: string, query: string): string => {
+  const filterTextByLines = (text: string, query: string, mode: 'include' | 'exclude', useRegex: boolean): string => {
     if (!query) return text;
 
     const lines = text.split('\n');
-    const lowerQuery = query.toLowerCase();
-    const filteredLines = lines.filter(line =>
-      line.toLowerCase().includes(lowerQuery)
-    );
 
-    return filteredLines.join('\n');
+    try {
+      if (useRegex) {
+        // Use regex matching
+        const regex = new RegExp(query, 'i');
+        const filteredLines = lines.filter(line => {
+          const matches = regex.test(line);
+          return mode === 'include' ? matches : !matches;
+        });
+        return filteredLines.join('\n');
+      } else {
+        // Use plain text matching
+        const lowerQuery = query.toLowerCase();
+        const filteredLines = lines.filter(line => {
+          const matches = line.toLowerCase().includes(lowerQuery);
+          return mode === 'include' ? matches : !matches;
+        });
+        return filteredLines.join('\n');
+      }
+    } catch (error) {
+      // If regex is invalid, fall back to plain text matching
+      const lowerQuery = query.toLowerCase();
+      const filteredLines = lines.filter(line => {
+        const matches = line.toLowerCase().includes(lowerQuery);
+        return mode === 'include' ? matches : !matches;
+      });
+      return filteredLines.join('\n');
+    }
   };
 
   // Helper function to separate stdout and stderr based on error indicators
@@ -357,15 +382,16 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
 
         // Apply local filter if active for this log entry
         const localFilterQuery = localFilters.get(log.id) || '';
+        const filterMode = filterModes.get(log.id) || { mode: 'include', regex: false };
         const filteredStdout = localFilterQuery && log.source !== 'user'
-          ? filterTextByLines(separated.stdout, localFilterQuery)
+          ? filterTextByLines(separated.stdout, localFilterQuery, filterMode.mode, filterMode.regex)
           : separated.stdout;
         const filteredStderr = localFilterQuery && log.source !== 'user'
-          ? filterTextByLines(separated.stderr, localFilterQuery)
+          ? filterTextByLines(separated.stderr, localFilterQuery, filterMode.mode, filterMode.regex)
           : separated.stderr;
 
-        // Skip rendering if both stdout and stderr are empty after processing and filtering
-        if (!filteredStdout.trim() && !filteredStderr.trim() && log.source !== 'user') return null;
+        // Check if filter returned no results
+        const hasNoMatches = localFilterQuery && !filteredStdout.trim() && !filteredStderr.trim() && log.source !== 'user';
 
         // Apply search highlighting before ANSI conversion for terminal output
         const stdoutWithHighlights = isTerminal && log.source !== 'user' && outputSearchQuery
@@ -422,7 +448,42 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
               {log.source !== 'user' && isTerminal && (
                 <div className="absolute top-2 right-2 flex items-center gap-2">
                   {activeLocalFilter === log.id || localFilterQuery ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 p-2 rounded border" style={{ backgroundColor: theme.colors.bgSidebar, borderColor: theme.colors.border }}>
+                      {/* Include/Exclude Toggle */}
+                      <button
+                        onClick={() => {
+                          setFilterModes(prev => {
+                            const newMap = new Map(prev);
+                            const current = newMap.get(log.id) || { mode: 'include', regex: false };
+                            newMap.set(log.id, { ...current, mode: current.mode === 'include' ? 'exclude' : 'include' });
+                            return newMap;
+                          });
+                        }}
+                        className="p-1 rounded hover:opacity-70 transition-opacity"
+                        style={{ color: filterMode.mode === 'include' ? theme.colors.success : theme.colors.error }}
+                        title={filterMode.mode === 'include' ? 'Include matching lines' : 'Exclude matching lines'}
+                      >
+                        {filterMode.mode === 'include' ? <PlusCircle className="w-3.5 h-3.5" /> : <MinusCircle className="w-3.5 h-3.5" />}
+                      </button>
+
+                      {/* Regex Toggle */}
+                      <button
+                        onClick={() => {
+                          setFilterModes(prev => {
+                            const newMap = new Map(prev);
+                            const current = newMap.get(log.id) || { mode: 'include', regex: false };
+                            newMap.set(log.id, { ...current, regex: !current.regex });
+                            return newMap;
+                          });
+                        }}
+                        className="p-1 rounded hover:opacity-70 transition-opacity"
+                        style={{ color: filterMode.regex ? theme.colors.accent : theme.colors.textDim }}
+                        title={filterMode.regex ? 'Using regex' : 'Using plain text'}
+                      >
+                        <Code className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Search Input */}
                       <input
                         type="text"
                         value={localFilterQuery}
@@ -432,6 +493,12 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
                             e.stopPropagation();
                             setActiveLocalFilter(null);
                             setLocalFilterQuery(log.id, '');
+                            // Clear filter mode when clearing filter
+                            setFilterModes(prev => {
+                              const newMap = new Map(prev);
+                              newMap.delete(log.id);
+                              return newMap;
+                            });
                           }
                         }}
                         onBlur={() => {
@@ -440,7 +507,7 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
                             setActiveLocalFilter(null);
                           }
                         }}
-                        placeholder="Filter lines..."
+                        placeholder={filterMode.regex ? "Regex pattern..." : "Filter lines..."}
                         className="w-40 px-2 py-1 text-xs rounded border bg-transparent outline-none"
                         style={{
                           borderColor: theme.colors.accent,
@@ -449,10 +516,18 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
                         }}
                         autoFocus={activeLocalFilter === log.id}
                       />
+
+                      {/* Close Button */}
                       <button
                         onClick={() => {
                           setActiveLocalFilter(null);
                           setLocalFilterQuery(log.id, '');
+                          // Clear filter mode when closing
+                          setFilterModes(prev => {
+                            const newMap = new Map(prev);
+                            newMap.delete(log.id);
+                            return newMap;
+                          });
                         }}
                         className="p-1 rounded hover:opacity-70 transition-opacity"
                         style={{ color: theme.colors.textDim }}
@@ -482,7 +557,11 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
                   ))}
                 </div>
               )}
-              {shouldCollapse && !isExpanded ? (
+              {hasNoMatches ? (
+                <div className="flex items-center justify-center py-8 text-sm" style={{ color: theme.colors.textDim }}>
+                  <span>No matches found for filter</span>
+                </div>
+              ) : shouldCollapse && !isExpanded ? (
                 <div>
                   <div
                     className={`${isTerminal && log.source !== 'user' ? 'whitespace-pre-wrap text-sm font-mono overflow-x-auto' : 'whitespace-pre-wrap text-sm'}`}

@@ -9,7 +9,7 @@ interface AboutModalProps {
 
 export function AboutModal({ theme, onClose }: AboutModalProps) {
   return (
-    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
+    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[110] animate-in fade-in duration-200">
       <div className="w-[450px] border rounded-lg shadow-2xl overflow-hidden" style={{ backgroundColor: theme.colors.bgSidebar, borderColor: theme.colors.border }}>
         <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: theme.colors.border }}>
           <h2 className="text-sm font-bold" style={{ color: theme.colors.textMain }}>About Maestro</h2>

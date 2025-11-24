@@ -81,7 +81,7 @@ export function NewInstanceModal({ isOpen, onClose, onCreate, theme, defaultAgen
 
   return (
     <div
-      className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50"
+      className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[110]"
       onKeyDown={(e) => {
         // Handle Cmd+O for folder picker before stopping propagation
         if ((e.key === 'o' || e.key === 'O') && (e.metaKey || e.ctrlKey)) {

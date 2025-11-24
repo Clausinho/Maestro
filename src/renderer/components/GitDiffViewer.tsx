@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Diff, Hunk, tokenize } from 'react-diff-view';
 import { X, Plus, Minus } from 'lucide-react';
 import type { Theme } from '../types';
@@ -14,9 +14,22 @@ interface GitDiffViewerProps {
 
 export function GitDiffViewer({ diffText, cwd, theme, onClose }: GitDiffViewerProps) {
   const [activeTab, setActiveTab] = useState(0);
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   // Parse the diff into separate files
   const parsedFiles = useMemo(() => parseGitDiff(diffText), [diffText]);
+
+  // Auto-scroll to active tab when it changes
+  useEffect(() => {
+    const activeTabElement = tabRefs.current[activeTab];
+    if (activeTabElement) {
+      activeTabElement.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center'
+      });
+    }
+  }, [activeTab]);
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -121,6 +134,7 @@ export function GitDiffViewer({ diffText, cwd, theme, onClose }: GitDiffViewerPr
             return (
               <button
                 key={index}
+                ref={(el) => tabRefs.current[index] = el}
                 onClick={() => setActiveTab(index)}
                 className={`px-4 py-3 text-sm whitespace-nowrap transition-colors ${
                   activeTab === index ? 'border-b-2' : 'hover:bg-white/5'

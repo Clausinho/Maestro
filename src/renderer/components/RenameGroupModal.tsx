@@ -36,7 +36,7 @@ export function RenameGroupModal(props: RenameGroupModalProps) {
 
   return (
     <div
-      className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200"
+      className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[110] animate-in fade-in duration-200"
       onKeyDown={(e) => {
         if (e.key !== 'Escape') {
           e.stopPropagation();

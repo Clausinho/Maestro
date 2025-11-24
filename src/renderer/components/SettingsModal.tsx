@@ -424,7 +424,7 @@ export function SettingsModal(props: SettingsModalProps) {
 
   return (
     <div
-      className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 outline-none"
+      className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[110] outline-none"
       tabIndex={0}
       ref={(el) => el?.focus()}
       onKeyDown={(e) => {
