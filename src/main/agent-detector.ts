@@ -1,4 +1,6 @@
 import { execFileNoThrow } from './utils/execFile';
+import { logger } from './utils/logger';
+import * as os from 'os';
 
 // Configuration option types for agent-specific settings
 export interface AgentConfigOption {
@@ -76,9 +78,23 @@ export class AgentDetector {
     }
 
     const agents: AgentConfig[] = [];
+    const expandedEnv = this.getExpandedEnv();
+
+    logger.info(`Agent detection starting. PATH: ${expandedEnv.PATH}`, 'AgentDetector');
 
     for (const agentDef of AGENT_DEFINITIONS) {
       const detection = await this.checkBinaryExists(agentDef.binaryName);
+
+      if (detection.exists) {
+        logger.info(`Agent "${agentDef.name}" found at: ${detection.path}`, 'AgentDetector');
+      } else if (agentDef.binaryName !== 'bash') {
+        // Don't log bash as missing since it's always present, log others as warnings
+        logger.warn(
+          `Agent "${agentDef.name}" (binary: ${agentDef.binaryName}) not found. ` +
+          `Searched in PATH: ${expandedEnv.PATH}`,
+          'AgentDetector'
+        );
+      }
 
       agents.push({
         ...agentDef,
@@ -87,8 +103,48 @@ export class AgentDetector {
       });
     }
 
+    const availableAgents = agents.filter(a => a.available).map(a => a.name);
+    logger.info(`Agent detection complete. Available: ${availableAgents.join(', ') || 'none'}`, 'AgentDetector');
+
     this.cachedAgents = agents;
     return agents;
+  }
+
+  /**
+   * Build an expanded PATH that includes common binary installation locations.
+   * This is necessary because packaged Electron apps don't inherit shell environment.
+   */
+  private getExpandedEnv(): NodeJS.ProcessEnv {
+    const home = os.homedir();
+    const env = { ...process.env };
+
+    // Standard system paths + common user-installed binary locations
+    const additionalPaths = [
+      '/opt/homebrew/bin',           // Homebrew on Apple Silicon
+      '/opt/homebrew/sbin',
+      '/usr/local/bin',              // Homebrew on Intel, common install location
+      '/usr/local/sbin',
+      `${home}/.local/bin`,          // User local installs (pip, etc.)
+      `${home}/.npm-global/bin`,     // npm global with custom prefix
+      `${home}/bin`,                 // User bin directory
+      '/usr/bin',
+      '/bin',
+      '/usr/sbin',
+      '/sbin',
+    ];
+
+    const currentPath = env.PATH || '';
+    const pathParts = currentPath.split(':');
+
+    // Add paths that aren't already present
+    for (const p of additionalPaths) {
+      if (!pathParts.includes(p)) {
+        pathParts.unshift(p);
+      }
+    }
+
+    env.PATH = pathParts.join(':');
+    return env;
   }
 
   /**
@@ -98,7 +154,11 @@ export class AgentDetector {
     try {
       // Use 'which' on Unix-like systems, 'where' on Windows
       const command = process.platform === 'win32' ? 'where' : 'which';
-      const result = await execFileNoThrow(command, [binaryName]);
+
+      // Use expanded PATH to find binaries in common installation locations
+      // This is critical for packaged Electron apps which don't inherit shell env
+      const env = this.getExpandedEnv();
+      const result = await execFileNoThrow(command, [binaryName], undefined, env);
 
       if (result.exitCode === 0 && result.stdout.trim()) {
         return {

@@ -19,11 +19,13 @@ export interface ExecResult {
 export async function execFileNoThrow(
   command: string,
   args: string[] = [],
-  cwd?: string
+  cwd?: string,
+  env?: NodeJS.ProcessEnv
 ): Promise<ExecResult> {
   try {
     const { stdout, stderr } = await execFileAsync(command, args, {
       cwd,
+      env,
       encoding: 'utf8',
       maxBuffer: EXEC_MAX_BUFFER,
     });
