@@ -1430,7 +1430,7 @@ export function SettingsModal(props: SettingsModalProps) {
                       style={{ borderColor: theme.colors.border, color: theme.colors.textMain }}
                     />
                     <button
-                      onClick={() => window.maestro.notification.speak('Hello! Audio feedback is working correctly.', props.audioFeedbackCommand)}
+                      onClick={() => window.maestro.notification.speak('Howdy from Maestro', props.audioFeedbackCommand)}
                       className="px-3 py-2 rounded text-xs font-medium transition-all"
                       style={{
                         backgroundColor: theme.colors.bgActivity,
