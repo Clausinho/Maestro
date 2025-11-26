@@ -712,7 +712,13 @@ function setupIpcHandlers() {
             let timestamp = stats.mtime.toISOString();
             let messageCount = 0;
 
-            // Parse lines to find first user message and count messages
+            // Token usage tracking for cost calculation
+            let totalInputTokens = 0;
+            let totalOutputTokens = 0;
+            let totalCacheReadTokens = 0;
+            let totalCacheCreationTokens = 0;
+
+            // Parse lines to find first user message, count messages, and sum usage
             for (const line of lines) {
               try {
                 const entry = JSON.parse(line);
@@ -725,10 +731,27 @@ function setupIpcHandlers() {
                 if (entry.type === 'user' || entry.type === 'assistant') {
                   messageCount++;
                 }
+                // Sum up token usage from assistant messages
+                if (entry.type === 'assistant' && entry.message?.usage) {
+                  const usage = entry.message.usage;
+                  totalInputTokens += usage.input_tokens || 0;
+                  totalOutputTokens += usage.output_tokens || 0;
+                  totalCacheReadTokens += usage.cache_read_input_tokens || 0;
+                  totalCacheCreationTokens += usage.cache_creation_input_tokens || 0;
+                }
               } catch {
                 // Skip malformed lines
               }
             }
+
+            // Calculate cost estimate using Claude Sonnet 4 pricing:
+            // Input: $3 per million tokens, Output: $15 per million tokens
+            // Cache read: $0.30 per million, Cache creation: $3.75 per million
+            const inputCost = (totalInputTokens / 1_000_000) * 3;
+            const outputCost = (totalOutputTokens / 1_000_000) * 15;
+            const cacheReadCost = (totalCacheReadTokens / 1_000_000) * 0.30;
+            const cacheCreationCost = (totalCacheCreationTokens / 1_000_000) * 3.75;
+            const costUsd = inputCost + outputCost + cacheReadCost + cacheCreationCost;
 
             return {
               sessionId,
@@ -738,6 +761,7 @@ function setupIpcHandlers() {
               firstMessage: firstUserMessage.slice(0, 200), // Truncate for display
               messageCount,
               sizeBytes: stats.size,
+              costUsd,
             };
           } catch (error) {
             logger.error(`Error reading session file: ${filename}`, 'ClaudeSessions', error);

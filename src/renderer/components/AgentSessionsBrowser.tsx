@@ -21,6 +21,7 @@ interface ClaudeSession {
   firstMessage: string;
   messageCount: number;
   sizeBytes: number;
+  costUsd: number;
 }
 
 interface SessionMessage {
@@ -278,10 +279,11 @@ export function AgentSessionsBrowser({
     const totalSessions = sessions.length;
     const totalMessages = sessions.reduce((sum, s) => sum + s.messageCount, 0);
     const totalSize = sessions.reduce((sum, s) => sum + s.sizeBytes, 0);
+    const totalCost = sessions.reduce((sum, s) => sum + (s.costUsd || 0), 0);
     const oldestSession = sessions.length > 0
       ? new Date(Math.min(...sessions.map(s => new Date(s.timestamp).getTime())))
       : null;
-    return { totalSessions, totalMessages, totalSize, oldestSession };
+    return { totalSessions, totalMessages, totalSize, totalCost, oldestSession };
   }, [sessions]);
 
   // Filter sessions by search - use different strategies based on search mode
@@ -557,11 +559,11 @@ export function AgentSessionsBrowser({
                   {formatSize(stats.totalSize)}
                 </span>
               </div>
-              {activeSession?.usageStats && activeSession.usageStats.totalCostUsd > 0 && (
+              {stats.totalCost > 0 && (
                 <div className="flex items-center gap-2">
                   <DollarSign className="w-4 h-4" style={{ color: theme.colors.success }} />
                   <span className="text-xs font-medium font-mono" style={{ color: theme.colors.success }}>
-                    ${activeSession.usageStats.totalCostUsd.toFixed(2)}
+                    ${stats.totalCost.toFixed(2)}
                   </span>
                 </div>
               )}
@@ -712,6 +714,13 @@ export function AgentSessionsBrowser({
                             <HardDrive className="w-3 h-3" />
                             {formatSize(session.sizeBytes)}
                           </span>
+                          {/* Cost per session */}
+                          {session.costUsd > 0 && (
+                            <span className="flex items-center gap-1 font-mono" style={{ color: theme.colors.success }}>
+                              <DollarSign className="w-3 h-3" />
+                              {session.costUsd.toFixed(2)}
+                            </span>
+                          )}
                           {/* Show match count for content searches */}
                           {searchResultInfo && searchResultInfo.matchCount > 0 && searchMode !== 'title' && (
                             <span
