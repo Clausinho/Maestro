@@ -87,3 +87,14 @@ export type {
   UseNotificationsOptions,
   UseNotificationsReturn,
 } from './useNotifications';
+
+export {
+  useUnreadBadge,
+  default as useUnreadBadgeDefault,
+  isBadgeApiSupported,
+} from './useUnreadBadge';
+
+export type {
+  UseUnreadBadgeOptions,
+  UseUnreadBadgeReturn,
+} from './useUnreadBadge';

@@ -12,6 +12,7 @@ import { useThemeColors } from '../components/ThemeProvider';
 import { useWebSocket, type WebSocketState } from '../hooks/useWebSocket';
 import { useCommandHistory } from '../hooks/useCommandHistory';
 import { useNotifications } from '../hooks/useNotifications';
+import { useUnreadBadge } from '../hooks/useUnreadBadge';
 import { Badge, type BadgeVariant } from '../components/Badge';
 import { PullToRefreshIndicator } from '../components/PullToRefresh';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
@@ -172,6 +173,18 @@ export default function MobileApp() {
     },
   });
 
+  // Unread badge hook - tracks unread responses and updates app badge
+  const {
+    addUnread: addUnreadResponse,
+    markAllRead: markAllResponsesRead,
+    unreadCount,
+  } = useUnreadBadge({
+    autoClearOnVisible: true, // Clear badge when user opens the app
+    onCountChange: (count) => {
+      console.log('[Mobile] Unread response count:', count);
+    },
+  });
+
   // Track previous session states for detecting busy -> idle transitions
   const previousSessionStatesRef = useRef<Map<string, string>>(new Map());
 
@@ -204,6 +217,7 @@ export default function MobileApp() {
 
   /**
    * Show notification when AI response completes (if app is backgrounded)
+   * Also increments the unread badge count
    */
   const showResponseNotification = useCallback((session: Session, response?: LastResponsePreview | null) => {
     // Only show if app is backgrounded
@@ -211,7 +225,14 @@ export default function MobileApp() {
       return;
     }
 
-    // Only show if permission is granted
+    // Generate a unique ID for this response using session ID and timestamp
+    const responseId = `${session.id}-${response?.timestamp || Date.now()}`;
+
+    // Add to unread badge count (works even without notification permission)
+    addUnreadResponse(responseId);
+    console.log('[Mobile] Added unread response:', responseId);
+
+    // Only show notification if permission is granted
     if (notificationPermission !== 'granted') {
       return;
     }
@@ -236,11 +257,12 @@ export default function MobileApp() {
       notification.onclick = () => {
         window.focus();
         notification.close();
-        // Set this session as active
+        // Set this session as active and clear badge
         setActiveSessionId(session.id);
+        markAllResponsesRead();
       };
     }
-  }, [notificationPermission, showNotification, getFirstLineOfResponse]);
+  }, [notificationPermission, showNotification, getFirstLineOfResponse, addUnreadResponse, markAllResponsesRead]);
 
   const { state: connectionState, connect, send, error, reconnectAttempts } = useWebSocket({
     autoReconnect: true,
