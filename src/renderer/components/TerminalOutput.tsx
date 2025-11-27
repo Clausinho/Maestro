@@ -47,6 +47,9 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
   // Track which log entries are expanded (by log ID)
   const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set());
 
+  // Track if any log is currently expanded (to disable auto-scroll during expansion)
+  const hasExpandedLogs = expandedLogs.size > 0;
+
   // Track local filters per log entry (log ID -> filter query)
   const [localFilters, setLocalFilters] = useState<Map<string, string>>(new Map());
   const [activeLocalFilter, setActiveLocalFilter] = useState<string | null>(null);
@@ -157,7 +160,7 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
     }
   }, [outputSearchOpen, updateLayerHandler]);
 
-  const toggleExpanded = (logId: string) => {
+  const toggleExpanded = useCallback((logId: string) => {
     setExpandedLogs(prev => {
       const newSet = new Set(prev);
       if (newSet.has(logId)) {
@@ -167,17 +170,13 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
       }
       return newSet;
     });
-  };
+  }, []);
 
-  const toggleLocalFilter = (logId: string) => {
-    if (activeLocalFilter === logId) {
-      setActiveLocalFilter(null);
-    } else {
-      setActiveLocalFilter(logId);
-    }
-  };
+  const toggleLocalFilter = useCallback((logId: string) => {
+    setActiveLocalFilter(prev => prev === logId ? null : logId);
+  }, []);
 
-  const setLocalFilterQuery = (logId: string, query: string) => {
+  const setLocalFilterQuery = useCallback((logId: string, query: string) => {
     setLocalFilters(prev => {
       const newMap = new Map(prev);
       if (query) {
@@ -187,7 +186,7 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
       }
       return newMap;
     });
-  };
+  }, []);
 
   // Helper function to highlight search matches in text
   const highlightMatches = (text: string, query: string): React.ReactNode => {
@@ -936,11 +935,16 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
         data={filteredLogs}
         className="flex-1"
         atBottomStateChange={(atBottom) => {
-          // Track when user scrolls away from bottom
-          setUserScrolledAway(!atBottom);
+          // Only update state when the value actually changes to reduce re-renders
+          setUserScrolledAway(prev => {
+            const newValue = !atBottom;
+            return prev === newValue ? prev : newValue;
+          });
         }}
         followOutput={(isAtBottom) => {
-          // Don't auto-scroll if user has scrolled away (e.g., reading expanded content)
+          // Don't auto-scroll if user has expanded logs (viewing full content)
+          if (hasExpandedLogs) return false;
+          // Don't auto-scroll if user has scrolled away (e.g., reading content)
           if (userScrolledAway && !isAtBottom) return false;
           // Always scroll when session becomes busy to show the thinking indicator
           if (session.state === 'busy' && isAtBottom) return 'smooth';
