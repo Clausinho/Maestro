@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Eye, Edit, Play, Square, HelpCircle, Loader2, Image, X } from 'lucide-react';
+import { Eye, Edit, Play, Square, HelpCircle, Loader2, Image, X, Search, ChevronUp, ChevronDown } from 'lucide-react';
 import type { BatchRunState, SessionState } from '../types';
 import { AutoRunnerHelpModal } from './AutoRunnerHelpModal';
 import { MermaidRenderer } from './MermaidRenderer';
@@ -130,6 +130,69 @@ function AttachmentImage({
   );
 }
 
+// Component for displaying search-highlighted content using safe DOM methods
+function SearchHighlightedContent({
+  content,
+  searchQuery,
+  currentMatchIndex,
+  theme
+}: {
+  content: string;
+  searchQuery: string;
+  currentMatchIndex: number;
+  theme: any;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!ref.current) return;
+
+    // Clear existing content
+    ref.current.textContent = '';
+
+    if (!searchQuery.trim()) {
+      ref.current.textContent = content;
+      return;
+    }
+
+    const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedQuery})`, 'gi');
+    const parts = content.split(regex);
+    let matchIndex = 0;
+
+    parts.forEach((part) => {
+      if (part.toLowerCase() === searchQuery.toLowerCase()) {
+        // This is a match - create a highlighted mark element
+        const mark = document.createElement('mark');
+        mark.className = 'search-match';
+        mark.textContent = part;
+        mark.style.padding = '0 2px';
+        mark.style.borderRadius = '2px';
+        if (matchIndex === currentMatchIndex) {
+          mark.style.backgroundColor = theme.colors.accent;
+          mark.style.color = '#fff';
+        } else {
+          mark.style.backgroundColor = '#ffd700';
+          mark.style.color = '#000';
+        }
+        ref.current!.appendChild(mark);
+        matchIndex++;
+      } else {
+        // Regular text - create a text node
+        ref.current!.appendChild(document.createTextNode(part));
+      }
+    });
+  }, [content, searchQuery, currentMatchIndex, theme.colors.accent]);
+
+  return (
+    <div
+      ref={ref}
+      className="font-mono text-sm whitespace-pre-wrap"
+      style={{ color: theme.colors.textMain }}
+    />
+  );
+}
+
 // Image preview thumbnail for staged images in edit mode
 function ImagePreview({
   src,
@@ -206,6 +269,13 @@ export function Scratchpad({
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [attachmentsList, setAttachmentsList] = useState<string[]>([]);
   const [attachmentPreviews, setAttachmentPreviews] = useState<Map<string, string>>(new Map());
+  // Search state
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const [totalMatches, setTotalMatches] = useState(0);
+  const matchElementsRef = useRef<HTMLElement[]>([]);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -287,6 +357,113 @@ export function Scratchpad({
       });
     }
   };
+
+  // Open search function
+  const openSearch = useCallback(() => {
+    setSearchOpen(true);
+    setTimeout(() => searchInputRef.current?.focus(), 0);
+  }, []);
+
+  // Close search function
+  const closeSearch = useCallback(() => {
+    setSearchOpen(false);
+    setSearchQuery('');
+    setCurrentMatchIndex(0);
+    setTotalMatches(0);
+    matchElementsRef.current = [];
+    // Refocus appropriate element
+    if (mode === 'edit' && textareaRef.current) {
+      textareaRef.current.focus();
+    } else if (mode === 'preview' && previewRef.current) {
+      previewRef.current.focus();
+    }
+  }, [mode]);
+
+  // Update match count when search query changes
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escapedQuery, 'gi');
+      const matches = content.match(regex);
+      const count = matches ? matches.length : 0;
+      setTotalMatches(count);
+      if (count > 0 && currentMatchIndex >= count) {
+        setCurrentMatchIndex(0);
+      }
+    } else {
+      setTotalMatches(0);
+      setCurrentMatchIndex(0);
+    }
+  }, [searchQuery, content]);
+
+  // Navigate to next search match
+  const goToNextMatch = useCallback(() => {
+    if (totalMatches === 0) return;
+    const nextIndex = (currentMatchIndex + 1) % totalMatches;
+    setCurrentMatchIndex(nextIndex);
+  }, [currentMatchIndex, totalMatches]);
+
+  // Navigate to previous search match
+  const goToPrevMatch = useCallback(() => {
+    if (totalMatches === 0) return;
+    const prevIndex = (currentMatchIndex - 1 + totalMatches) % totalMatches;
+    setCurrentMatchIndex(prevIndex);
+  }, [currentMatchIndex, totalMatches]);
+
+  // Scroll to current match
+  useEffect(() => {
+    if (!searchOpen || !searchQuery.trim() || totalMatches === 0) return;
+
+    // Find the current match element and scroll to it
+    const container = mode === 'edit' ? textareaRef.current : previewRef.current;
+    if (!container) return;
+
+    // For preview mode, find and scroll to the highlighted match
+    if (mode === 'preview') {
+      const marks = previewRef.current?.querySelectorAll('mark.search-match');
+      if (marks && marks.length > 0 && currentMatchIndex >= 0 && currentMatchIndex < marks.length) {
+        marks.forEach((mark, i) => {
+          const el = mark as HTMLElement;
+          if (i === currentMatchIndex) {
+            el.style.backgroundColor = theme.colors.accent;
+            el.style.color = '#fff';
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          } else {
+            el.style.backgroundColor = '#ffd700';
+            el.style.color = '#000';
+          }
+        });
+      }
+    } else if (mode === 'edit') {
+      // For edit mode, find the match position in the text and scroll
+      const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escapedQuery, 'gi');
+      let matchCount = 0;
+      let match;
+      let matchPosition = -1;
+
+      while ((match = regex.exec(content)) !== null) {
+        if (matchCount === currentMatchIndex) {
+          matchPosition = match.index;
+          break;
+        }
+        matchCount++;
+      }
+
+      if (matchPosition >= 0 && textareaRef.current) {
+        // Calculate approximate scroll position based on character position
+        const textarea = textareaRef.current;
+        const textBeforeMatch = content.substring(0, matchPosition);
+        const lineCount = (textBeforeMatch.match(/\n/g) || []).length;
+        const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 20;
+        const scrollTarget = Math.max(0, lineCount * lineHeight - textarea.clientHeight / 2);
+        textarea.scrollTop = scrollTarget;
+
+        // Also select the match text
+        textarea.setSelectionRange(matchPosition, matchPosition + searchQuery.length);
+      }
+    }
+  }, [currentMatchIndex, searchOpen, searchQuery, totalMatches, mode, content, theme.colors.accent]);
 
   // Handle image paste
   const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
@@ -416,6 +593,14 @@ export function Scratchpad({
       return;
     }
 
+    // Command-F to open search in edit mode
+    if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+      e.preventDefault();
+      e.stopPropagation();
+      openSearch();
+      return;
+    }
+
     // Command-L to insert a markdown checkbox
     if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
       e.preventDefault();
@@ -516,6 +701,11 @@ export function Scratchpad({
         if ((e.metaKey || e.ctrlKey) && e.key === 'e') {
           e.preventDefault();
           toggleMode();
+        }
+        // CMD+F to open search (works in both modes from container)
+        if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+          e.preventDefault();
+          openSearch();
         }
       }}
     >
@@ -645,6 +835,72 @@ export function Scratchpad({
         </div>
       )}
 
+      {/* Search Bar */}
+      {searchOpen && (
+        <div
+          className="mx-2 mb-2 flex items-center gap-2 px-3 py-2 rounded"
+          style={{ backgroundColor: theme.colors.bgActivity, border: `1px solid ${theme.colors.accent}` }}
+        >
+          <Search className="w-4 h-4 shrink-0" style={{ color: theme.colors.accent }} />
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                closeSearch();
+              } else if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                goToNextMatch();
+              } else if (e.key === 'Enter' && e.shiftKey) {
+                e.preventDefault();
+                goToPrevMatch();
+              }
+            }}
+            placeholder={mode === 'edit' ? "Search... (Enter: next, Shift+Enter: prev)" : "Search... (press '/' to open, Enter: next)"}
+            className="flex-1 bg-transparent outline-none text-sm"
+            style={{ color: theme.colors.textMain }}
+            autoFocus
+          />
+          {searchQuery.trim() && (
+            <>
+              <span className="text-xs whitespace-nowrap" style={{ color: theme.colors.textDim }}>
+                {totalMatches > 0 ? `${currentMatchIndex + 1}/${totalMatches}` : 'No matches'}
+              </span>
+              <button
+                onClick={goToPrevMatch}
+                disabled={totalMatches === 0}
+                className="p-1 rounded hover:bg-white/10 transition-colors disabled:opacity-30"
+                style={{ color: theme.colors.textDim }}
+                title="Previous match (Shift+Enter)"
+              >
+                <ChevronUp className="w-4 h-4" />
+              </button>
+              <button
+                onClick={goToNextMatch}
+                disabled={totalMatches === 0}
+                className="p-1 rounded hover:bg-white/10 transition-colors disabled:opacity-30"
+                style={{ color: theme.colors.textDim }}
+                title="Next match (Enter)"
+              >
+                <ChevronDown className="w-4 h-4" />
+              </button>
+            </>
+          )}
+          <button
+            onClick={closeSearch}
+            className="p-1 rounded hover:bg-white/10 transition-colors"
+            style={{ color: theme.colors.textDim }}
+            title="Close search (Esc)"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Content Area */}
       <div className="flex-1 overflow-hidden">
         {mode === 'edit' ? (
@@ -676,6 +932,18 @@ export function Scratchpad({
                 e.preventDefault();
                 e.stopPropagation();
                 toggleMode();
+              }
+              // '/' to open search in preview mode
+              if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+                e.preventDefault();
+                e.stopPropagation();
+                openSearch();
+              }
+              // CMD+F to open search
+              if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+                e.preventDefault();
+                e.stopPropagation();
+                openSearch();
               }
             }}
             onScroll={handlePreviewScroll}
@@ -746,54 +1014,64 @@ export function Scratchpad({
                 margin-left: -1.5em;
               }
             `}</style>
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                code: ({ node, inline, className, children, ...props }: any) => {
-                  const match = (className || '').match(/language-(\w+)/);
-                  const language = match ? match[1] : 'text';
-                  const codeContent = String(children).replace(/\n$/, '');
+            {searchOpen && searchQuery.trim() ? (
+              // When searching, show raw text with highlights for easy search navigation
+              <SearchHighlightedContent
+                content={content || '*No content yet.*'}
+                searchQuery={searchQuery}
+                currentMatchIndex={currentMatchIndex}
+                theme={theme}
+              />
+            ) : (
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  code: ({ node, inline, className, children, ...props }: any) => {
+                    const match = (className || '').match(/language-(\w+)/);
+                    const language = match ? match[1] : 'text';
+                    const codeContent = String(children).replace(/\n$/, '');
 
-                  // Handle mermaid code blocks
-                  if (!inline && language === 'mermaid') {
-                    return <MermaidRenderer chart={codeContent} theme={theme} />;
-                  }
+                    // Handle mermaid code blocks
+                    if (!inline && language === 'mermaid') {
+                      return <MermaidRenderer chart={codeContent} theme={theme} />;
+                    }
 
-                  return !inline && match ? (
-                    <SyntaxHighlighter
-                      language={language}
-                      style={vscDarkPlus}
-                      customStyle={{
-                        margin: '0.5em 0',
-                        padding: '1em',
-                        background: theme.colors.bgActivity,
-                        fontSize: '0.9em',
-                        borderRadius: '6px',
-                      }}
-                      PreTag="div"
-                    >
-                      {codeContent}
-                    </SyntaxHighlighter>
-                  ) : (
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
-                  );
-                },
-                img: ({ src, alt, ...props }: any) => (
-                  <AttachmentImage
-                    src={src}
-                    alt={alt}
-                    sessionId={sessionId}
-                    theme={theme}
-                    onImageClick={setLightboxImage}
-                    {...props}
-                  />
-                )
-              }}
-            >
-              {content || '*No content yet. Switch to Edit mode to start writing.*'}
-            </ReactMarkdown>
+                    return !inline && match ? (
+                      <SyntaxHighlighter
+                        language={language}
+                        style={vscDarkPlus}
+                        customStyle={{
+                          margin: '0.5em 0',
+                          padding: '1em',
+                          background: theme.colors.bgActivity,
+                          fontSize: '0.9em',
+                          borderRadius: '6px',
+                        }}
+                        PreTag="div"
+                      >
+                        {codeContent}
+                      </SyntaxHighlighter>
+                    ) : (
+                      <code className={className} {...props}>
+                        {children}
+                      </code>
+                    );
+                  },
+                  img: ({ src, alt, ...props }: any) => (
+                    <AttachmentImage
+                      src={src}
+                      alt={alt}
+                      sessionId={sessionId}
+                      theme={theme}
+                      onImageClick={setLightboxImage}
+                      {...props}
+                    />
+                  )
+                }}
+              >
+                {content || '*No content yet. Switch to Edit mode to start writing.*'}
+              </ReactMarkdown>
+            )}
           </div>
         )}
       </div>
