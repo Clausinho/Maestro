@@ -157,7 +157,7 @@ export function SlashCommandAutocomplete({
         border: `1px solid ${colors.border}`,
         borderRadius: '12px',
         boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.2)',
-        maxHeight: '200px',
+        maxHeight: '250px',
         overflowY: 'auto',
         overflowX: 'hidden',
         zIndex: 110,
@@ -165,6 +165,74 @@ export function SlashCommandAutocomplete({
         animation: 'slideUp 150ms ease-out',
       }}
     >
+      {/* Header with title and close button */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '10px 16px',
+          borderBottom: `1px solid ${colors.border}`,
+          position: 'sticky',
+          top: 0,
+          backgroundColor: colors.bgSidebar,
+          zIndex: 1,
+        }}
+      >
+        <span
+          style={{
+            fontSize: '13px',
+            fontWeight: 600,
+            color: colors.textDim,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+          }}
+        >
+          Commands
+        </span>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          style={{
+            padding: '6px',
+            borderRadius: '6px',
+            backgroundColor: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: colors.textDim,
+            transition: 'background-color 150ms ease, color 150ms ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = `${colors.textDim}20`;
+            e.currentTarget.style.color = colors.textMain;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.color = colors.textDim;
+          }}
+          aria-label="Close commands"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
       {/* Command list */}
       {filteredCommands.map((cmd, idx) => {
         const isSelected = idx === selectedIndex;

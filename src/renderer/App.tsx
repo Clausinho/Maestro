@@ -445,8 +445,8 @@ export default function MaestroConsole() {
         actualSessionId = sessionId.slice(0, -3); // Remove "-ai" suffix
         isFromAi = true;
       } else if (sessionId.endsWith('-terminal')) {
-        // Ignore PTY terminal output - we use runCommand for terminal commands now,
-        // which emits data without the -terminal suffix
+        // Ignore PTY terminal output - we use runCommand for terminal commands,
+        // which emits data with plain session ID (not -terminal suffix)
         return;
       } else if (sessionId.includes('-batch-')) {
         // Ignore batch task output - these are handled separately by spawnAgentForSession
@@ -901,30 +901,16 @@ export default function MaestroConsole() {
         return;
       }
 
-      // Store the pending command
-      pendingRemoteCommandRef.current = { sessionId, command };
-
-      // Switch to the target session and set the input
-      // The input change will trigger processInput via the pendingRemoteCommandRef
-      console.log('[Remote] Setting active session and input value...');
+      // Switch to the target session (for visual feedback)
+      console.log('[Remote] Switching to target session...');
       setActiveSessionId(sessionId);
-      setInputValue(command);
 
-      // Use setTimeout to ensure state updates have been applied before processing
-      // This ensures processInput sees the correct activeSession and inputValue
-      setTimeout(() => {
-        if (pendingRemoteCommandRef.current?.sessionId === sessionId) {
-          console.log('[Remote] Dispatching maestro:remoteCommand event');
-          // Trigger a custom event that the input handler can respond to
-          // This is cleaner than trying to call processInput directly
-          window.dispatchEvent(new CustomEvent('maestro:remoteCommand', {
-            detail: { sessionId, command }
-          }));
-          pendingRemoteCommandRef.current = null;
-        } else {
-          console.log('[Remote] WARNING: Pending command was cleared before dispatch');
-        }
-      }, 50);
+      // Dispatch event directly - handleRemoteCommand handles all the logic
+      // Don't set inputValue - we don't want command text to appear in the input bar
+      console.log('[Remote] Dispatching maestro:remoteCommand event');
+      window.dispatchEvent(new CustomEvent('maestro:remoteCommand', {
+        detail: { sessionId, command }
+      }));
     });
 
     return () => {
@@ -2549,13 +2535,14 @@ export default function MaestroConsole() {
 
       // Handle terminal mode commands
       if (session.inputMode === 'terminal') {
-        console.log('[Remote] Terminal mode - writing command to terminal');
+        console.log('[Remote] Terminal mode - using runCommand for clean output');
 
-        // Add user message to shell logs
+        // Add user message to shell logs and set state to busy
         setSessions(prev => prev.map(s => {
           if (s.id !== sessionId) return s;
           return {
             ...s,
+            state: 'busy' as SessionState,
             shellLogs: [...s.shellLogs, {
               id: generateId(),
               timestamp: Date.now(),
@@ -2565,10 +2552,32 @@ export default function MaestroConsole() {
           };
         }));
 
-        // Write command to terminal (with newline to execute)
-        const terminalSessionId = `${sessionId}-terminal`;
-        await window.maestro.process.write(terminalSessionId, command + '\n');
-        console.log('[Remote] Terminal command sent successfully');
+        // Use runCommand for clean stdout/stderr capture (same as desktop)
+        // This spawns a fresh shell with -l -c to run the command
+        try {
+          await window.maestro.process.runCommand({
+            sessionId: sessionId,  // Plain session ID (not suffixed)
+            command: command,
+            cwd: session.shellCwd || session.cwd
+          });
+          console.log('[Remote] Terminal command completed successfully');
+        } catch (error: unknown) {
+          console.error('[Remote] Terminal command failed:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          setSessions(prev => prev.map(s => {
+            if (s.id !== sessionId) return s;
+            return {
+              ...s,
+              state: 'idle' as SessionState,
+              shellLogs: [...s.shellLogs, {
+                id: generateId(),
+                timestamp: Date.now(),
+                source: 'system',
+                text: `Error: Failed to run command - ${errorMessage}`
+              }]
+            };
+          }));
+        }
         return;
       }
 

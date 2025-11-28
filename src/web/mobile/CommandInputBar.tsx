@@ -196,6 +196,10 @@ export interface CommandInputBarProps {
   hasActiveSession?: boolean;
   /** Current working directory (shown in terminal mode) */
   cwd?: string;
+  /** Callback when slash command button is pressed (to open/close autocomplete) */
+  onSlashCommandToggle?: () => void;
+  /** Whether slash command autocomplete is currently open */
+  isSlashCommandOpen?: boolean;
 }
 
 /**
@@ -222,6 +226,8 @@ export function CommandInputBar({
   slashCommands = DEFAULT_SLASH_COMMANDS,
   hasActiveSession = false,
   cwd,
+  onSlashCommandToggle,
+  isSlashCommandOpen = false,
 }: CommandInputBarProps) {
   const colors = useThemeColors();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -895,6 +901,66 @@ export function CommandInputBar({
             }
           `}
         </style>
+
+        {/* Slash command button - only shown in AI mode */}
+        {inputMode === 'ai' && (
+          <button
+            type="button"
+            onClick={() => {
+              // Set input to "/" and open autocomplete
+              if (controlledValue === undefined) {
+                setInternalValue('/');
+              }
+              onChange?.('/');
+              setSlashCommandOpen(true);
+              setSelectedSlashCommandIndex(0);
+              // Focus the textarea
+              textareaRef.current?.focus();
+            }}
+            disabled={isDisabled}
+            style={{
+              padding: '10px',
+              borderRadius: '12px',
+              backgroundColor: slashCommandOpen ? `${colors.accent}20` : `${colors.textDim}15`,
+              border: `2px solid ${slashCommandOpen ? colors.accent : colors.border}`,
+              cursor: isDisabled ? 'default' : 'pointer',
+              opacity: isDisabled ? 0.5 : 1,
+              // Touch-friendly size - meets Apple HIG 44pt minimum
+              width: `${MIN_TOUCH_TARGET + 4}px`,
+              height: `${MIN_INPUT_HEIGHT}px`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              // Smooth transitions
+              transition: 'all 150ms ease',
+              // Prevent button from shrinking
+              flexShrink: 0,
+              // Active state feedback
+              WebkitTapHighlightColor: 'transparent',
+            }}
+            onTouchStart={(e) => {
+              if (!isDisabled) {
+                e.currentTarget.style.transform = 'scale(0.95)';
+              }
+            }}
+            onTouchEnd={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+            aria-label="Open slash commands"
+          >
+            {/* Slash icon */}
+            <span
+              style={{
+                fontSize: '20px',
+                fontWeight: 600,
+                color: slashCommandOpen ? colors.accent : colors.textDim,
+                fontFamily: 'ui-monospace, monospace',
+              }}
+            >
+              /
+            </span>
+          </button>
+        )}
 
         {/* Terminal mode: $ prefix + textarea in a container */}
         {inputMode === 'terminal' ? (

@@ -75,6 +75,7 @@ export type ServerMessageType =
   | 'session_output'
   | 'session_exit'
   | 'theme'
+  | 'custom_commands'
   | 'pong'
   | 'subscribed'
   | 'echo'
@@ -209,6 +210,24 @@ export interface ThemeMessage extends ServerMessage {
 }
 
 /**
+ * Custom AI command definition
+ */
+export interface CustomCommand {
+  id: string;
+  command: string;
+  description: string;
+  prompt: string;
+}
+
+/**
+ * Custom commands message from server
+ */
+export interface CustomCommandsMessage extends ServerMessage {
+  type: 'custom_commands';
+  commands: CustomCommand[];
+}
+
+/**
  * Error message from server
  */
 export interface ErrorMessage extends ServerMessage {
@@ -233,6 +252,7 @@ export type TypedServerMessage =
   | SessionExitMessage
   | UserInputMessage
   | ThemeMessage
+  | CustomCommandsMessage
   | ErrorMessage
   | ServerMessage;
 
@@ -258,6 +278,8 @@ export interface WebSocketEventHandlers {
   onUserInput?: (sessionId: string, command: string, inputMode: 'ai' | 'terminal') => void;
   /** Called when theme is received or updated */
   onThemeUpdate?: (theme: Theme) => void;
+  /** Called when custom commands are received */
+  onCustomCommands?: (commands: CustomCommand[]) => void;
   /** Called when connection state changes */
   onConnectionChange?: (state: WebSocketState) => void;
   /** Called when an error occurs */
@@ -537,6 +559,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
         case 'theme': {
           const themeMsg = message as ThemeMessage;
           handlersRef.current?.onThemeUpdate?.(themeMsg.theme);
+          break;
+        }
+
+        case 'custom_commands': {
+          const commandsMsg = message as CustomCommandsMessage;
+          handlersRef.current?.onCustomCommands?.(commandsMsg.commands);
           break;
         }
 

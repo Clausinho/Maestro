@@ -7,7 +7,7 @@
 
 import React, { useEffect, useCallback, useState, useMemo, useRef } from 'react';
 import { useThemeColors } from '../components/ThemeProvider';
-import { useWebSocket, type WebSocketState } from '../hooks/useWebSocket';
+import { useWebSocket, type WebSocketState, type CustomCommand } from '../hooks/useWebSocket';
 import { useCommandHistory } from '../hooks/useCommandHistory';
 import { useNotifications } from '../hooks/useNotifications';
 import { useUnreadBadge } from '../hooks/useUnreadBadge';
@@ -15,15 +15,15 @@ import { useOfflineQueue } from '../hooks/useOfflineQueue';
 import { Badge, type BadgeVariant } from '../components/Badge';
 import { PullToRefreshIndicator } from '../components/PullToRefresh';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
-import { useOfflineStatus, useMaestroMode } from '../main';
+import { useOfflineStatus, useMaestroMode, useDesktopTheme } from '../main';
 import { buildApiUrl } from '../utils/config';
 import { triggerHaptic, HAPTIC_PATTERNS } from './constants';
 import { webLogger } from '../utils/logger';
-import { injectCSSProperties } from '../utils/cssCustomProperties';
 import type { Theme } from '../../shared/theme-types';
 import { SessionPillBar } from './SessionPillBar';
 import { AllSessionsView } from './AllSessionsView';
 import { CommandInputBar, type InputMode } from './CommandInputBar';
+import { DEFAULT_SLASH_COMMANDS, type SlashCommand } from './SlashCommandAutocomplete';
 import { CommandHistoryDrawer } from './CommandHistoryDrawer';
 import { RecentCommandChips } from './RecentCommandChips';
 import { ResponseViewer, type ResponseItem } from './ResponseViewer';
@@ -300,6 +300,7 @@ function MobileHeader({ connectionState, isOffline, onRetry, activeSession }: Mo
 export default function MobileApp() {
   const colors = useThemeColors();
   const isOffline = useOfflineStatus();
+  const { setDesktopTheme } = useDesktopTheme();
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -316,6 +317,9 @@ export default function MobileApp() {
     shellLogs: [],
   });
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+
+  // Custom slash commands from desktop
+  const [customCommands, setCustomCommands] = useState<CustomCommand[]>([]);
 
   // Command history hook
   const {
@@ -581,11 +585,17 @@ export default function MobileApp() {
       });
     },
     onThemeUpdate: (theme: Theme) => {
-      // Sync theme from desktop app by injecting CSS custom properties
+      // Sync theme from desktop app by updating the React context
+      // This will update ThemeProvider which will re-render all themed components
       webLogger.debug(`Theme update received: ${theme.name} (${theme.mode})`, 'Mobile');
-      injectCSSProperties(theme);
+      setDesktopTheme(theme);
     },
-  }), [showResponseNotification]);
+    onCustomCommands: (commands: CustomCommand[]) => {
+      // Custom slash commands from desktop app
+      webLogger.debug(`Custom commands received: ${commands.length}`, 'Mobile');
+      setCustomCommands(commands);
+    },
+  }), [showResponseNotification, setDesktopTheme]);
 
   const { state: connectionState, connect, send, error, reconnectAttempts } = useWebSocket({
     autoReconnect: true,
@@ -865,6 +875,18 @@ export default function MobileApp() {
     // Haptic feedback is provided by the drawer
   }, []);
 
+  // Combined slash commands (default + custom from desktop)
+  const allSlashCommands = useMemo((): SlashCommand[] => {
+    // Convert custom commands to SlashCommand format
+    const customSlashCommands: SlashCommand[] = customCommands.map(cmd => ({
+      command: cmd.command.startsWith('/') ? cmd.command : `/${cmd.command}`,
+      description: cmd.description,
+      aiOnly: true, // Custom commands are AI-only
+    }));
+    // Combine defaults with custom commands
+    return [...DEFAULT_SLASH_COMMANDS, ...customSlashCommands];
+  }, [customCommands]);
+
   // Collect all responses from sessions for navigation
   const allResponses = useMemo((): ResponseItem[] => {
     return sessions
@@ -1065,7 +1087,7 @@ export default function MobileApp() {
             logs={currentLogs}
             inputMode={activeSession.inputMode as 'ai' | 'terminal'}
             autoScroll={true}
-            maxHeight="calc(100vh - 280px)"
+            maxHeight="calc(100vh - 340px)"
           />
         )}
       </div>
@@ -1234,6 +1256,7 @@ export default function MobileApp() {
         onSelectRecentCommand={handleSelectHistoryCommand}
         hasActiveSession={!!activeSessionId}
         cwd={activeSession?.cwd}
+        slashCommands={allSlashCommands}
       />
 
       {/* Command history drawer - swipe up from input area */}

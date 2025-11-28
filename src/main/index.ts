@@ -360,6 +360,17 @@ app.whenReady().then(() => {
     return getThemeById(themeId);
   });
 
+  // Set up callback for web server to fetch custom AI commands
+  webServer.setGetCustomCommandsCallback(() => {
+    const customCommands = store.get('customAICommands', []) as Array<{
+      id: string;
+      command: string;
+      description: string;
+      prompt: string;
+    }>;
+    return customCommands;
+  });
+
   // Set up callback for web server to write commands to sessions
   // Note: Process IDs have -ai or -terminal suffix based on session's inputMode
   webServer.setWriteToSessionCallback((sessionId: string, data: string) => {
@@ -500,6 +511,12 @@ function setupIpcHandlers() {
         webServer.broadcastThemeChange(theme);
         logger.info(`Broadcasted theme change to web clients: ${value}`, 'WebServer');
       }
+    }
+
+    // Broadcast custom commands changes to connected web clients
+    if (key === 'customAICommands' && webServer && webServer.getWebClientCount() > 0) {
+      webServer.broadcastCustomCommands(value);
+      logger.info(`Broadcasted custom commands change to web clients: ${value.length} commands`, 'WebServer');
     }
 
     return true;

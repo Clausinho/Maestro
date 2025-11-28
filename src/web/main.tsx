@@ -5,7 +5,7 @@
  * Provides session monitoring and command input from anywhere on your network.
  */
 
-import React, { StrictMode, lazy, Suspense, useEffect, useState, createContext, useContext } from 'react';
+import React, { StrictMode, lazy, Suspense, useEffect, useState, createContext, useContext, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ThemeProvider } from './components/ThemeProvider';
 import { registerServiceWorker, isOffline } from './utils/serviceWorker';
@@ -18,6 +18,7 @@ import {
   getSessionUrl,
 } from './utils/config';
 import { webLogger } from './utils/logger';
+import type { Theme } from '../shared/theme-types';
 import './index.css';
 
 /**
@@ -69,6 +70,30 @@ const MaestroModeContext = createContext<MaestroModeContextValue>({
  */
 export function useMaestroMode(): MaestroModeContextValue {
   return useContext(MaestroModeContext);
+}
+
+/**
+ * Context for theme updates from WebSocket
+ * Allows the mobile app to update the theme when received from desktop
+ */
+interface ThemeUpdateContextValue {
+  /** Current theme from desktop app (null if using device preference) */
+  desktopTheme: Theme | null;
+  /** Update the theme when received from desktop app */
+  setDesktopTheme: (theme: Theme) => void;
+}
+
+const ThemeUpdateContext = createContext<ThemeUpdateContextValue>({
+  desktopTheme: null,
+  setDesktopTheme: () => {},
+});
+
+/**
+ * Hook to access and update the desktop theme
+ * Used by mobile app to set theme when received via WebSocket
+ */
+export function useDesktopTheme(): ThemeUpdateContextValue {
+  return useContext(ThemeUpdateContext);
 }
 
 // Lazy load the web app
@@ -142,9 +167,19 @@ function LoadingFallback() {
  */
 function App() {
   const [offline, setOffline] = useState(isOffline());
+  const [desktopTheme, setDesktopTheme] = useState<Theme | null>(null);
 
   // Get config on mount
   const config = getMaestroConfig();
+
+  // Theme update context value
+  const themeUpdateContextValue: ThemeUpdateContextValue = {
+    desktopTheme,
+    setDesktopTheme: useCallback((theme: Theme) => {
+      webLogger.debug(`Desktop theme received: ${theme.name} (${theme.mode})`, 'App');
+      setDesktopTheme(theme);
+    }, []),
+  };
 
   // Mode context value
   const modeContextValue: MaestroModeContextValue = {
@@ -185,17 +220,19 @@ function App() {
   return (
     <MaestroModeContext.Provider value={modeContextValue}>
       <OfflineContext.Provider value={{ isOffline: offline }}>
-        {/*
-          Enable useDevicePreference to respect the device's dark/light mode preference.
-          When no theme is provided from the desktop app via WebSocket, the web interface
-          will automatically use a dark or light theme based on the user's device settings.
-          Once the desktop app sends a theme, it will override the device preference.
-        */}
-        <ThemeProvider useDevicePreference>
-          <Suspense fallback={<LoadingFallback />}>
-            <WebApp />
-          </Suspense>
-        </ThemeProvider>
+        <ThemeUpdateContext.Provider value={themeUpdateContextValue}>
+          {/*
+            Enable useDevicePreference to respect the device's dark/light mode preference.
+            When no theme is provided from the desktop app via WebSocket, the web interface
+            will automatically use a dark or light theme based on the user's device settings.
+            Once the desktop app sends a theme (via desktopTheme), it will override the device preference.
+          */}
+          <ThemeProvider theme={desktopTheme || undefined} useDevicePreference>
+            <Suspense fallback={<LoadingFallback />}>
+              <WebApp />
+            </Suspense>
+          </ThemeProvider>
+        </ThemeUpdateContext.Provider>
       </OfflineContext.Provider>
     </MaestroModeContext.Provider>
   );

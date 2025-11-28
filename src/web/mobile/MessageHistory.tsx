@@ -5,8 +5,13 @@
  * Shows messages in a scrollable container with user/AI differentiation.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useThemeColors } from '../components/ThemeProvider';
+
+/** Threshold for character-based truncation */
+const CHAR_TRUNCATE_THRESHOLD = 500;
+/** Threshold for line-based truncation */
+const LINE_TRUNCATE_THRESHOLD = 8;
 
 export interface LogEntry {
   id?: string;
@@ -53,6 +58,46 @@ export function MessageHistory({
   const bottomRef = useRef<HTMLDivElement>(null);
   const [hasInitiallyScrolled, setHasInitiallyScrolled] = useState(false);
   const prevLogsLengthRef = useRef(0);
+  // Track which messages are expanded (by id or index)
+  const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
+
+  /**
+   * Check if a message should be truncated
+   */
+  const shouldTruncate = useCallback((text: string): boolean => {
+    if (text.length > CHAR_TRUNCATE_THRESHOLD) return true;
+    const lineCount = text.split('\n').length;
+    return lineCount > LINE_TRUNCATE_THRESHOLD;
+  }, []);
+
+  /**
+   * Get truncated text for display
+   */
+  const getTruncatedText = useCallback((text: string): string => {
+    const lines = text.split('\n');
+    if (lines.length > LINE_TRUNCATE_THRESHOLD) {
+      return lines.slice(0, LINE_TRUNCATE_THRESHOLD).join('\n');
+    }
+    if (text.length > CHAR_TRUNCATE_THRESHOLD) {
+      return text.slice(0, CHAR_TRUNCATE_THRESHOLD);
+    }
+    return text;
+  }, []);
+
+  /**
+   * Toggle expansion state for a message
+   */
+  const toggleExpanded = useCallback((messageKey: string) => {
+    setExpandedMessages(prev => {
+      const next = new Set(prev);
+      if (next.has(messageKey)) {
+        next.delete(messageKey);
+      } else {
+        next.add(messageKey);
+      }
+      return next;
+    });
+  }, []);
 
   // Initial scroll - jump to bottom immediately without animation
   useEffect(() => {
@@ -117,11 +162,20 @@ export function MessageHistory({
         const isUser = source === 'user';
         const isError = source === 'stderr';
         const isSystem = source === 'system';
+        const messageKey = entry.id || `${entry.timestamp}-${index}`;
+        const isExpanded = expandedMessages.has(messageKey);
+        const isTruncatable = shouldTruncate(text);
+        const displayText = isExpanded || !isTruncatable ? text : getTruncatedText(text);
 
         return (
           <div
-            key={entry.id || `${entry.timestamp}-${index}`}
-            onClick={() => onMessageTap?.(entry)}
+            key={messageKey}
+            onClick={() => {
+              if (isTruncatable) {
+                toggleExpanded(messageKey);
+              }
+              onMessageTap?.(entry);
+            }}
             style={{
               display: 'flex',
               flexDirection: 'column',
@@ -141,7 +195,7 @@ export function MessageHistory({
                   ? `${colors.error}30`
                   : colors.border
               }`,
-              cursor: onMessageTap ? 'pointer' : 'default',
+              cursor: isTruncatable ? 'pointer' : 'default',
               // Align user messages to the right
               alignSelf: isUser ? 'flex-end' : 'flex-start',
               maxWidth: '90%',
@@ -172,6 +226,16 @@ export function MessageHistory({
                 {isUser ? 'You' : isError ? 'Error' : isSystem ? 'System' : inputMode === 'ai' ? 'AI' : 'Output'}
               </span>
               <span style={{ opacity: 0.7 }}>{formatTime(entry.timestamp)}</span>
+              {/* Show expand/collapse indicator for truncatable messages */}
+              {isTruncatable && (
+                <span style={{
+                  marginLeft: 'auto',
+                  color: colors.accent,
+                  fontSize: '10px',
+                }}>
+                  {isExpanded ? '▼ collapse' : '▶ expand'}
+                </span>
+              )}
             </div>
 
             {/* Message content */}
@@ -184,19 +248,14 @@ export function MessageHistory({
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
                 textAlign: 'left',
-                // Limit very long messages
-                maxHeight: '200px',
-                overflow: 'hidden',
-                position: 'relative',
               }}
             >
-              {text.length > 500 ? (
-                <>
-                  {text.slice(0, 500)}
-                  <span style={{ color: colors.textDim }}>... (tap to expand)</span>
-                </>
-              ) : (
-                text
+              {displayText}
+              {/* Show truncation indicator at end of text */}
+              {isTruncatable && !isExpanded && (
+                <span style={{ color: colors.textDim, fontStyle: 'italic' }}>
+                  {'\n'}... (tap to expand)
+                </span>
               )}
             </div>
           </div>

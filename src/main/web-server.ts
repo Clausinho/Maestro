@@ -156,6 +156,17 @@ export type { Theme } from '../shared/theme-types';
 // Callback type for fetching current theme
 export type GetThemeCallback = () => Theme | null;
 
+// Custom AI command definition (matches renderer's CustomAICommand)
+export interface CustomAICommand {
+  id: string;
+  command: string;
+  description: string;
+  prompt: string;
+}
+
+// Callback type for fetching custom AI commands
+export type GetCustomCommandsCallback = () => CustomAICommand[];
+
 // Default rate limit configuration
 const DEFAULT_RATE_LIMIT_CONFIG: RateLimitConfig = {
   max: 100,           // 100 requests per minute for GET endpoints
@@ -174,6 +185,7 @@ export class WebServer {
   private getSessionsCallback: GetSessionsCallback | null = null;
   private getSessionDetailCallback: GetSessionDetailCallback | null = null;
   private getThemeCallback: GetThemeCallback | null = null;
+  private getCustomCommandsCallback: GetCustomCommandsCallback | null = null;
   private writeToSessionCallback: WriteToSessionCallback | null = null;
   private executeCommandCallback: ExecuteCommandCallback | null = null;
   private interruptSessionCallback: InterruptSessionCallback | null = null;
@@ -393,6 +405,14 @@ export class WebServer {
    */
   setGetThemeCallback(callback: GetThemeCallback) {
     this.getThemeCallback = callback;
+  }
+
+  /**
+   * Set the callback function for fetching custom AI commands
+   * This is called when a new client connects to send the initial custom commands
+   */
+  setGetCustomCommandsCallback(callback: GetCustomCommandsCallback) {
+    this.getCustomCommandsCallback = callback;
   }
 
   /**
@@ -836,6 +856,16 @@ export class WebServer {
         }
       }
 
+      // Send custom AI commands
+      if (this.getCustomCommandsCallback) {
+        const customCommands = this.getCustomCommandsCallback();
+        connection.socket.send(JSON.stringify({
+          type: 'custom_commands',
+          commands: customCommands,
+          timestamp: Date.now(),
+        }));
+      }
+
       // Handle incoming messages
       connection.socket.on('message', (message) => {
         try {
@@ -1184,6 +1214,18 @@ export class WebServer {
     this.broadcastToWebClients({
       type: 'theme',
       theme,
+      timestamp: Date.now(),
+    });
+  }
+
+  /**
+   * Broadcast custom commands update to all connected web clients
+   * Called when the user modifies custom AI commands in the desktop app
+   */
+  broadcastCustomCommands(commands: CustomAICommand[]) {
+    this.broadcastToWebClients({
+      type: 'custom_commands',
+      commands,
       timestamp: Date.now(),
     });
   }
