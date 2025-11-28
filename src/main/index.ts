@@ -1910,8 +1910,16 @@ function setupProcessListeners() {
       mainWindow?.webContents.send('process:data', sessionId, data);
 
       // Broadcast to web clients - extract base session ID (remove -ai or -terminal suffix)
+      // IMPORTANT: Skip PTY terminal output (-terminal suffix) as it contains raw ANSI codes.
+      // Web interface terminal commands use runCommand() which emits with plain session IDs.
       if (webServer) {
-        const baseSessionId = sessionId.replace(/-ai$|-terminal$|-batch-\d+$|-synopsis-\d+$/, '');
+        // Don't broadcast raw PTY terminal output to web clients
+        if (sessionId.endsWith('-terminal')) {
+          console.log(`[WebBroadcast] SKIPPING PTY terminal output for web: session=${sessionId}`);
+          return;
+        }
+
+        const baseSessionId = sessionId.replace(/-ai$|-batch-\d+$|-synopsis-\d+$/, '');
         const isAiOutput = sessionId.endsWith('-ai') || sessionId.includes('-batch-') || sessionId.includes('-synopsis-');
         console.log(`[WebBroadcast] Broadcasting session_output: session=${baseSessionId}, source=${isAiOutput ? 'ai' : 'terminal'}, dataLen=${data.length}`);
         webServer.broadcastToSessionClients(baseSessionId, {

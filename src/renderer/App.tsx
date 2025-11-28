@@ -829,10 +829,12 @@ export default function MaestroConsole() {
   const addToastRef = useRef(addToast);
   const sessionsRef = useRef(sessions);
   const updateGlobalStatsRef = useRef(updateGlobalStats);
+  const customAICommandsRef = useRef(customAICommands);
   groupsRef.current = groups;
   addToastRef.current = addToast;
   sessionsRef.current = sessions;
   updateGlobalStatsRef.current = updateGlobalStats;
+  customAICommandsRef.current = customAICommands;
 
   // Ref for handling remote commands from web interface
   // This allows web commands to go through the exact same code path as desktop commands
@@ -2593,6 +2595,63 @@ export default function MaestroConsole() {
         return;
       }
 
+      // Check for custom AI slash commands (only in AI mode)
+      let promptToSend = command;
+      let commandMetadata: { command: string; description: string } | undefined;
+
+      if (command.trim().startsWith('/')) {
+        const commandText = command.trim();
+        console.log('[Remote] Detected slash command:', commandText);
+
+        // Look up in custom AI commands
+        const matchingCustomCommand = customAICommandsRef.current.find(
+          cmd => cmd.command === commandText
+        );
+
+        if (matchingCustomCommand) {
+          console.log('[Remote] Found matching custom AI command:', matchingCustomCommand.command);
+
+          // Get git branch for template substitution
+          let gitBranch: string | undefined;
+          if (session.isGitRepo) {
+            try {
+              const status = await gitService.getStatus(session.cwd);
+              gitBranch = status.branch;
+            } catch {
+              // Ignore git errors
+            }
+          }
+
+          // Substitute template variables
+          promptToSend = substituteTemplateVariables(
+            matchingCustomCommand.prompt,
+            { session, gitBranch }
+          );
+          commandMetadata = {
+            command: matchingCustomCommand.command,
+            description: matchingCustomCommand.description
+          };
+
+          console.log('[Remote] Substituted prompt (first 100 chars):', promptToSend.substring(0, 100));
+        } else {
+          // Unknown slash command - show error and don't send to AI
+          console.log('[Remote] Unknown slash command:', commandText);
+          setSessions(prev => prev.map(s => {
+            if (s.id !== sessionId) return s;
+            return {
+              ...s,
+              aiLogs: [...s.aiLogs, {
+                id: generateId(),
+                timestamp: Date.now(),
+                source: 'system',
+                text: `Unknown command: ${commandText}`
+              }]
+            };
+          }));
+          return;
+        }
+      }
+
       try {
         // Get agent configuration
         const agent = await window.maestro.agents.get('claude-code');
@@ -2617,10 +2676,11 @@ export default function MaestroConsole() {
           isResume: !!session.claudeSessionId,
           command: commandToUse,
           args: spawnArgs,
-          prompt: command.substring(0, 100)
+          prompt: promptToSend.substring(0, 100)
         });
 
         // Add user message to logs and set state to busy
+        // For custom commands, show the substituted prompt with command metadata
         setSessions(prev => prev.map(s => {
           if (s.id !== sessionId) return s;
           return {
@@ -2631,19 +2691,24 @@ export default function MaestroConsole() {
               id: generateId(),
               timestamp: Date.now(),
               source: 'user',
-              text: command
-            }]
+              text: promptToSend,
+              ...(commandMetadata && { aiCommand: commandMetadata })
+            }],
+            // Track AI command usage
+            ...(commandMetadata && {
+              aiCommandHistory: Array.from(new Set([...(s.aiCommandHistory || []), command.trim()])).slice(-50)
+            })
           };
         }));
 
-        // Spawn Claude with the command
+        // Spawn Claude with the prompt (original or substituted)
         await window.maestro.process.spawn({
           sessionId: targetSessionId,
           toolType: 'claude-code',
           cwd: session.cwd,
           command: commandToUse,
           args: spawnArgs,
-          prompt: command
+          prompt: promptToSend
         });
 
         console.log('[Remote] Claude spawn initiated successfully');
