@@ -399,7 +399,7 @@ function createWindow() {
     // DevTools can be opened via Command-K menu instead of automatically on startup
     logger.info('Loading development server', 'Window');
   } else {
-    mainWindow.loadFile(path.join(__dirname, 'renderer/index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
     logger.info('Loading production build', 'Window');
     // Open DevTools in production if DEBUG env var is set
     if (process.env.DEBUG === 'true') {
