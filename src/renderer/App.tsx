@@ -2038,34 +2038,6 @@ export default function MaestroConsole() {
         // Cycle to next Maestro session (global shortcut)
         cycleSession('next');
       }
-      else if (isShortcut(e, 'prevRightTab')) {
-        // Cycle to previous right panel tab
-        e.preventDefault();
-        const tabs: RightPanelTab[] = ['files', 'history', 'scratchpad'];
-        const currentIndex = tabs.indexOf(activeRightTab);
-        const prevIndex = currentIndex === 0 ? tabs.length - 1 : currentIndex - 1;
-        // Skip history tab if in terminal mode
-        if (tabs[prevIndex] === 'history' && activeSession && activeSession.inputMode === 'terminal') {
-          const prevPrevIndex = prevIndex === 0 ? tabs.length - 1 : prevIndex - 1;
-          setActiveRightTab(tabs[prevPrevIndex]);
-        } else {
-          setActiveRightTab(tabs[prevIndex]);
-        }
-      }
-      else if (isShortcut(e, 'nextRightTab')) {
-        // Cycle to next right panel tab
-        e.preventDefault();
-        const tabs: RightPanelTab[] = ['files', 'history', 'scratchpad'];
-        const currentIndex = tabs.indexOf(activeRightTab);
-        const nextIndex = (currentIndex + 1) % tabs.length;
-        // Skip history tab if in terminal mode
-        if (tabs[nextIndex] === 'history' && activeSession && activeSession.inputMode === 'terminal') {
-          const nextNextIndex = (nextIndex + 1) % tabs.length;
-          setActiveRightTab(tabs[nextNextIndex]);
-        } else {
-          setActiveRightTab(tabs[nextIndex]);
-        }
-      }
       else if (isShortcut(e, 'toggleMode')) toggleInputMode();
       else if (isShortcut(e, 'quickAction')) {
         setQuickActionInitialMode('main');

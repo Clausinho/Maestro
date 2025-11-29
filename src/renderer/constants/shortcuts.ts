@@ -5,8 +5,6 @@ export const DEFAULT_SHORTCUTS: Record<string, Shortcut> = {
   toggleRightPanel: { id: 'toggleRightPanel', label: 'Toggle Right Panel', keys: ['Alt', 'Meta', 'ArrowRight'] },
   cyclePrev: { id: 'cyclePrev', label: 'Previous Agent', keys: ['Meta', 'Shift', '{'] },
   cycleNext: { id: 'cycleNext', label: 'Next Agent', keys: ['Meta', 'Shift', '}'] },
-  prevRightTab: { id: 'prevRightTab', label: 'Previous Right Panel Tab', keys: ['Meta', '['] },
-  nextRightTab: { id: 'nextRightTab', label: 'Next Right Panel Tab', keys: ['Meta', ']'] },
   newInstance: { id: 'newInstance', label: 'New Agent', keys: ['Meta', 'n'] },
   killInstance: { id: 'killInstance', label: 'Kill Agent', keys: ['Meta', 'Shift', 'Backspace'] },
   moveToGroup: { id: 'moveToGroup', label: 'Move Session to Group', keys: ['Meta', 'Shift', 'm'] },
@@ -24,4 +22,22 @@ export const DEFAULT_SHORTCUTS: Record<string, Shortcut> = {
   viewGitDiff: { id: 'viewGitDiff', label: 'View Git Diff', keys: ['Meta', 'Shift', 'd'] },
   viewGitLog: { id: 'viewGitLog', label: 'View Git Log', keys: ['Meta', 'Shift', 'g'] },
   agentSessions: { id: 'agentSessions', label: 'View Agent Sessions', keys: ['Meta', 'Shift', 'l'] },
+};
+
+// Tab navigation shortcuts (AI mode only)
+export const TAB_SHORTCUTS: Record<string, Shortcut> = {
+  newTab: { id: 'newTab', label: 'New Tab', keys: ['Meta', 't'] },
+  closeTab: { id: 'closeTab', label: 'Close Tab', keys: ['Meta', 'w'] },
+  reopenClosedTab: { id: 'reopenClosedTab', label: 'Reopen Closed Tab', keys: ['Meta', 'Shift', 't'] },
+  prevTab: { id: 'prevTab', label: 'Previous Tab', keys: ['Meta', '['] },
+  nextTab: { id: 'nextTab', label: 'Next Tab', keys: ['Meta', ']'] },
+  goToTab1: { id: 'goToTab1', label: 'Go to Tab 1', keys: ['Meta', '1'] },
+  goToTab2: { id: 'goToTab2', label: 'Go to Tab 2', keys: ['Meta', '2'] },
+  goToTab3: { id: 'goToTab3', label: 'Go to Tab 3', keys: ['Meta', '3'] },
+  goToTab4: { id: 'goToTab4', label: 'Go to Tab 4', keys: ['Meta', '4'] },
+  goToTab5: { id: 'goToTab5', label: 'Go to Tab 5', keys: ['Meta', '5'] },
+  goToTab6: { id: 'goToTab6', label: 'Go to Tab 6', keys: ['Meta', '6'] },
+  goToTab7: { id: 'goToTab7', label: 'Go to Tab 7', keys: ['Meta', '7'] },
+  goToTab8: { id: 'goToTab8', label: 'Go to Tab 8', keys: ['Meta', '8'] },
+  goToLastTab: { id: 'goToLastTab', label: 'Go to Last Tab', keys: ['Meta', '9'] },
 };
