@@ -7,7 +7,6 @@ import { FilePreview } from './FilePreview';
 import { ErrorBoundary } from './ErrorBoundary';
 import { GitStatusWidget } from './GitStatusWidget';
 import { AgentSessionsBrowser } from './AgentSessionsBrowser';
-import { ThinkingStatusPill } from './ThinkingStatusPill';
 import { gitService } from '../services/git';
 import { formatActiveTime } from '../utils/theme';
 import type { Session, Theme, Shortcut, FocusArea, BatchRunState, RecentClaudeSession } from '../types';
@@ -23,7 +22,7 @@ interface MainPanelProps {
   agentSessionsOpen: boolean;
   activeClaudeSessionId: string | null;
   activeSession: Session | null;
-  sessions: Session[]; // All sessions for ThinkingStatusPill
+  sessions: Session[]; // All sessions for InputArea's ThinkingStatusPill
   theme: Theme;
   fontFamily: string;
   isMobileLandscape?: boolean;
@@ -1125,15 +1124,6 @@ export function MainPanel(props: MainPanelProps) {
                 audioFeedbackCommand={props.audioFeedbackCommand}
               />
 
-              {/* Thinking Status Pill - shows above input when any session is thinking */}
-              {!isMobileLandscape && (
-                <ThinkingStatusPill
-                  sessions={sessions}
-                  theme={theme}
-                  onSessionClick={setActiveSessionId}
-                />
-              )}
-
               {/* Input Area (hidden in mobile landscape for focused reading) */}
               {!isMobileLandscape && (
               <InputArea
@@ -1171,6 +1161,9 @@ export function MainPanel(props: MainPanelProps) {
                 handleInterrupt={handleInterrupt}
                 onInputFocus={handleInputFocus}
                 isAutoModeActive={isAutoModeActive}
+                sessions={sessions}
+                namedSessions={namedSessions}
+                onSessionClick={setActiveSessionId}
               />
               )}
             </>

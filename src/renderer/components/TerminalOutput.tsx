@@ -148,6 +148,38 @@ const LogItemComponent = memo(({
   audioFeedbackCommand,
   ansiConverter,
 }: LogItemProps) => {
+  // Ref for the log item container - used for scroll-into-view on expand
+  const logItemRef = useRef<HTMLDivElement>(null);
+
+  // Handle expand toggle with scroll adjustment
+  const handleExpandToggle = useCallback(() => {
+    const wasExpanded = isExpanded;
+    onToggleExpanded(log.id);
+
+    // After expanding, scroll to ensure the bottom of the item is visible
+    if (!wasExpanded) {
+      // Use setTimeout to wait for the DOM to update after expansion
+      setTimeout(() => {
+        const logItem = logItemRef.current;
+        const container = scrollContainerRef.current;
+        if (logItem && container) {
+          const itemRect = logItem.getBoundingClientRect();
+          const containerRect = container.getBoundingClientRect();
+
+          // Check if the bottom of the item is below the visible area
+          const itemBottom = itemRect.bottom;
+          const containerBottom = containerRect.bottom;
+
+          if (itemBottom > containerBottom) {
+            // Scroll to show the bottom of the item with some padding
+            const scrollAmount = itemBottom - containerBottom + 20; // 20px padding
+            container.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+          }
+        }
+      }, 50); // Small delay to allow React to re-render
+    }
+  }, [isExpanded, log.id, onToggleExpanded, scrollContainerRef]);
+
   // Helper function to highlight search matches in text
   const highlightMatches = (text: string, query: string): React.ReactNode => {
     if (!query) return text;
@@ -254,18 +286,20 @@ const LogItemComponent = memo(({
   // Check if filter returned no results
   const hasNoMatches = localFilterQuery && !filteredStdout.trim() && !filteredStderr.trim() && log.source !== 'user';
 
+  // For stderr entries, use stderr content; for all others, use stdout content
+  const contentToDisplay = log.source === 'stderr' ? filteredStderr : filteredStdout;
+
   // Apply search highlighting before ANSI conversion for terminal output
-  const stdoutWithHighlights = isTerminal && log.source !== 'user' && outputSearchQuery
-    ? addHighlightMarkers(filteredStdout, outputSearchQuery)
-    : filteredStdout;
+  const contentWithHighlights = isTerminal && log.source !== 'user' && outputSearchQuery
+    ? addHighlightMarkers(contentToDisplay, outputSearchQuery)
+    : contentToDisplay;
 
   // Convert ANSI codes to HTML for terminal output and sanitize with DOMPurify
-  const stdoutHtmlContent = isTerminal && log.source !== 'user'
-    ? DOMPurify.sanitize(ansiConverter.toHtml(stdoutWithHighlights))
-    : filteredStdout;
+  const htmlContent = isTerminal && log.source !== 'user'
+    ? DOMPurify.sanitize(ansiConverter.toHtml(contentWithHighlights))
+    : contentToDisplay;
 
-  const htmlContent = stdoutHtmlContent;
-  const filteredText = filteredStdout;
+  const filteredText = contentToDisplay;
 
   // Count lines in the filtered text
   const lineCount = filteredText.split('\n').length;
@@ -289,7 +323,7 @@ const LogItemComponent = memo(({
   const isUserMessage = log.source === 'user';
 
   return (
-    <div className={`flex gap-4 group ${isUserMessage ? 'flex-row-reverse' : ''} px-6 py-2`} data-log-index={index}>
+    <div ref={logItemRef} className={`flex gap-4 group ${isUserMessage ? 'flex-row-reverse' : ''} px-6 py-2`} data-log-index={index}>
       <div className={`w-12 shrink-0 text-[10px] pt-2 ${isUserMessage ? 'text-right' : 'text-left'}`}
            style={{ fontFamily, color: theme.colors.textDim, opacity: 0.6 }}>
         {new Date(log.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
@@ -388,7 +422,13 @@ const LogItemComponent = memo(({
         {log.images && log.images.length > 0 && (
           <div className="flex gap-2 mb-2 overflow-x-auto scrollbar-thin" style={{ overscrollBehavior: 'contain' }}>
             {log.images.map((img, imgIdx) => (
-              <img key={imgIdx} src={img} className="h-20 rounded border cursor-zoom-in" onClick={() => setLightboxImage(img, log.images)} />
+              <img
+                key={imgIdx}
+                src={img}
+                className="h-20 rounded border cursor-zoom-in shrink-0"
+                style={{ objectFit: 'contain', maxWidth: '200px' }}
+                onClick={() => setLightboxImage(img, log.images)}
+              />
             ))}
           </div>
         )}
@@ -428,7 +468,7 @@ const LogItemComponent = memo(({
               )}
             </div>
             <button
-              onClick={() => onToggleExpanded(log.id)}
+              onClick={handleExpandToggle}
               className="flex items-center gap-2 mt-2 text-xs px-3 py-1.5 rounded border hover:opacity-70 transition-opacity"
               style={{
                 borderColor: theme.colors.border,
@@ -495,7 +535,7 @@ const LogItemComponent = memo(({
               )}
             </div>
             <button
-              onClick={() => onToggleExpanded(log.id)}
+              onClick={handleExpandToggle}
               className="flex items-center gap-2 mt-2 text-xs px-3 py-1.5 rounded border hover:opacity-70 transition-opacity"
               style={{
                 borderColor: theme.colors.border,
@@ -1026,10 +1066,22 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
   // Detect new messages when user is not at bottom
   useEffect(() => {
     const currentCount = filteredLogs.length;
-    if (currentCount > lastLogCountRef.current && !isAtBottom) {
-      const newCount = currentCount - lastLogCountRef.current;
-      setHasNewMessages(true);
-      setNewMessageCount(prev => prev + newCount);
+    if (currentCount > lastLogCountRef.current) {
+      // Check actual scroll position, not just state (state may be stale)
+      const container = scrollContainerRef.current;
+      let actuallyAtBottom = isAtBottom;
+      if (container) {
+        const { scrollTop, scrollHeight, clientHeight } = container;
+        actuallyAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+      }
+
+      if (!actuallyAtBottom) {
+        const newCount = currentCount - lastLogCountRef.current;
+        setHasNewMessages(true);
+        setNewMessageCount(prev => prev + newCount);
+        // Also update isAtBottom state to match reality
+        setIsAtBottom(false);
+      }
     }
     lastLogCountRef.current = currentCount;
   }, [filteredLogs.length, isAtBottom]);

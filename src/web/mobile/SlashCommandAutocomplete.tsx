@@ -97,9 +97,18 @@ export function SlashCommandAutocomplete({
     if (cmd.terminalOnly && inputMode !== 'terminal') return false;
     // Check if command is only available in AI mode
     if (cmd.aiOnly && inputMode === 'terminal') return false;
+    // If input is empty or doesn't start with /, show all commands (opened via button)
+    if (!inputValue || !inputValue.startsWith('/')) return true;
     // Check if command matches input (case insensitive)
     return cmd.command.toLowerCase().startsWith(inputValue.toLowerCase());
   });
+
+  // Clamp selectedIndex to valid range when filtered list changes
+  useEffect(() => {
+    if (filteredCommands.length > 0 && selectedIndex >= filteredCommands.length) {
+      onSelectedIndexChange?.(0);
+    }
+  }, [filteredCommands.length, selectedIndex, onSelectedIndexChange]);
 
   // Handle command selection
   const handleSelectCommand = useCallback(
@@ -120,7 +129,7 @@ export function SlashCommandAutocomplete({
     e.currentTarget.style.opacity = '1';
   }, []);
 
-  // Close autocomplete when clicking outside
+  // Close autocomplete when clicking outside or pressing Escape
   useEffect(() => {
     if (!isOpen) return;
 
@@ -130,12 +139,22 @@ export function SlashCommandAutocomplete({
       }
     };
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('touchstart', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen, onClose]);
 
@@ -235,7 +254,8 @@ export function SlashCommandAutocomplete({
 
       {/* Command list */}
       {filteredCommands.map((cmd, idx) => {
-        const isSelected = idx === selectedIndex;
+        // Only show as selected if selectedIndex is within valid range
+        const isSelected = idx === selectedIndex && selectedIndex < filteredCommands.length;
 
         return (
           <div

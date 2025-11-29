@@ -346,6 +346,7 @@ function createWebServer(): WebServer {
   // Set up callback for web server to switch session mode through the desktop
   // This forwards to the renderer which handles state updates and broadcasts
   server.setSwitchModeCallback(async (sessionId: string, mode: 'ai' | 'terminal') => {
+    logger.info(`[Web→Desktop] Mode switch callback invoked: session=${sessionId}, mode=${mode}`, 'WebServer');
     if (!mainWindow) {
       logger.warn('mainWindow is null for switchMode', 'WebServer');
       return false;
@@ -353,7 +354,7 @@ function createWebServer(): WebServer {
 
     // Forward to renderer - it will handle mode switch and broadcasts
     // This ensures web mode switches go through exact same code path as desktop
-    logger.debug(`Forwarding mode switch to renderer for session ${sessionId}: ${mode}`, 'WebServer');
+    logger.info(`[Web→Desktop] Sending IPC remote:switchMode to renderer`, 'WebServer');
     mainWindow.webContents.send('remote:switchMode', sessionId, mode);
     return true;
   });
@@ -361,13 +362,14 @@ function createWebServer(): WebServer {
   // Set up callback for web server to select/switch to a session in the desktop
   // This forwards to the renderer which handles state updates and broadcasts
   server.setSelectSessionCallback(async (sessionId: string) => {
+    logger.info(`[Web→Desktop] Session select callback invoked: session=${sessionId}`, 'WebServer');
     if (!mainWindow) {
       logger.warn('mainWindow is null for selectSession', 'WebServer');
       return false;
     }
 
     // Forward to renderer - it will handle session selection and broadcasts
-    logger.debug(`Forwarding session selection to renderer: ${sessionId}`, 'WebServer');
+    logger.info(`[Web→Desktop] Sending IPC remote:selectSession to renderer`, 'WebServer');
     mainWindow.webContents.send('remote:selectSession', sessionId);
     return true;
   });
@@ -2296,30 +2298,23 @@ function setupIpcHandlers() {
       const fullCommand = command || 'say'; // Default to macOS 'say' command
       console.log('[TTS Main] Using fullCommand:', fullCommand);
 
-      // Parse command string to extract command and arguments
-      // Handles paths with spaces if quoted, and preserves arguments
-      const parts = fullCommand.match(/(?:[^\s"]+|"[^"]*")+/g) || [fullCommand];
-      const ttsCommand = parts[0].replace(/^"|"$/g, ''); // Remove surrounding quotes if present
-      const ttsArgs = parts.slice(1).map(arg => arg.replace(/^"|"$/g, '')); // Remove quotes from args
-
-      console.log('[TTS Main] Spawning:', ttsCommand, 'with args:', ttsArgs);
+      console.log('[TTS Main] Spawning with shell:', fullCommand);
 
       // Log the full command being executed
       logger.info('TTS executing command', 'TTS', {
-        executable: ttsCommand,
-        argsCount: ttsArgs.length,
-        fullArgs: ttsArgs,
+        command: fullCommand,
         textLength: text?.length || 0,
       });
 
-      // Spawn the TTS process with stdin pipe so we can write text to it
-      const child = spawn(ttsCommand, ttsArgs, {
+      // Spawn the TTS process with shell mode to support pipes and command chaining
+      const child = spawn(fullCommand, [], {
         stdio: ['pipe', 'ignore', 'pipe'], // stdin: pipe, stdout: ignore, stderr: pipe for errors
+        shell: true,
       });
 
       // Generate a unique ID for this TTS process
       const ttsId = ++ttsProcessIdCounter;
-      activeTtsProcesses.set(ttsId, { process: child, command: ttsCommand });
+      activeTtsProcesses.set(ttsId, { process: child, command: fullCommand });
 
       // Write the text to stdin and close it
       if (child.stdin) {
@@ -2331,7 +2326,7 @@ function setupIpcHandlers() {
         console.error('[TTS Main] Spawn error:', err);
         logger.error('TTS spawn error', 'TTS', {
           error: String(err),
-          command: ttsCommand,
+          command: fullCommand,
           textPreview: text ? (text.length > 100 ? text.substring(0, 100) + '...' : text) : '(no text)',
         });
         activeTtsProcesses.delete(ttsId);
@@ -2352,7 +2347,7 @@ function setupIpcHandlers() {
           logger.error('TTS process error output', 'TTS', {
             exitCode: code,
             stderr: stderrOutput,
-            command: ttsCommand,
+            command: fullCommand,
           });
         }
         activeTtsProcesses.delete(ttsId);
@@ -2361,8 +2356,7 @@ function setupIpcHandlers() {
       console.log('[TTS Main] Process spawned successfully with ID:', ttsId);
       logger.info('TTS process spawned successfully', 'TTS', {
         ttsId,
-        command: ttsCommand,
-        argsCount: ttsArgs.length,
+        command: fullCommand,
         textLength: text?.length || 0,
       });
       return { success: true, ttsId };
@@ -2538,13 +2532,15 @@ function setupProcessListeners() {
 
         const baseSessionId = sessionId.replace(/-ai$|-batch-\d+$|-synopsis-\d+$/, '');
         const isAiOutput = sessionId.endsWith('-ai') || sessionId.includes('-batch-') || sessionId.includes('-synopsis-');
-        console.log(`[WebBroadcast] Broadcasting session_output: session=${baseSessionId}, source=${isAiOutput ? 'ai' : 'terminal'}, dataLen=${data.length}`);
+        const msgId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        console.log(`[WebBroadcast] Broadcasting session_output: msgId=${msgId}, session=${baseSessionId}, source=${isAiOutput ? 'ai' : 'terminal'}, dataLen=${data.length}`);
         webServer.broadcastToSessionClients(baseSessionId, {
           type: 'session_output',
           sessionId: baseSessionId,
           data,
           source: isAiOutput ? 'ai' : 'terminal',
           timestamp: Date.now(),
+          msgId,
         });
       }
     });

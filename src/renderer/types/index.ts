@@ -158,6 +158,10 @@ export interface Session {
   statusMessage?: string;
   // Timestamp when agent started processing (for elapsed time display)
   thinkingStartTime?: number;
+  // Token count for current thinking cycle (reset when new request starts)
+  currentCycleTokens?: number;
+  // Bytes received during current thinking cycle (for real-time progress display)
+  currentCycleBytes?: number;
   // Tracks which mode (ai/terminal) triggered the busy state
   // Used to show the correct busy indicator message when user switches modes
   busySource?: 'ai' | 'terminal';

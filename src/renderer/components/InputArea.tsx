@@ -2,6 +2,7 @@ import React from 'react';
 import { Terminal, Cpu, Keyboard, ImageIcon, X, ArrowUp, StopCircle, Eye, History, File, Folder } from 'lucide-react';
 import type { Session, Theme } from '../types';
 import type { TabCompletionSuggestion } from '../hooks/useTabCompletion';
+import { ThinkingStatusPill } from './ThinkingStatusPill';
 
 interface SlashCommand {
   command: string;
@@ -47,6 +48,10 @@ interface InputAreaProps {
   tabCompletionSuggestions?: TabCompletionSuggestion[];
   selectedTabCompletionIndex?: number;
   setSelectedTabCompletionIndex?: (index: number) => void;
+  // ThinkingStatusPill props
+  sessions?: Session[];
+  namedSessions?: Record<string, string>;
+  onSessionClick?: (sessionId: string) => void;
 }
 
 export function InputArea(props: InputAreaProps) {
@@ -62,7 +67,8 @@ export function InputArea(props: InputAreaProps) {
     isAutoModeActive = false,
     tabCompletionOpen = false, setTabCompletionOpen,
     tabCompletionSuggestions = [], selectedTabCompletionIndex = 0,
-    setSelectedTabCompletionIndex
+    setSelectedTabCompletionIndex,
+    sessions = [], namedSessions, onSessionClick
   } = props;
 
   // Check if we're in read-only mode (auto mode in AI mode - user can still send but Claude will be in plan mode)
@@ -106,15 +112,25 @@ export function InputArea(props: InputAreaProps) {
 
   return (
     <div className="relative p-4 border-t" style={{ borderColor: theme.colors.border, backgroundColor: theme.colors.bgSidebar }}>
+      {/* ThinkingStatusPill - only show in AI mode */}
+      {session.inputMode === 'ai' && sessions.length > 0 && (
+        <ThinkingStatusPill
+          sessions={sessions}
+          theme={theme}
+          onSessionClick={onSessionClick}
+          namedSessions={namedSessions}
+        />
+      )}
+
       {/* Only show staged images in AI mode */}
       {session.inputMode === 'ai' && stagedImages.length > 0 && (
         <div className="flex gap-2 mb-3 pb-2 overflow-x-auto overflow-y-visible scrollbar-thin">
           {stagedImages.map((img, idx) => (
-            <div key={idx} className="relative group">
+            <div key={idx} className="relative group shrink-0">
               <img
                 src={img}
                 className="h-16 rounded border cursor-pointer hover:opacity-80 transition-opacity"
-                style={{ borderColor: theme.colors.border }}
+                style={{ borderColor: theme.colors.border, objectFit: 'contain', maxWidth: '200px' }}
                 onClick={() => setLightboxImage(img, stagedImages)}
               />
               <button

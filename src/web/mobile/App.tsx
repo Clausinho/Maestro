@@ -644,10 +644,12 @@ export default function MobileApp() {
     handlers: wsHandlers,
   });
 
-  // Connect on mount
+  // Connect on mount - use empty dependency array to only connect once
+  // The connect function is stable via useRef pattern in useWebSocket
   useEffect(() => {
     connect();
-  }, [connect]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fetch session logs when active session changes
   useEffect(() => {
@@ -743,10 +745,7 @@ export default function MobileApp() {
     setActiveSessionId(sessionId);
     triggerHaptic(HAPTIC_PATTERNS.tap);
     // Notify desktop to switch to this session
-    send({
-      type: 'select_session',
-      sessionId,
-    });
+    send({ type: 'select_session', sessionId });
   }, [send]);
 
   // Handle opening All Sessions view
@@ -831,11 +830,14 @@ export default function MobileApp() {
     triggerHaptic(HAPTIC_PATTERNS.tap);
 
     // Send mode switch command via WebSocket
-    send({
+    const message = {
       type: 'switch_mode',
       sessionId: activeSessionId,
       mode,
-    });
+    };
+    console.log('[Mobile] Sending switch_mode message:', message);
+    const sent = send(message);
+    console.log('[Mobile] send() returned:', sent);
 
     // Optimistically update local session state
     setSessions(prev => prev.map(s =>
@@ -935,6 +937,25 @@ export default function MobileApp() {
 
   // Get active session for input mode
   const activeSession = sessions.find(s => s.id === activeSessionId);
+
+  // Keyboard shortcut: Cmd+J (Mac) or Ctrl+J (Windows/Linux) to toggle AI/CLI mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check for Cmd+J (Mac) or Ctrl+J (Windows/Linux)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
+        e.preventDefault();
+        if (!activeSessionId) return;
+
+        // Toggle mode
+        const currentMode = activeSession?.inputMode || 'ai';
+        const newMode = currentMode === 'ai' ? 'terminal' : 'ai';
+        handleModeToggle(newMode);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [activeSessionId, activeSession?.inputMode, handleModeToggle]);
 
   // Determine content based on connection state
   const renderContent = () => {
@@ -1058,6 +1079,9 @@ export default function MobileApp() {
           flexDirection: 'column',
           gap: '8px',
           alignItems: 'stretch',
+          flex: 1,
+          minHeight: 0, // Required for nested flex scroll to work
+          overflow: 'hidden', // Contain MessageHistory's scroll
         }}
       >
         {isLoadingLogs ? (
@@ -1089,7 +1113,7 @@ export default function MobileApp() {
             logs={currentLogs}
             inputMode={activeSession.inputMode as 'ai' | 'terminal'}
             autoScroll={true}
-            maxHeight="100%"
+            maxHeight="none"
           />
         )}
       </div>
@@ -1195,8 +1219,7 @@ export default function MobileApp() {
           padding: '12px',
           paddingBottom: 'calc(80px + env(safe-area-inset-bottom))', // Account for fixed input bar
           textAlign: 'center',
-          overflow: 'auto',
-          overscrollBehavior: 'contain',
+          overflow: 'hidden', // Changed from 'auto' - let MessageHistory handle scrolling
           minHeight: 0, // Required for flex child to scroll properly
         }}
       >
@@ -1210,6 +1233,7 @@ export default function MobileApp() {
             justifyContent: connectionState === 'connected' || connectionState === 'authenticated' ? 'flex-start' : 'center',
             width: '100%',
             minHeight: 0,
+            overflow: 'hidden', // Contain child scroll
           }}
         >
           {renderContent()}

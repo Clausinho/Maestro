@@ -289,6 +289,11 @@ export function CommandInputBar({
     // Only show "Waiting..." in AI mode when session is busy
     // Terminal mode is always available since it uses a different pathway
     if (inputMode === 'ai' && isSessionBusy) return 'AI thinking...';
+    // In terminal mode, show shortened cwd as placeholder hint
+    if (inputMode === 'terminal' && cwd) {
+      const shortCwd = cwd.replace(/^\/Users\/[^/]+/, '~');
+      return shortCwd;
+    }
     return placeholder || 'Enter command...';
   };
 
@@ -299,6 +304,13 @@ export function CommandInputBar({
   useEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
+
+    // If value is empty, reset to minimum height immediately
+    if (!value) {
+      setTextareaHeight(MIN_INPUT_HEIGHT);
+      textarea.style.height = `${MIN_INPUT_HEIGHT}px`;
+      return;
+    }
 
     // Reset height to minimum to get accurate scrollHeight measurement
     textarea.style.height = `${MIN_INPUT_HEIGHT}px`;
@@ -410,10 +422,18 @@ export function CommandInputBar({
 
   /**
    * Close slash command autocomplete
+   * Also clears the input if it only contains a partial slash command (no spaces)
    */
   const handleCloseSlashCommand = useCallback(() => {
     setSlashCommandOpen(false);
-  }, []);
+    // If input only contains a slash command prefix (no spaces), clear it
+    if (value.startsWith('/') && !value.includes(' ')) {
+      if (controlledValue === undefined) {
+        setInternalValue('');
+      }
+      onChange?.('');
+    }
+  }, [value, controlledValue, onChange]);
 
   /**
    * Handle form submission
@@ -463,6 +483,18 @@ export function CommandInputBar({
     const newMode = inputMode === 'ai' ? 'terminal' : 'ai';
     onModeToggle?.(newMode);
   }, [inputMode, onModeToggle]);
+
+  /**
+   * Focus input when mode changes
+   * This allows users to immediately start typing after switching modes
+   */
+  useEffect(() => {
+    // Small delay to ensure the DOM has updated after mode switch
+    const timer = setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [inputMode]);
 
   /**
    * Handle interrupt button press
@@ -915,11 +947,8 @@ export function CommandInputBar({
           <button
             type="button"
             onClick={() => {
-              // Set input to "/" and open autocomplete
-              if (controlledValue === undefined) {
-                setInternalValue('/');
-              }
-              onChange?.('/');
+              // Just open autocomplete without adding slash to input
+              // The slash will be added when a command is selected
               setSlashCommandOpen(true);
               setSelectedSlashCommandIndex(0);
               // Focus the textarea
@@ -970,7 +999,7 @@ export function CommandInputBar({
           </button>
         )}
 
-        {/* Terminal mode: $ prefix + textarea in a container */}
+        {/* Terminal mode: $ prefix + input in a container - single line, tight height */}
         {inputMode === 'terminal' ? (
           <div
             style={{
@@ -978,12 +1007,14 @@ export function CommandInputBar({
               // minWidth: 0 is critical for flex items to shrink below content size
               minWidth: 0,
               display: 'flex',
-              alignItems: 'flex-start',
+              alignItems: 'center',
               borderRadius: '12px',
               backgroundColor: colors.bgMain,
               border: `2px solid ${colors.border}`,
-              padding: '14px 18px',
-              gap: '8px',
+              // Tight padding to match button height (48px total with border)
+              padding: '0 14px',
+              height: `${MIN_INPUT_HEIGHT}px`,
+              gap: '6px',
               opacity: isDisabled ? 0.5 : 1,
             }}
           >
@@ -994,17 +1025,22 @@ export function CommandInputBar({
                 fontSize: '17px',
                 fontFamily: 'ui-monospace, monospace',
                 fontWeight: 600,
-                lineHeight: `${LINE_HEIGHT}px`,
                 flexShrink: 0,
               }}
             >
               $
             </span>
-            <textarea
-              ref={textareaRef}
+            <input
+              ref={textareaRef as React.RefObject<HTMLInputElement>}
+              type="text"
               value={value}
-              onChange={handleChange}
-              onKeyDown={handleKeyDown}
+              onChange={(e) => handleChange(e as unknown as React.ChangeEvent<HTMLTextAreaElement>)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSubmit(e as unknown as React.FormEvent);
+                }
+              }}
               placeholder={getPlaceholder()}
               disabled={isDisabled}
               autoComplete="off"
@@ -1012,7 +1048,6 @@ export function CommandInputBar({
               autoCapitalize="off"
               spellCheck={false}
               enterKeyHint="send"
-              rows={1}
               style={{
                 flex: 1,
                 padding: 0,
@@ -1021,15 +1056,8 @@ export function CommandInputBar({
                 color: isDisabled ? colors.textDim : colors.textMain,
                 fontSize: '17px',
                 fontFamily: 'ui-monospace, monospace',
-                lineHeight: `${LINE_HEIGHT}px`,
                 outline: 'none',
-                height: `${Math.max(textareaHeight - 28, LINE_HEIGHT)}px`,
-                minHeight: `${LINE_HEIGHT}px`,
-                maxHeight: `${MAX_TEXTAREA_HEIGHT - 28}px`,
-                resize: 'none',
-                overflowY: textareaHeight >= MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden',
-                overflowX: 'hidden',
-                wordWrap: 'break-word',
+                width: '100%',
               }}
               onFocus={(e) => {
                 const container = e.currentTarget.parentElement;
@@ -1041,8 +1069,7 @@ export function CommandInputBar({
                 if (container) container.style.borderColor = colors.border;
                 onInputBlur?.();
               }}
-              aria-label={inputMode === 'terminal' ? 'Shell command input' : 'AI prompt input'}
-              aria-multiline="true"
+              aria-label="Shell command input"
             />
           </div>
         ) : (
@@ -1222,33 +1249,7 @@ export function CommandInputBar({
         )}
       </form>
 
-      {/* Current working directory display - shown in terminal mode, below the input */}
-      {/* Hidden on narrow screens (mobile) to save space */}
-      {inputMode === 'terminal' && cwd && (
-        <div
-          className="cwd-display"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            fontSize: '11px',
-            fontFamily: 'ui-monospace, monospace',
-            color: colors.textDim,
-            paddingLeft: '16px',
-            paddingRight: '16px',
-            marginTop: '6px',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <span style={{ opacity: 0.6 }}>
-            {cwd.replace(/^\/Users\/[^/]+/, '~')}
-          </span>
-        </div>
-      )}
-
-      {/* Inline CSS for animations and responsive hiding */}
+      {/* Inline CSS for animations */}
       <style>
         {`
           @keyframes pulse {
@@ -1257,11 +1258,6 @@ export function CommandInputBar({
             }
             50% {
               box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
-            }
-          }
-          @media (max-width: 400px) {
-            .cwd-display {
-              display: none !important;
             }
           }
         `}

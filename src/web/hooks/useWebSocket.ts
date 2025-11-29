@@ -193,6 +193,7 @@ export interface SessionOutputMessage extends ServerMessage {
   sessionId: string;
   data: string;
   source: 'ai' | 'terminal';
+  msgId?: string; // Unique message ID for deduplication
 }
 
 /**
@@ -435,6 +436,11 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const handlersRef = useRef(handlers);
   const shouldReconnectRef = useRef(true);
+  // Connection ID to handle StrictMode double-mounting - each mount gets unique ID
+  const connectionIdRef = useRef<number>(0);
+  const mountIdRef = useRef<number>(0);
+  // Track seen message IDs to dedupe duplicate broadcasts
+  const seenMsgIdsRef = useRef<Set<string>>(new Set());
 
   // Keep handlers ref up to date
   useEffect(() => {
@@ -565,7 +571,20 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
 
         case 'session_output': {
           const outputMsg = message as SessionOutputMessage;
-          console.log(`[WebSocket] Received session_output: session=${outputMsg.sessionId}, source=${outputMsg.source}, dataLen=${outputMsg.data?.length || 0}, hasHandler=${!!handlersRef.current?.onSessionOutput}`);
+          // Dedupe using message ID if available
+          if (outputMsg.msgId) {
+            if (seenMsgIdsRef.current.has(outputMsg.msgId)) {
+              console.log(`[WebSocket] DEDUPE: Skipping duplicate session_output msgId=${outputMsg.msgId}`);
+              break;
+            }
+            seenMsgIdsRef.current.add(outputMsg.msgId);
+            // Limit set size to prevent memory leaks (keep last 1000 IDs)
+            if (seenMsgIdsRef.current.size > 1000) {
+              const idsArray = Array.from(seenMsgIdsRef.current);
+              seenMsgIdsRef.current = new Set(idsArray.slice(-500));
+            }
+          }
+          console.log(`[WebSocket] Received session_output: msgId=${outputMsg.msgId || 'none'}, session=${outputMsg.sessionId}, source=${outputMsg.source}, dataLen=${outputMsg.data?.length || 0}, hasHandler=${!!handlersRef.current?.onSessionOutput}`);
           handlersRef.current?.onSessionOutput?.(outputMsg.sessionId, outputMsg.data, outputMsg.source);
           break;
         }
@@ -645,6 +664,9 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
    * Internal connect function (to avoid circular dependency)
    */
   const connectInternal = useCallback(() => {
+    // Increment connection ID to track this specific connection
+    const thisConnectionId = ++connectionIdRef.current;
+
     // Clean up existing connection
     if (wsRef.current) {
       wsRef.current.close();
@@ -663,6 +685,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       wsRef.current = ws;
 
       ws.onopen = () => {
+        // Only process if this is still the current connection (handles StrictMode)
+        if (connectionIdRef.current !== thisConnectionId) return;
         // State will be set when we receive the 'connected' or 'auth_required' message
         setState('authenticating');
         handlersRef.current?.onConnectionChange?.('authenticating');
@@ -671,12 +695,16 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       ws.onmessage = handleMessage;
 
       ws.onerror = (event) => {
+        // Only process if this is still the current connection (handles StrictMode)
+        if (connectionIdRef.current !== thisConnectionId) return;
         webLogger.error('WebSocket connection error', 'WebSocket', event);
         setError('WebSocket connection error');
         handlersRef.current?.onError?.('WebSocket connection error');
       };
 
       ws.onclose = (event) => {
+        // Only process if this is still the current connection (handles StrictMode)
+        if (connectionIdRef.current !== thisConnectionId) return;
         clearTimers();
         wsRef.current = null;
         setState('disconnected');
@@ -754,17 +782,30 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     return false;
   }, []);
 
-  // Cleanup on unmount
+  // Cleanup on unmount - track mount ID to handle StrictMode double-mount
   useEffect(() => {
+    const thisMountId = ++mountIdRef.current;
+
     return () => {
+      // Only cleanup if this is the most recent mount (handles StrictMode)
+      if (mountIdRef.current !== thisMountId) return;
+
       shouldReconnectRef.current = false;
-      clearTimers();
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+        pingIntervalRef.current = null;
+      }
       if (wsRef.current) {
         wsRef.current.close(1000, 'Component unmount');
         wsRef.current = null;
       }
     };
-  }, [clearTimers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Derived state
   const isAuthenticated = state === 'authenticated';

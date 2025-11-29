@@ -1486,7 +1486,7 @@ export function SettingsModal(props: SettingsModalProps) {
                     )}
                   </div>
                   <p className="text-xs opacity-50 mt-2" style={{ color: theme.colors.textDim }}>
-                    Command that accepts text via stdin. Examples: <code className="px-1 py-0.5 rounded" style={{ backgroundColor: theme.colors.bgActivity }}>say</code> (macOS), <code className="px-1 py-0.5 rounded" style={{ backgroundColor: theme.colors.bgActivity }}>espeak</code> (Linux), <code className="px-1 py-0.5 rounded" style={{ backgroundColor: theme.colors.bgActivity }}>festival --tts</code>
+                    Command that accepts text via stdin. Pipes are supported (e.g., <code className="px-1 py-0.5 rounded" style={{ backgroundColor: theme.colors.bgActivity }}>cmd1 | cmd2</code>). Examples: <code className="px-1 py-0.5 rounded" style={{ backgroundColor: theme.colors.bgActivity }}>say</code> (macOS), <code className="px-1 py-0.5 rounded" style={{ backgroundColor: theme.colors.bgActivity }}>espeak</code> (Linux), <code className="px-1 py-0.5 rounded" style={{ backgroundColor: theme.colors.bgActivity }}>festival --tts</code>
                   </p>
                 </div>
               </div>

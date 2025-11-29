@@ -99,7 +99,11 @@ contextBridge.exposeInMainWorld('maestro', {
     },
     // Remote mode switch from web interface - forwards to desktop's toggleInputMode logic
     onRemoteSwitchMode: (callback: (sessionId: string, mode: 'ai' | 'terminal') => void) => {
-      const handler = (_: any, sessionId: string, mode: 'ai' | 'terminal') => callback(sessionId, mode);
+      console.log('[Preload] Registering onRemoteSwitchMode listener');
+      const handler = (_: any, sessionId: string, mode: 'ai' | 'terminal') => {
+        console.log('[Preload] Received remote:switchMode IPC:', { sessionId, mode });
+        callback(sessionId, mode);
+      };
       ipcRenderer.on('remote:switchMode', handler);
       return () => ipcRenderer.removeListener('remote:switchMode', handler);
     },
@@ -111,7 +115,11 @@ contextBridge.exposeInMainWorld('maestro', {
     },
     // Remote session selection from web interface - forwards to desktop's setActiveSessionId logic
     onRemoteSelectSession: (callback: (sessionId: string) => void) => {
-      const handler = (_: any, sessionId: string) => callback(sessionId);
+      console.log('[Preload] Registering onRemoteSelectSession listener');
+      const handler = (_: any, sessionId: string) => {
+        console.log('[Preload] Received remote:selectSession IPC:', { sessionId });
+        callback(sessionId);
+      };
       ipcRenderer.on('remote:selectSession', handler);
       return () => ipcRenderer.removeListener('remote:selectSession', handler);
     },

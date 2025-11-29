@@ -466,7 +466,7 @@ export default function MaestroConsole() {
     // Handle process output data
     // sessionId will be in format: "{id}-ai", "{id}-terminal", "{id}-batch-{timestamp}", etc.
     const unsubscribeData = window.maestro.process.onData((sessionId: string, data: string) => {
-      console.log('[onData] Received data for session:', sessionId, 'Data:', data.substring(0, 100));
+      console.log('[onData] Received data for session:', sessionId, 'DataLen:', data.length, 'Preview:', data.substring(0, 200));
 
       // Parse sessionId to determine which process this is from
       let actualSessionId: string;
@@ -525,16 +525,20 @@ export default function MaestroConsole() {
         if (shouldGroup) {
           // Append to existing log entry
           const updatedLogs = [...logsWithDelivery];
+          const prevTextLen = updatedLogs[updatedLogs.length - 1].text.length;
           updatedLogs[updatedLogs.length - 1] = {
             ...updatedLogs[updatedLogs.length - 1],
             text: updatedLogs[updatedLogs.length - 1].text + data
           };
+          console.log('[onData] GROUPED: prevLen:', prevTextLen, 'newLen:', updatedLogs[updatedLogs.length - 1].text.length, 'state:', s.state);
 
           return {
             ...s,
             // For terminal commands, keep busy state (will be set to idle by onCommandExit)
             state: isTerminalCommand ? s.state : 'idle' as SessionState,
-            [targetLogKey]: updatedLogs
+            [targetLogKey]: updatedLogs,
+            // Track bytes received for real-time progress display (AI mode only)
+            ...(isFromAi && { currentCycleBytes: (s.currentCycleBytes || 0) + data.length })
           };
         } else {
           // Create new log entry
@@ -544,12 +548,15 @@ export default function MaestroConsole() {
             source: 'stdout',
             text: data
           };
+          console.log('[onData] NEW ENTRY: dataLen:', data.length, 'state:', s.state, 'lastLogSource:', lastLog?.source);
 
           return {
             ...s,
             // Keep state unchanged - let onExit handler manage state transitions
             // This ensures queued messages work correctly (state stays 'busy' during AI processing)
-            [targetLogKey]: [...logsWithDelivery, newLog]
+            [targetLogKey]: [...logsWithDelivery, newLog],
+            // Track bytes received for real-time progress display (AI mode only)
+            ...(isFromAi && { currentCycleBytes: (s.currentCycleBytes || 0) + data.length })
           };
         }
       }));
@@ -655,7 +662,9 @@ export default function MaestroConsole() {
               busySource: 'ai',
               aiLogs: [...s.aiLogs, nextMessage],
               messageQueue: remainingQueue,
-              thinkingStartTime: Date.now()
+              thinkingStartTime: Date.now(),
+              currentCycleTokens: 0,
+              currentCycleBytes: 0
             };
           }
 
@@ -785,9 +794,9 @@ export default function MaestroConsole() {
         }
 
         // Register this as a user-initiated Maestro session (batch sessions are filtered above)
-        // Also pass the session name so it can be searched in the Claude sessions browser
-        window.maestro.claude.registerSessionOrigin(session.cwd, claudeSessionId, 'user', session.name)
-          .then(() => console.log('[onSessionId] Registered session origin as user:', claudeSessionId, 'name:', session.name))
+        // Do NOT pass session name - names should only be set when user explicitly renames
+        window.maestro.claude.registerSessionOrigin(session.cwd, claudeSessionId, 'user')
+          .then(() => console.log('[onSessionId] Registered session origin as user:', claudeSessionId))
           .catch(err => console.error('[onSessionId] Failed to register session origin:', err));
 
         return prev.map(s => {
@@ -891,9 +900,14 @@ export default function MaestroConsole() {
         // Accumulate cost if there's already usage stats
         const existingCost = s.usageStats?.totalCostUsd || 0;
 
+        // Current cycle tokens = output tokens from this response
+        // (These are the NEW tokens added to the context, not the cumulative total)
+        const cycleTokens = (s.currentCycleTokens || 0) + usageStats.outputTokens;
+
         return {
           ...s,
           contextUsage: contextPercentage,
+          currentCycleTokens: cycleTokens,
           usageStats: {
             ...usageStats,
             totalCostUsd: existingCost + usageStats.totalCostUsd
@@ -1178,7 +1192,7 @@ export default function MaestroConsole() {
 
       // Set session to busy with thinking start time
       setSessions(prev => prev.map(s =>
-        s.id === sessionId ? { ...s, state: 'busy' as SessionState, busySource: 'ai', thinkingStartTime: Date.now() } : s
+        s.id === sessionId ? { ...s, state: 'busy' as SessionState, busySource: 'ai', thinkingStartTime: Date.now(), currentCycleTokens: 0, currentCycleBytes: 0 } : s
       ));
 
       // Create a promise that resolves when the agent completes
@@ -1239,6 +1253,8 @@ export default function MaestroConsole() {
                   aiLogs: [...s.aiLogs, nextMessage],
                   messageQueue: remainingQueue,
                   thinkingStartTime: Date.now(),
+                  currentCycleTokens: 0,
+                  currentCycleBytes: 0,
                   pendingAICommandForSynopsis: undefined
                 };
               }
@@ -1945,37 +1961,39 @@ export default function MaestroConsole() {
         }
       }
       else if (isShortcut(e, 'cyclePrev')) {
-        // If right panel is focused OR file preview is open, cycle through tabs; otherwise cycle sessions
-        if (activeFocus === 'right' || previewFile !== null) {
-          const tabs: RightPanelTab[] = ['files', 'history', 'scratchpad'];
-          const currentIndex = tabs.indexOf(activeRightTab);
-          const prevIndex = currentIndex === 0 ? tabs.length - 1 : currentIndex - 1;
-          // Skip history tab if in terminal mode
-          if (tabs[prevIndex] === 'history' && activeSession && activeSession.inputMode === 'terminal') {
-            const prevPrevIndex = prevIndex === 0 ? tabs.length - 1 : prevIndex - 1;
-            setActiveRightTab(tabs[prevPrevIndex]);
-          } else {
-            setActiveRightTab(tabs[prevIndex]);
-          }
-        } else {
-          cycleSession('prev');
-        }
+        // Cycle to previous Maestro session (global shortcut)
+        cycleSession('prev');
       }
       else if (isShortcut(e, 'cycleNext')) {
-        // If right panel is focused OR file preview is open, cycle through tabs; otherwise cycle sessions
-        if (activeFocus === 'right' || previewFile !== null) {
-          const tabs: RightPanelTab[] = ['files', 'history', 'scratchpad'];
-          const currentIndex = tabs.indexOf(activeRightTab);
-          const nextIndex = (currentIndex + 1) % tabs.length;
-          // Skip history tab if in terminal mode
-          if (tabs[nextIndex] === 'history' && activeSession && activeSession.inputMode === 'terminal') {
-            const nextNextIndex = (nextIndex + 1) % tabs.length;
-            setActiveRightTab(tabs[nextNextIndex]);
-          } else {
-            setActiveRightTab(tabs[nextIndex]);
-          }
+        // Cycle to next Maestro session (global shortcut)
+        cycleSession('next');
+      }
+      else if (isShortcut(e, 'prevRightTab')) {
+        // Cycle to previous right panel tab
+        e.preventDefault();
+        const tabs: RightPanelTab[] = ['files', 'history', 'scratchpad'];
+        const currentIndex = tabs.indexOf(activeRightTab);
+        const prevIndex = currentIndex === 0 ? tabs.length - 1 : currentIndex - 1;
+        // Skip history tab if in terminal mode
+        if (tabs[prevIndex] === 'history' && activeSession && activeSession.inputMode === 'terminal') {
+          const prevPrevIndex = prevIndex === 0 ? tabs.length - 1 : prevIndex - 1;
+          setActiveRightTab(tabs[prevPrevIndex]);
         } else {
-          cycleSession('next');
+          setActiveRightTab(tabs[prevIndex]);
+        }
+      }
+      else if (isShortcut(e, 'nextRightTab')) {
+        // Cycle to next right panel tab
+        e.preventDefault();
+        const tabs: RightPanelTab[] = ['files', 'history', 'scratchpad'];
+        const currentIndex = tabs.indexOf(activeRightTab);
+        const nextIndex = (currentIndex + 1) % tabs.length;
+        // Skip history tab if in terminal mode
+        if (tabs[nextIndex] === 'history' && activeSession && activeSession.inputMode === 'terminal') {
+          const nextNextIndex = (nextIndex + 1) % tabs.length;
+          setActiveRightTab(tabs[nextNextIndex]);
+        } else {
+          setActiveRightTab(tabs[nextIndex]);
         }
       }
       else if (isShortcut(e, 'toggleMode')) toggleInputMode();
@@ -2268,6 +2286,10 @@ export default function MaestroConsole() {
       setActiveSessionId(newId);
       // Track session creation in global stats
       updateGlobalStats({ totalSessions: 1 });
+      // Auto-focus the input so user can start typing immediately
+      // Use a small delay to ensure the modal has closed and the UI has updated
+      setActiveFocus('main');
+      setTimeout(() => inputRef.current?.focus(), 50);
     } catch (error) {
       console.error('Failed to create session:', error);
       // TODO: Show error to user
@@ -2421,11 +2443,11 @@ export default function MaestroConsole() {
     }
   };
 
-  const updateScratchPad = (content: string) => {
+  const updateScratchPad = useCallback((content: string) => {
     setSessions(prev => prev.map(s => s.id === activeSessionId ? { ...s, scratchPadContent: content } : s));
-  };
+  }, [activeSessionId]);
 
-  const updateScratchPadState = (state: {
+  const updateScratchPadState = useCallback((state: {
     mode: 'edit' | 'preview';
     cursorPosition: number;
     editScrollPos: number;
@@ -2438,7 +2460,7 @@ export default function MaestroConsole() {
       scratchPadEditScrollPos: state.editScrollPos,
       scratchPadPreviewScrollPos: state.previewScrollPos
     } : s));
-  };
+  }, [activeSessionId]);
 
   const processInput = () => {
     console.log('[processInput] Called with:', {
@@ -2718,6 +2740,7 @@ export default function MaestroConsole() {
         state: 'busy',
         busySource: currentMode,
         thinkingStartTime: currentMode === 'ai' ? Date.now() : s.thinkingStartTime,
+        currentCycleTokens: currentMode === 'ai' ? 0 : s.currentCycleTokens,
         contextUsage: Math.min(s.contextUsage + 5, 100),
         shellCwd: newShellCwd,
         [historyKey]: newHistory
@@ -3102,6 +3125,8 @@ export default function MaestroConsole() {
             state: 'busy' as SessionState,
             busySource: 'ai',
             thinkingStartTime: Date.now(),
+            currentCycleTokens: 0,
+            currentCycleBytes: 0,
             aiLogs: [...s.aiLogs, {
               id: generateId(),
               timestamp: Date.now(),
@@ -4368,6 +4393,7 @@ export default function MaestroConsole() {
           initialPrompt={activeSession.batchRunnerPrompt || ''}
           lastModifiedAt={activeSession.batchRunnerPromptModifiedAt}
           showConfirmation={showConfirmation}
+          scratchpadContent={activeSession.scratchPadContent}
         />
       )}
 

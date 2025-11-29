@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { ArrowDown } from 'lucide-react';
 import { useThemeColors } from '../components/ThemeProvider';
 
 /** Threshold for character-based truncation */
@@ -60,6 +61,11 @@ export function MessageHistory({
   const prevLogsLengthRef = useRef(0);
   // Track which messages are expanded (by id or index)
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
+
+  // New message indicator state
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [hasNewMessages, setHasNewMessages] = useState(false);
+  const [newMessageCount, setNewMessageCount] = useState(0);
 
   /**
    * Check if a message should be truncated
@@ -122,8 +128,57 @@ export function MessageHistory({
     if (logs.length === 0) {
       setHasInitiallyScrolled(false);
       prevLogsLengthRef.current = 0;
+      setHasNewMessages(false);
+      setNewMessageCount(0);
+      setIsAtBottom(true);
     }
   }, [logs.length]);
+
+  // Track scroll position to detect when user scrolls away from bottom
+  const handleScroll = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const atBottom = scrollHeight - scrollTop - clientHeight < 50;
+    setIsAtBottom(atBottom);
+
+    if (atBottom) {
+      setHasNewMessages(false);
+      setNewMessageCount(0);
+    }
+  }, []);
+
+  // Detect new messages when user is not at bottom
+  useEffect(() => {
+    const currentCount = logs.length;
+    if (currentCount > prevLogsLengthRef.current && hasInitiallyScrolled) {
+      // Check actual scroll position
+      const container = containerRef.current;
+      let actuallyAtBottom = isAtBottom;
+      if (container) {
+        const { scrollTop, scrollHeight, clientHeight } = container;
+        actuallyAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+      }
+
+      if (!actuallyAtBottom) {
+        const newCount = currentCount - prevLogsLengthRef.current;
+        setHasNewMessages(true);
+        setNewMessageCount(prev => prev + newCount);
+        setIsAtBottom(false);
+      }
+    }
+    prevLogsLengthRef.current = currentCount;
+  }, [logs.length, isAtBottom, hasInitiallyScrolled]);
+
+  // Scroll to bottom function
+  const scrollToBottom = useCallback(() => {
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: 'smooth' });
+      setHasNewMessages(false);
+      setNewMessageCount(0);
+    }
+  }, []);
 
   if (!logs || logs.length === 0) {
     return (
@@ -141,21 +196,24 @@ export function MessageHistory({
   }
 
   return (
-    <div
-      ref={containerRef}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '8px',
-        padding: '12px',
-        maxHeight,
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        backgroundColor: colors.bgMain,
-        borderRadius: '8px',
-        border: `1px solid ${colors.border}`,
-      }}
-    >
+    <div style={{ position: 'relative', ...(maxHeight === 'none' ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } : {}) }}>
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+          padding: '12px',
+          // Use flex: 1 when maxHeight is "none" to fill available space
+          ...(maxHeight === 'none' ? { flex: 1, minHeight: 0 } : { maxHeight }),
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          backgroundColor: colors.bgMain,
+          borderRadius: '8px',
+          border: `1px solid ${colors.border}`,
+        }}
+      >
       {logs.map((entry, index) => {
         const text = entry.text || entry.content || '';
         const source = entry.source || (entry.type === 'user' ? 'user' : 'stdout');
@@ -261,7 +319,41 @@ export function MessageHistory({
           </div>
         );
       })}
-      <div ref={bottomRef} />
+        {/* Bottom ref with padding to ensure last message is fully visible */}
+        <div ref={bottomRef} style={{ minHeight: '8px' }} />
+      </div>
+
+      {/* New Message Indicator - floating arrow button */}
+      {hasNewMessages && !isAtBottom && (
+        <button
+          onClick={scrollToBottom}
+          style={{
+            position: 'absolute',
+            bottom: '16px',
+            right: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 12px',
+            borderRadius: '9999px',
+            backgroundColor: colors.accent,
+            color: colors.accentForeground || '#fff',
+            border: 'none',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+            cursor: 'pointer',
+            zIndex: 20,
+            animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          }}
+          title="Scroll to new messages"
+        >
+          <ArrowDown style={{ width: '16px', height: '16px' }} />
+          {newMessageCount > 0 && (
+            <span style={{ fontSize: '12px', fontWeight: 'bold' }}>
+              {newMessageCount > 99 ? '99+' : newMessageCount}
+            </span>
+          )}
+        </button>
+      )}
     </div>
   );
 }

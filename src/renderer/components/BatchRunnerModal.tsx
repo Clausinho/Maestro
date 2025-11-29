@@ -54,6 +54,14 @@ interface BatchRunnerModalProps {
   initialPrompt?: string;
   lastModifiedAt?: number;
   showConfirmation: (message: string, onConfirm: () => void) => void;
+  scratchpadContent?: string;
+}
+
+// Helper function to count unchecked tasks in scratchpad content
+function countUncheckedTasks(content: string): number {
+  if (!content) return 0;
+  const matches = content.match(/^-\s*\[\s*\]/gm);
+  return matches ? matches.length : 0;
 }
 
 // Helper function to format the last modified date
@@ -75,7 +83,11 @@ function formatLastModified(timestamp: number): string {
 }
 
 export function BatchRunnerModal(props: BatchRunnerModalProps) {
-  const { theme, onClose, onGo, onSave, initialPrompt, lastModifiedAt, showConfirmation } = props;
+  const { theme, onClose, onGo, onSave, initialPrompt, lastModifiedAt, showConfirmation, scratchpadContent } = props;
+
+  // Count unchecked tasks
+  const taskCount = countUncheckedTasks(scratchpadContent || '');
+  const hasNoTasks = taskCount === 0;
 
   const [prompt, setPrompt] = useState(initialPrompt || DEFAULT_BATCH_PROMPT);
   const [variablesExpanded, setVariablesExpanded] = useState(false);
@@ -175,9 +187,32 @@ export function BatchRunnerModal(props: BatchRunnerModalProps) {
               </span>
             )}
           </div>
-          <button onClick={onClose} style={{ color: theme.colors.textDim }}>
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-4">
+            {/* Task Count Badge */}
+            <div
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+              style={{
+                backgroundColor: hasNoTasks ? theme.colors.error + '20' : theme.colors.success + '20',
+                border: `1px solid ${hasNoTasks ? theme.colors.error + '40' : theme.colors.success + '40'}`
+              }}
+            >
+              <span
+                className="text-lg font-bold"
+                style={{ color: hasNoTasks ? theme.colors.error : theme.colors.success }}
+              >
+                {taskCount}
+              </span>
+              <span
+                className="text-xs font-medium"
+                style={{ color: hasNoTasks ? theme.colors.error : theme.colors.success }}
+              >
+                {taskCount === 1 ? 'task' : 'tasks'}
+              </span>
+            </div>
+            <button onClick={onClose} style={{ color: theme.colors.textDim }}>
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -282,8 +317,10 @@ export function BatchRunnerModal(props: BatchRunnerModalProps) {
           </button>
           <button
             onClick={handleGo}
-            className="flex items-center gap-2 px-4 py-2 rounded text-white font-bold"
-            style={{ backgroundColor: theme.colors.accent }}
+            disabled={hasNoTasks}
+            className="flex items-center gap-2 px-4 py-2 rounded text-white font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ backgroundColor: hasNoTasks ? theme.colors.textDim : theme.colors.accent }}
+            title={hasNoTasks ? 'No unchecked tasks in scratchpad' : 'Run batch processing'}
           >
             <Play className="w-4 h-4" />
             Go

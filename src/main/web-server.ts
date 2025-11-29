@@ -477,6 +477,7 @@ export class WebServer {
    * This forwards to the renderer which handles state updates and broadcasts
    */
   setSwitchModeCallback(callback: SwitchModeCallback) {
+    logger.info('[WebServer] setSwitchModeCallback called', LOG_CONTEXT);
     this.switchModeCallback = callback;
   }
 
@@ -485,6 +486,7 @@ export class WebServer {
    * This forwards to the renderer which handles state updates and broadcasts
    */
   setSelectSessionCallback(callback: SelectSessionCallback) {
+    logger.info('[WebServer] setSelectSessionCallback called', LOG_CONTEXT);
     this.selectSessionCallback = callback;
   }
 
@@ -988,6 +990,9 @@ export class WebServer {
     const client = this.webClients.get(clientId);
     if (!client) return;
 
+    // Log all incoming messages for debugging
+    logger.info(`[Web] handleWebClientMessage: type=${message.type}, clientId=${clientId}`, LOG_CONTEXT);
+
     switch (message.type) {
       case 'ping':
         // Respond to ping with pong
@@ -1090,6 +1095,7 @@ export class WebServer {
         // Switch session input mode between AI and terminal
         const sessionId = message.sessionId as string;
         const mode = message.mode as 'ai' | 'terminal';
+        logger.info(`[Web] Received switch_mode message: session=${sessionId}, mode=${mode}`, LOG_CONTEXT);
 
         if (!sessionId || !mode) {
           client.socket.send(JSON.stringify({
@@ -1101,6 +1107,7 @@ export class WebServer {
         }
 
         if (!this.switchModeCallback) {
+          logger.warn(`[Web] switchModeCallback is not set!`, LOG_CONTEXT);
           client.socket.send(JSON.stringify({
             type: 'error',
             message: 'Mode switching not configured',
@@ -1111,7 +1118,7 @@ export class WebServer {
 
         // Forward to desktop's mode switching logic
         // This ensures single source of truth - desktop handles state updates and broadcasts
-        logger.debug(`Forwarding mode switch to desktop for session ${sessionId}: ${mode}`, LOG_CONTEXT);
+        logger.info(`[Web] Calling switchModeCallback for session ${sessionId}: ${mode}`, LOG_CONTEXT);
         this.switchModeCallback(sessionId, mode)
           .then((success) => {
             client.socket.send(JSON.stringify({
@@ -1136,6 +1143,7 @@ export class WebServer {
       case 'select_session': {
         // Select/switch to a session in the desktop app
         const sessionId = message.sessionId as string;
+        logger.info(`[Web] Received select_session message: session=${sessionId}`, LOG_CONTEXT);
 
         if (!sessionId) {
           client.socket.send(JSON.stringify({
@@ -1147,6 +1155,7 @@ export class WebServer {
         }
 
         if (!this.selectSessionCallback) {
+          logger.warn(`[Web] selectSessionCallback is not set!`, LOG_CONTEXT);
           client.socket.send(JSON.stringify({
             type: 'error',
             message: 'Session selection not configured',
@@ -1156,7 +1165,7 @@ export class WebServer {
         }
 
         // Forward to desktop's session selection logic
-        logger.info(`[Web] Selecting session ${sessionId} in desktop app`, LOG_CONTEXT);
+        logger.info(`[Web] Calling selectSessionCallback for session ${sessionId}`, LOG_CONTEXT);
         this.selectSessionCallback(sessionId)
           .then((success) => {
             client.socket.send(JSON.stringify({
