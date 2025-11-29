@@ -437,27 +437,44 @@ export function AgentSessionsBrowser({
       return sortWithStarred(visibleSessions);
     }
 
-    // For title search, filter locally (fast) - include sessionName
+    // For title search, filter locally (fast) - include sessionName, sessionId (UUID), and first octet
     if (searchMode === 'title') {
       const searchLower = search.toLowerCase();
-      const filtered = visibleSessions.filter(s =>
-        s.firstMessage.toLowerCase().includes(searchLower) ||
-        s.sessionId.toLowerCase().includes(searchLower) ||
-        (s.sessionName && s.sessionName.toLowerCase().includes(searchLower))
-      );
+      const searchUpper = search.toUpperCase();
+      const filtered = visibleSessions.filter(s => {
+        // Check firstMessage
+        if (s.firstMessage.toLowerCase().includes(searchLower)) return true;
+        // Check full sessionId (UUID)
+        if (s.sessionId.toLowerCase().includes(searchLower)) return true;
+        // Check first octet (displayed format) - e.g., "D02D0BD6"
+        const firstOctet = s.sessionId.split('-')[0].toUpperCase();
+        if (firstOctet.includes(searchUpper)) return true;
+        // Check sessionName
+        if (s.sessionName && s.sessionName.toLowerCase().includes(searchLower)) return true;
+        return false;
+      });
       return sortWithStarred(filtered);
     }
 
     // For content searches, use backend results to filter sessions
-    // Also include sessions that match by sessionName (strong match in 'all' mode)
+    // Also include sessions that match by sessionName, sessionId (UUID), or first octet
     const searchLower = search.toLowerCase();
+    const searchUpper = search.toUpperCase();
     const matchingIds = new Set(searchResults.map(r => r.sessionId));
 
-    // Add sessions that match by sessionName to the results
-    const filtered = visibleSessions.filter(s =>
-      matchingIds.has(s.sessionId) ||
-      (s.sessionName && s.sessionName.toLowerCase().includes(searchLower))
-    );
+    // Add sessions that match by sessionName, sessionId (UUID), or first octet to the results
+    const filtered = visibleSessions.filter(s => {
+      // Check if matched by backend content search
+      if (matchingIds.has(s.sessionId)) return true;
+      // Check sessionName match
+      if (s.sessionName && s.sessionName.toLowerCase().includes(searchLower)) return true;
+      // Check full sessionId (UUID) match
+      if (s.sessionId.toLowerCase().includes(searchLower)) return true;
+      // Check first octet (displayed format) match - e.g., "D02D0BD6"
+      const firstOctet = s.sessionId.split('-')[0].toUpperCase();
+      if (firstOctet.includes(searchUpper)) return true;
+      return false;
+    });
 
     if (filtered.length > 0) {
       return sortWithStarred(filtered);

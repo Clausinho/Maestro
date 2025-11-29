@@ -95,7 +95,7 @@ export function FileExplorerPanel(props: FileExplorerPanelProps) {
         <div key={idx} className={depth > 0 ? "ml-3 border-l pl-2" : ""} style={{ borderColor: theme.colors.border }}>
           <div
             data-file-index={currentIndex}
-            className={`flex items-center gap-2 py-1 text-xs cursor-pointer hover:bg-white/5 px-2 rounded transition-colors border-l-2 select-none ${isSelected ? 'bg-white/10' : ''}`}
+            className={`flex items-center gap-2 py-1 text-xs cursor-pointer hover:bg-white/5 px-2 rounded transition-colors border-l-2 select-none min-w-0 ${isSelected ? 'bg-white/10' : ''}`}
             style={{
               color: change ? theme.colors.textMain : theme.colors.textDim,
               borderLeftColor: isKeyboardSelected ? theme.colors.accent : 'transparent',
@@ -116,13 +116,13 @@ export function FileExplorerPanel(props: FileExplorerPanelProps) {
             }}
           >
             {isFolder && (
-              isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />
+              isExpanded ? <ChevronDown className="w-3 h-3 flex-shrink-0" /> : <ChevronRight className="w-3 h-3 flex-shrink-0" />
             )}
-            {isFolder ? <Folder className="w-3.5 h-3.5" style={{ color: theme.colors.accent }} /> : getFileIcon(change?.type, theme)}
-            <span className={change ? 'font-medium' : ''}>{node.name}</span>
+            <span className="flex-shrink-0">{isFolder ? <Folder className="w-3.5 h-3.5" style={{ color: theme.colors.accent }} /> : getFileIcon(change?.type, theme)}</span>
+            <span className={`truncate min-w-0 flex-1 ${change ? 'font-medium' : ''}`} title={node.name}>{node.name}</span>
             {change && (
               <span
-                className="ml-auto text-[9px] px-1 rounded uppercase"
+                className="flex-shrink-0 text-[9px] px-1 rounded uppercase"
                 style={{
                   backgroundColor: change.type === 'added' ? theme.colors.success + '20' : change.type === 'deleted' ? theme.colors.error + '20' : theme.colors.warning + '20',
                   color: change.type === 'added' ? theme.colors.success : change.type === 'deleted' ? theme.colors.error : theme.colors.warning
@@ -158,13 +158,13 @@ export function FileExplorerPanel(props: FileExplorerPanelProps) {
 
       {/* Header with CWD and controls */}
       <div
-        className="sticky top-0 z-10 flex items-center justify-between text-xs font-bold pt-4 pb-2 mb-2"
+        className="sticky top-0 z-10 flex items-center justify-between gap-2 text-xs font-bold pt-4 pb-2 mb-2 min-w-0"
         style={{
           backgroundColor: theme.colors.bgSidebar
         }}
       >
-        <span className="opacity-50">{session.cwd}</span>
-        <div className="flex items-center gap-1">
+        <span className="opacity-50 truncate min-w-0 flex-1" title={session.cwd}>{session.cwd}</span>
+        <div className="flex items-center gap-1 flex-shrink-0">
           <button
             onClick={() => refreshFileTree(session.id)}
             className="p-1 rounded hover:bg-white/10 transition-colors"

@@ -124,13 +124,30 @@ function AttachmentImage({
   }
 
   return (
-    <img
-      src={dataUrl}
-      alt={alt || ''}
-      className="max-w-full h-auto rounded my-2 cursor-pointer hover:opacity-90 transition-opacity"
-      style={{ maxHeight: '400px', objectFit: 'contain' }}
-      onClick={() => filename && onImageClick?.(filename)}
-    />
+    <span
+      className="inline-block align-middle mx-1 my-1 cursor-pointer group relative"
+      onClick={() => onImageClick?.(filename || src || '')}
+      title={filename ? `Click to enlarge: ${filename}` : 'Click to enlarge'}
+    >
+      <img
+        src={dataUrl}
+        alt={alt || ''}
+        className="rounded border hover:opacity-90 transition-all hover:shadow-lg"
+        style={{
+          maxHeight: '120px',
+          maxWidth: '200px',
+          objectFit: 'contain',
+          borderColor: theme.colors.border,
+        }}
+      />
+      {/* Zoom hint overlay */}
+      <span
+        className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded"
+        style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
+      >
+        <Search className="w-5 h-5 text-white" />
+      </span>
+    </span>
   );
 }
 
@@ -272,8 +289,10 @@ export function Scratchpad({
   // Track mode before auto-run to restore when it ends
   const modeBeforeAutoRunRef = useRef<'edit' | 'preview' | null>(null);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
-  // Lightbox state: stores the filename of the currently viewed image (null = closed)
+  // Lightbox state: stores the filename/URL of the currently viewed image (null = closed)
   const [lightboxFilename, setLightboxFilename] = useState<string | null>(null);
+  // For external URLs, store the direct URL separately (attachments use attachmentPreviews)
+  const [lightboxExternalUrl, setLightboxExternalUrl] = useState<string | null>(null);
   const [lightboxCopied, setLightboxCopied] = useState(false);
   const [attachmentsList, setAttachmentsList] = useState<string[]>([]);
   const [attachmentPreviews, setAttachmentPreviews] = useState<Map<string, string>>(new Map());
@@ -608,14 +627,23 @@ export function Scratchpad({
     imageCache.delete(`${sessionId}:${filename}`);
   }, [content, onChange, sessionId]);
 
-  // Lightbox helpers
-  const openLightboxByFilename = useCallback((filename: string) => {
-    setLightboxFilename(filename);
+  // Lightbox helpers - handles both attachment filenames and external URLs
+  const openLightboxByFilename = useCallback((filenameOrUrl: string) => {
+    // Check if it's an external URL (http/https/data:)
+    if (filenameOrUrl.startsWith('http://') || filenameOrUrl.startsWith('https://') || filenameOrUrl.startsWith('data:')) {
+      setLightboxExternalUrl(filenameOrUrl);
+      setLightboxFilename(filenameOrUrl); // Use URL as display name
+    } else {
+      // It's an attachment filename
+      setLightboxExternalUrl(null);
+      setLightboxFilename(filenameOrUrl);
+    }
     setLightboxCopied(false);
   }, []);
 
   const closeLightbox = useCallback(() => {
     setLightboxFilename(null);
+    setLightboxExternalUrl(null);
     setLightboxCopied(false);
   }, []);
 
@@ -638,11 +666,13 @@ export function Scratchpad({
 
   const copyLightboxImageToClipboard = useCallback(async () => {
     if (!lightboxFilename) return;
-    const dataUrl = attachmentPreviews.get(lightboxFilename);
-    if (!dataUrl) return;
+
+    // Get image URL from external URL or attachment previews
+    const imageUrl = lightboxExternalUrl || attachmentPreviews.get(lightboxFilename);
+    if (!imageUrl) return;
 
     try {
-      const response = await fetch(dataUrl);
+      const response = await fetch(imageUrl);
       const blob = await response.blob();
       await navigator.clipboard.write([
         new ClipboardItem({ [blob.type]: blob })
@@ -652,7 +682,7 @@ export function Scratchpad({
     } catch (err) {
       console.error('Failed to copy image to clipboard:', err);
     }
-  }, [lightboxFilename, attachmentPreviews]);
+  }, [lightboxFilename, lightboxExternalUrl, attachmentPreviews]);
 
   const deleteLightboxImage = useCallback(async () => {
     if (!lightboxFilename || !sessionId) return;
@@ -1198,7 +1228,7 @@ export function Scratchpad({
       )}
 
       {/* Lightbox for viewing images with navigation, copy, and delete */}
-      {lightboxFilename && attachmentPreviews.get(lightboxFilename) && (
+      {lightboxFilename && (lightboxExternalUrl || attachmentPreviews.get(lightboxFilename)) && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
           onClick={closeLightbox}
@@ -1206,13 +1236,17 @@ export function Scratchpad({
             e.stopPropagation();
             if (e.key === 'ArrowLeft') { e.preventDefault(); goToPrevImage(); }
             else if (e.key === 'ArrowRight') { e.preventDefault(); goToNextImage(); }
-            else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteLightboxImage(); }
+            else if (e.key === 'Delete' || e.key === 'Backspace') {
+              e.preventDefault();
+              // Only allow delete for attachments, not external URLs
+              if (!lightboxExternalUrl) deleteLightboxImage();
+            }
           }}
           tabIndex={-1}
           ref={(el) => el?.focus()}
         >
-          {/* Previous button */}
-          {canNavigateLightbox && lightboxCurrentIndex > 0 && (
+          {/* Previous button - only for attachments carousel */}
+          {!lightboxExternalUrl && canNavigateLightbox && lightboxCurrentIndex > 0 && (
             <button
               onClick={(e) => { e.stopPropagation(); goToPrevImage(); }}
               className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white rounded-full p-3 backdrop-blur-sm transition-colors"
@@ -1224,7 +1258,7 @@ export function Scratchpad({
 
           {/* Image */}
           <img
-            src={attachmentPreviews.get(lightboxFilename)}
+            src={lightboxExternalUrl || attachmentPreviews.get(lightboxFilename)}
             alt={lightboxFilename}
             className="max-w-[90%] max-h-[90%] rounded shadow-2xl"
             onClick={(e) => e.stopPropagation()}
@@ -1242,14 +1276,16 @@ export function Scratchpad({
               {lightboxCopied && <span className="text-sm">Copied!</span>}
             </button>
 
-            {/* Delete image */}
-            <button
-              onClick={(e) => { e.stopPropagation(); deleteLightboxImage(); }}
-              className="bg-red-500/80 hover:bg-red-500 text-white rounded-full p-3 backdrop-blur-sm transition-colors"
-              title="Delete image (Delete key)"
-            >
-              <Trash2 className="w-5 h-5" />
-            </button>
+            {/* Delete image - only for attachments, not external URLs */}
+            {!lightboxExternalUrl && (
+              <button
+                onClick={(e) => { e.stopPropagation(); deleteLightboxImage(); }}
+                className="bg-red-500/80 hover:bg-red-500 text-white rounded-full p-3 backdrop-blur-sm transition-colors"
+                title="Delete image (Delete key)"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+            )}
 
             {/* Close button */}
             <button
@@ -1261,8 +1297,8 @@ export function Scratchpad({
             </button>
           </div>
 
-          {/* Next button */}
-          {canNavigateLightbox && lightboxCurrentIndex < attachmentsList.length - 1 && (
+          {/* Next button - only for attachments carousel */}
+          {!lightboxExternalUrl && canNavigateLightbox && lightboxCurrentIndex < attachmentsList.length - 1 && (
             <button
               onClick={(e) => { e.stopPropagation(); goToNextImage(); }}
               className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white rounded-full p-3 backdrop-blur-sm transition-colors"
@@ -1273,11 +1309,11 @@ export function Scratchpad({
           )}
 
           {/* Bottom info */}
-          <div className="absolute bottom-10 text-white text-sm opacity-70 text-center">
-            <div>{lightboxFilename}</div>
+          <div className="absolute bottom-10 text-white text-sm opacity-70 text-center max-w-[80%]">
+            <div className="truncate">{lightboxFilename}</div>
             <div className="mt-1">
-              {canNavigateLightbox ? `Image ${lightboxCurrentIndex + 1} of ${attachmentsList.length} • ← → to navigate • ` : ''}
-              Delete to remove • ESC to close
+              {!lightboxExternalUrl && canNavigateLightbox ? `Image ${lightboxCurrentIndex + 1} of ${attachmentsList.length} • ← → to navigate • ` : ''}
+              {!lightboxExternalUrl ? 'Delete to remove • ' : ''}ESC to close
             </div>
           </div>
         </div>

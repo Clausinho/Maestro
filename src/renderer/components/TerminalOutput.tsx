@@ -514,15 +514,17 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
   // Initialize to 0 so that on first load with existing logs, we scroll to bottom
   const prevLogCountRef = useRef(0);
   useEffect(() => {
-    // Don't auto-scroll if user has scrolled away from bottom or has expanded logs
-    if (!isAtBottomRef.current || hasExpandedLogs) {
-      prevLogCountRef.current = filteredLogs.length;
-      return;
-    }
     // Only scroll when new logs are added, not when deleted
     if (filteredLogs.length > prevLogCountRef.current && filteredLogs.length > 0) {
       // Use setTimeout to ensure scroll happens after render
-      setTimeout(() => scrollToBottom(true), 0);
+      // IMPORTANT: Check isAtBottomRef INSIDE the timeout to avoid race conditions
+      // where user starts scrolling between effect trigger and scroll execution
+      setTimeout(() => {
+        // Use refs to get current values at execution time, not effect run time
+        if (isAtBottomRef.current && expandedLogsRef.current.size === 0) {
+          scrollToBottom(true);
+        }
+      }, 0);
     }
     prevLogCountRef.current = filteredLogs.length;
   }, [filteredLogs.length, hasExpandedLogs, scrollToBottom]);
@@ -530,16 +532,17 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
   // Auto-scroll to bottom when session becomes busy to show thinking indicator
   const prevBusyStateRef = useRef(session.state === 'busy');
   useEffect(() => {
-    // Don't auto-scroll if user has scrolled away from bottom or has expanded logs
-    if (!isAtBottomRef.current || hasExpandedLogs) {
-      prevBusyStateRef.current = session.state === 'busy';
-      return;
-    }
     const isBusy = session.state === 'busy';
     // Scroll when transitioning to busy state
     if (isBusy && !prevBusyStateRef.current) {
       // Use setTimeout to ensure scroll happens after the Footer renders
-      setTimeout(() => scrollToBottom(true), 50);
+      // IMPORTANT: Check isAtBottomRef INSIDE the timeout to avoid race conditions
+      setTimeout(() => {
+        // Use refs to get current values at execution time, not effect run time
+        if (isAtBottomRef.current && expandedLogsRef.current.size === 0) {
+          scrollToBottom(true);
+        }
+      }, 50);
     }
     prevBusyStateRef.current = isBusy;
   }, [session.state, hasExpandedLogs, scrollToBottom]);
@@ -547,15 +550,16 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
   // Auto-scroll to bottom when message queue changes
   const prevQueueLengthRef = useRef(session.messageQueue?.length || 0);
   useEffect(() => {
-    // Don't auto-scroll if user has scrolled away from bottom or has expanded logs
-    if (!isAtBottomRef.current || hasExpandedLogs) {
-      prevQueueLengthRef.current = session.messageQueue?.length || 0;
-      return;
-    }
     const queueLength = session.messageQueue?.length || 0;
     // Scroll when new messages are added to the queue
     if (queueLength > prevQueueLengthRef.current) {
-      setTimeout(() => scrollToBottom(true), 50);
+      // IMPORTANT: Check isAtBottomRef INSIDE the timeout to avoid race conditions
+      setTimeout(() => {
+        // Use refs to get current values at execution time, not effect run time
+        if (isAtBottomRef.current && expandedLogsRef.current.size === 0) {
+          scrollToBottom(true);
+        }
+      }, 50);
     }
     prevQueueLengthRef.current = queueLength;
   }, [session.messageQueue?.length, hasExpandedLogs, scrollToBottom]);

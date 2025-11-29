@@ -98,6 +98,12 @@ export function InputArea(props: InputAreaProps) {
     return cmd.command.toLowerCase().startsWith(inputValue.toLowerCase());
   });
 
+  // Ensure selectedSlashCommandIndex is valid for the filtered list
+  const safeSelectedIndex = Math.min(
+    Math.max(0, selectedSlashCommandIndex),
+    Math.max(0, filteredSlashCommands.length - 1)
+  );
+
   return (
     <div className="relative p-4 border-t" style={{ borderColor: theme.colors.border, backgroundColor: theme.colors.bgSidebar }}>
       {/* Only show staged images in AI mode */}
@@ -136,11 +142,11 @@ export function InputArea(props: InputAreaProps) {
               <div
                 key={cmd.command}
                 className={`px-4 py-3 cursor-pointer transition-colors ${
-                  idx === selectedSlashCommandIndex ? 'font-semibold' : ''
+                  idx === safeSelectedIndex ? 'font-semibold' : ''
                 }`}
                 style={{
-                  backgroundColor: idx === selectedSlashCommandIndex ? theme.colors.accent : 'transparent',
-                  color: idx === selectedSlashCommandIndex ? theme.colors.bgMain : theme.colors.textMain
+                  backgroundColor: idx === safeSelectedIndex ? theme.colors.accent : 'transparent',
+                  color: idx === safeSelectedIndex ? theme.colors.bgMain : theme.colors.textMain
                 }}
                 onClick={() => {
                   setInputValue(cmd.command);
@@ -325,6 +331,7 @@ export function InputArea(props: InputAreaProps) {
                 // Show slash command autocomplete when typing /
                 if (value.startsWith('/') && !value.includes(' ')) {
                   setSlashCommandOpen(true);
+                  // Always reset selection to first item when filter changes
                   setSelectedSlashCommandIndex(0);
                 } else {
                   setSlashCommandOpen(false);

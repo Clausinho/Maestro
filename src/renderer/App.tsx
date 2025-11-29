@@ -1673,6 +1673,8 @@ export default function MaestroConsole() {
         const isCycleShortcut = (e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === '[' || e.key === ']');
         // Allow sidebar toggle shortcuts (Alt+Cmd+Arrow) even when modals are open
         const isLayoutShortcut = e.altKey && (e.metaKey || e.ctrlKey) && (e.key === 'ArrowLeft' || e.key === 'ArrowRight');
+        // Allow right panel tab shortcuts (Cmd+Shift+F/H/S) even when overlays are open
+        const isRightPanelShortcut = (e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'f' || e.key === 'h' || e.key === 's');
 
         if (hasOpenModal()) {
           // TRUE MODAL is open - block most shortcuts from App.tsx
@@ -1686,7 +1688,8 @@ export default function MaestroConsole() {
           // Only OVERLAYS are open (FilePreview, LogViewer, etc.)
           // Allow Cmd+Shift+[] to fall through to App.tsx handler
           // (which will cycle right panel tabs when previewFile is set)
-          if (!isCycleShortcut && !isLayoutShortcut) {
+          // Also allow right panel tab shortcuts to switch tabs while overlay is open
+          if (!isCycleShortcut && !isLayoutShortcut && !isRightPanelShortcut) {
             return;
           }
           // Fall through to cyclePrev/cycleNext logic below
@@ -1941,9 +1944,9 @@ export default function MaestroConsole() {
       }
       else if (isShortcut(e, 'help')) setShortcutsHelpOpen(true);
       else if (isShortcut(e, 'settings')) { setSettingsModalOpen(true); setSettingsTab('general'); }
-      else if (isShortcut(e, 'goToFiles')) { setRightPanelOpen(true); setActiveRightTab('files'); setActiveFocus('right'); }
-      else if (isShortcut(e, 'goToHistory')) { setRightPanelOpen(true); setActiveRightTab('history'); setActiveFocus('right'); }
-      else if (isShortcut(e, 'goToScratchpad')) { setRightPanelOpen(true); setActiveRightTab('scratchpad'); setActiveFocus('right'); }
+      else if (isShortcut(e, 'goToFiles')) { e.preventDefault(); setRightPanelOpen(true); setActiveRightTab('files'); setActiveFocus('right'); }
+      else if (isShortcut(e, 'goToHistory')) { e.preventDefault(); setRightPanelOpen(true); setActiveRightTab('history'); setActiveFocus('right'); }
+      else if (isShortcut(e, 'goToScratchpad')) { e.preventDefault(); setRightPanelOpen(true); setActiveRightTab('scratchpad'); setActiveFocus('right'); }
       else if (isShortcut(e, 'focusInput')) {
         e.preventDefault();
         setActiveFocus('main');

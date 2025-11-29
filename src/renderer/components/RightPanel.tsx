@@ -168,7 +168,7 @@ export const RightPanel = forwardRef<RightPanelHandle, RightPanelProps>(function
       {/* Tab Content */}
       <div
         ref={fileTreeContainerRef}
-        className="flex-1 px-4 pb-4 overflow-y-auto min-w-[24rem] outline-none scrollbar-thin"
+        className="flex-1 px-4 pb-4 overflow-y-auto overflow-x-hidden min-w-[24rem] outline-none scrollbar-thin"
         tabIndex={-1}
         onClick={() => {
           setActiveFocus('right');
