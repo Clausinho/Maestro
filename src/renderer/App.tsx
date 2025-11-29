@@ -1538,9 +1538,16 @@ export default function MaestroConsole() {
       return;
     }
 
-    setSessions(prev => prev.map(s =>
-      s.id === activeSession.id ? { ...s, claudeSessionId: undefined, aiLogs: [], state: 'idle' as SessionState } : s
-    ));
+    setSessions(prev => prev.map(s => {
+      if (s.id !== activeSession.id) return s;
+      // Reset active tab's state to 'idle' for write-mode tracking
+      const updatedAiTabs = s.aiTabs?.length > 0
+        ? s.aiTabs.map(tab =>
+            tab.id === s.activeTabId ? { ...tab, state: 'idle' as const } : tab
+          )
+        : s.aiTabs;
+      return { ...s, claudeSessionId: undefined, aiLogs: [], state: 'idle' as SessionState, aiTabs: updatedAiTabs };
+    }));
     setActiveClaudeSessionId(null);
   }, [activeSession]);
 
@@ -3067,6 +3074,12 @@ export default function MaestroConsole() {
           console.error('Failed to spawn Claude batch process:', error);
           setSessions(prev => prev.map(s => {
             if (s.id !== activeSessionId) return s;
+            // Reset active tab's state to 'idle' for write-mode tracking
+            const updatedAiTabs = s.aiTabs?.length > 0
+              ? s.aiTabs.map(tab =>
+                  tab.id === s.activeTabId ? { ...tab, state: 'idle' as const } : tab
+                )
+              : s.aiTabs;
             return {
               ...s,
               state: 'idle',
@@ -3075,7 +3088,8 @@ export default function MaestroConsole() {
                 timestamp: Date.now(),
                 source: 'system',
                 text: `Error: Failed to spawn Claude process - ${error.message}`
-              }]
+              }],
+              aiTabs: updatedAiTabs
             };
           }));
         }
@@ -3116,6 +3130,12 @@ export default function MaestroConsole() {
         console.error('Failed to write to process:', error);
         setSessions(prev => prev.map(s => {
           if (s.id !== activeSessionId) return s;
+          // Reset active tab's state to 'idle' for write-mode tracking (if tabs exist)
+          const updatedAiTabs = s.aiTabs?.length > 0
+            ? s.aiTabs.map(tab =>
+                tab.id === s.activeTabId ? { ...tab, state: 'idle' as const } : tab
+              )
+            : s.aiTabs;
           return {
             ...s,
             state: 'idle',
@@ -3124,7 +3144,8 @@ export default function MaestroConsole() {
               timestamp: Date.now(),
               source: 'system',
               text: `Error: Failed to write to process - ${error.message}`
-            }]
+            }],
+            aiTabs: updatedAiTabs
           };
         }));
       });
@@ -3406,6 +3427,12 @@ export default function MaestroConsole() {
         console.error('[Remote] Failed to spawn Claude:', error);
         setSessions(prev => prev.map(s => {
           if (s.id !== sessionId) return s;
+          // Reset active tab's state to 'idle' for write-mode tracking
+          const updatedAiTabs = s.aiTabs?.length > 0
+            ? s.aiTabs.map(tab =>
+                tab.id === s.activeTabId ? { ...tab, state: 'idle' as const } : tab
+              )
+            : s.aiTabs;
           return {
             ...s,
             state: 'idle' as SessionState,
@@ -3415,7 +3442,8 @@ export default function MaestroConsole() {
               timestamp: Date.now(),
               source: 'system',
               text: `Error: Failed to process remote command - ${error.message}`
-            }]
+            }],
+            aiTabs: updatedAiTabs
           };
         }));
       }
@@ -3464,6 +3492,12 @@ export default function MaestroConsole() {
       console.error('[processQueuedMessage] Failed to spawn Claude:', error);
       setSessions(prev => prev.map(s => {
         if (s.id !== sessionId) return s;
+        // Reset active tab's state to 'idle' for write-mode tracking
+        const updatedAiTabs = s.aiTabs?.length > 0
+          ? s.aiTabs.map(tab =>
+              tab.id === s.activeTabId ? { ...tab, state: 'idle' as const } : tab
+            )
+          : s.aiTabs;
         return {
           ...s,
           state: 'idle',
@@ -3472,7 +3506,8 @@ export default function MaestroConsole() {
             timestamp: Date.now(),
             source: 'system',
             text: `Error: Failed to process queued message - ${error.message}`
-          }]
+          }],
+          aiTabs: updatedAiTabs
         };
       }));
     }
@@ -4129,9 +4164,16 @@ export default function MaestroConsole() {
                 }));
                 return;
               }
-              setSessions(prev => prev.map(s =>
-                s.id === activeSession.id ? { ...s, claudeSessionId: undefined, aiLogs: [], state: 'idle' } : s
-              ));
+              setSessions(prev => prev.map(s => {
+                if (s.id !== activeSession.id) return s;
+                // Reset active tab's state to 'idle' for write-mode tracking
+                const updatedAiTabs = s.aiTabs?.length > 0
+                  ? s.aiTabs.map(tab =>
+                      tab.id === s.activeTabId ? { ...tab, state: 'idle' as const } : tab
+                    )
+                  : s.aiTabs;
+                return { ...s, claudeSessionId: undefined, aiLogs: [], state: 'idle', aiTabs: updatedAiTabs };
+              }));
               setActiveClaudeSessionId(null);
             }
           }}
@@ -4358,9 +4400,16 @@ export default function MaestroConsole() {
               }));
               return;
             }
-            setSessions(prev => prev.map(s =>
-              s.id === activeSession.id ? { ...s, claudeSessionId: undefined, aiLogs: [], state: 'idle', usageStats: undefined, contextUsage: 0, activeTimeMs: 0 } : s
-            ));
+            setSessions(prev => prev.map(s => {
+              if (s.id !== activeSession.id) return s;
+              // Reset active tab's state to 'idle' for write-mode tracking
+              const updatedAiTabs = s.aiTabs?.length > 0
+                ? s.aiTabs.map(tab =>
+                    tab.id === s.activeTabId ? { ...tab, state: 'idle' as const } : tab
+                  )
+                : s.aiTabs;
+              return { ...s, claudeSessionId: undefined, aiLogs: [], state: 'idle', usageStats: undefined, contextUsage: 0, activeTimeMs: 0, aiTabs: updatedAiTabs };
+            }));
             setActiveClaudeSessionId(null);
           }
           setAgentSessionsOpen(false);
