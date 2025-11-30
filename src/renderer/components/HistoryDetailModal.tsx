@@ -47,6 +47,7 @@ export function HistoryDetailModal({
   onCloseRef.current = onClose;
   const [copiedSessionId, setCopiedSessionId] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const deleteButtonRef = useRef<HTMLButtonElement>(null);
 
   // Register layer on mount
   useEffect(() => {
@@ -74,6 +75,13 @@ export function HistoryDetailModal({
       });
     }
   }, [onClose, updateLayerHandler]);
+
+  // Focus delete button when confirmation modal appears
+  useEffect(() => {
+    if (showDeleteConfirm && deleteButtonRef.current) {
+      deleteButtonRef.current.focus();
+    }
+  }, [showDeleteConfirm]);
 
   // Format timestamp
   const formatTime = (timestamp: number) => {
@@ -405,6 +413,7 @@ export function HistoryDetailModal({
                   Cancel
                 </button>
                 <button
+                  ref={deleteButtonRef}
                   onClick={() => {
                     if (onDelete) {
                       onDelete(entry.id);
@@ -412,8 +421,9 @@ export function HistoryDetailModal({
                     setShowDeleteConfirm(false);
                     onClose();
                   }}
-                  className="px-4 py-2 rounded text-white"
+                  className="px-4 py-2 rounded text-white outline-none focus:ring-2 focus:ring-offset-2"
                   style={{ backgroundColor: theme.colors.error }}
+                  tabIndex={0}
                 >
                   Delete
                 </button>
