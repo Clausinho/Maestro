@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo, useCallback } from 'react';
 import { Terminal, Cpu, Keyboard, ImageIcon, X, ArrowUp, StopCircle, Eye, History, File, Folder } from 'lucide-react';
 import type { Session, Theme, BatchRunState } from '../types';
 import type { TabCompletionSuggestion } from '../hooks/useTabCompletion';
@@ -61,7 +61,7 @@ interface InputAreaProps {
   onToggleTabReadOnlyMode?: () => void;
 }
 
-export function InputArea(props: InputAreaProps) {
+export const InputArea = React.memo(function InputArea(props: InputAreaProps) {
   const {
     session, theme, inputValue, setInputValue, enterToSend, setEnterToSend,
     stagedImages, setStagedImages, setLightboxImage, commandHistoryOpen,
@@ -97,22 +97,28 @@ export function InputArea(props: InputAreaProps) {
     : (aiHistory.length > 0 ? aiHistory : legacyHistory);
 
   // Combine built-in slash commands with Claude-specific commands (for AI mode only)
-  const claudeCommands: SlashCommand[] = (session.claudeCommands || []).map(cmd => ({
-    command: cmd.command,
-    description: cmd.description,
-    aiOnly: true, // Claude commands are only available in AI mode
-  }));
+  // Memoize to avoid recreating arrays on every render
+  const allSlashCommands = useMemo(() => {
+    const claudeCommands: SlashCommand[] = (session.claudeCommands || []).map(cmd => ({
+      command: cmd.command,
+      description: cmd.description,
+      aiOnly: true, // Claude commands are only available in AI mode
+    }));
+    return [...slashCommands, ...claudeCommands];
+  }, [session.claudeCommands, slashCommands]);
 
-  const allSlashCommands = [...slashCommands, ...claudeCommands];
-
-  const filteredSlashCommands = allSlashCommands.filter(cmd => {
-    // Check if command is only available in terminal mode
-    if (cmd.terminalOnly && !isTerminalMode) return false;
-    // Check if command is only available in AI mode
-    if (cmd.aiOnly && isTerminalMode) return false;
-    // Check if command matches input
-    return cmd.command.toLowerCase().startsWith(inputValue.toLowerCase());
-  });
+  // Memoize filtered slash commands to avoid filtering on every render
+  const inputValueLower = inputValue.toLowerCase();
+  const filteredSlashCommands = useMemo(() => {
+    return allSlashCommands.filter(cmd => {
+      // Check if command is only available in terminal mode
+      if (cmd.terminalOnly && !isTerminalMode) return false;
+      // Check if command is only available in AI mode
+      if (cmd.aiOnly && isTerminalMode) return false;
+      // Check if command matches input
+      return cmd.command.toLowerCase().startsWith(inputValueLower);
+    });
+  }, [allSlashCommands, isTerminalMode, inputValueLower]);
 
   // Ensure selectedSlashCommandIndex is valid for the filtered list
   const safeSelectedIndex = Math.min(
@@ -122,6 +128,42 @@ export function InputArea(props: InputAreaProps) {
 
   // Refs for slash command items to enable scroll-into-view
   const slashCommandItemRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // Ref to track pending RAF for textarea auto-grow (prevents layout thrashing)
+  const autoGrowRafRef = useRef<number | null>(null);
+
+  // Memoized auto-grow handler using requestAnimationFrame to avoid layout thrashing
+  const handleAutoGrow = useCallback((textarea: HTMLTextAreaElement) => {
+    // Cancel any pending RAF to avoid stacking
+    if (autoGrowRafRef.current !== null) {
+      cancelAnimationFrame(autoGrowRafRef.current);
+    }
+    // Schedule the height update for the next frame
+    autoGrowRafRef.current = requestAnimationFrame(() => {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 112)}px`;
+      autoGrowRafRef.current = null;
+    });
+  }, []);
+
+  // Cleanup RAF on unmount
+  useEffect(() => {
+    return () => {
+      if (autoGrowRafRef.current !== null) {
+        cancelAnimationFrame(autoGrowRafRef.current);
+      }
+    };
+  }, []);
+
+  // Memoize command history filtering to avoid expensive Set operations on every keystroke
+  const commandHistoryFilterLower = commandHistoryFilter.toLowerCase();
+  const filteredCommandHistory = useMemo(() => {
+    const uniqueHistory = Array.from(new Set(currentCommandHistory));
+    return uniqueHistory
+      .filter(cmd => cmd.toLowerCase().includes(commandHistoryFilterLower))
+      .reverse()
+      .slice(0, 10);
+  }, [currentCommandHistory, commandHistoryFilterLower]);
 
   // Scroll selected slash command into view when index changes
   useEffect(() => {
@@ -235,21 +277,17 @@ export function InputArea(props: InputAreaProps) {
                 setCommandHistorySelectedIndex(0);
               }}
               onKeyDown={(e) => {
-                const uniqueHistory = Array.from(new Set(currentCommandHistory));
-                const filtered = uniqueHistory.filter(cmd =>
-                  cmd.toLowerCase().includes(commandHistoryFilter.toLowerCase())
-                ).reverse().slice(0, 10);
-
+                // Use memoized filteredCommandHistory instead of recalculating
                 if (e.key === 'ArrowDown') {
                   e.preventDefault();
-                  setCommandHistorySelectedIndex(Math.min(commandHistorySelectedIndex + 1, filtered.length - 1));
+                  setCommandHistorySelectedIndex(Math.min(commandHistorySelectedIndex + 1, filteredCommandHistory.length - 1));
                 } else if (e.key === 'ArrowUp') {
                   e.preventDefault();
                   setCommandHistorySelectedIndex(Math.max(commandHistorySelectedIndex - 1, 0));
                 } else if (e.key === 'Enter') {
                   e.preventDefault();
-                  if (filtered[commandHistorySelectedIndex]) {
-                    setInputValue(filtered[commandHistorySelectedIndex]);
+                  if (filteredCommandHistory[commandHistorySelectedIndex]) {
+                    setInputValue(filteredCommandHistory[commandHistorySelectedIndex]);
                     setCommandHistoryOpen(false);
                     setCommandHistoryFilter('');
                     setTimeout(() => inputRef.current?.focus(), 0);
@@ -265,11 +303,7 @@ export function InputArea(props: InputAreaProps) {
             />
           </div>
           <div className="max-h-48 overflow-y-auto scrollbar-thin">
-            {Array.from(new Set(currentCommandHistory))
-              .filter(cmd => cmd.toLowerCase().includes(commandHistoryFilter.toLowerCase()))
-              .reverse()
-              .slice(0, 5)
-              .map((cmd, idx) => {
+            {filteredCommandHistory.slice(0, 5).map((cmd, idx) => {
                 const isSelected = idx === commandHistorySelectedIndex;
                 const isMostRecent = idx === 0;
 
@@ -295,9 +329,7 @@ export function InputArea(props: InputAreaProps) {
                   </div>
                 );
               })}
-            {currentCommandHistory.filter(cmd =>
-              cmd.toLowerCase().includes(commandHistoryFilter.toLowerCase())
-            ).length === 0 && (
+            {filteredCommandHistory.length === 0 && (
               <div className="px-3 py-4 text-center text-sm opacity-50">
                 {isTerminalMode ? "No matching commands" : "No matching messages"}
               </div>
@@ -388,9 +420,8 @@ export function InputArea(props: InputAreaProps) {
                   setSlashCommandOpen(false);
                 }
 
-                // Auto-grow logic - limit to 5 lines (~112px with text-sm)
-                e.target.style.height = 'auto';
-                e.target.style.height = `${Math.min(e.target.scrollHeight, 112)}px`;
+                // Auto-grow logic using RAF to prevent layout thrashing
+                handleAutoGrow(e.target);
               }}
               onKeyDown={handleInputKeyDown}
               onPaste={handlePaste}
@@ -508,4 +539,4 @@ export function InputArea(props: InputAreaProps) {
       </div>
     </div>
   );
-}
+});

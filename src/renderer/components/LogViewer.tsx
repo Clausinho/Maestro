@@ -99,21 +99,34 @@ export function LogViewer({ theme, onClose, logLevel = 'info' }: LogViewerProps)
   }, []);
 
   // Filter logs whenever search query or selected levels changes
+  // Optimized: Uses lazy evaluation to avoid expensive JSON.stringify unless needed
   useEffect(() => {
-    let filtered = logs;
+    const query = searchQuery.trim().toLowerCase();
 
-    // Filter by levels (only show logs whose level is in the selectedLevels set)
-    filtered = filtered.filter(log => selectedLevels.has(log.level));
+    const filtered = logs.filter(log => {
+      // First check level filter (fast)
+      if (!selectedLevels.has(log.level)) return false;
 
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(log =>
-        log.message.toLowerCase().includes(query) ||
-        log.context?.toLowerCase().includes(query) ||
-        (log.data && JSON.stringify(log.data).toLowerCase().includes(query))
-      );
-    }
+      // If no search query, include all logs that pass level filter
+      if (!query) return true;
+
+      // Check message first (most likely to match, fast)
+      if (log.message.toLowerCase().includes(query)) return true;
+
+      // Check context if present
+      if (log.context?.toLowerCase().includes(query)) return true;
+
+      // Only stringify log.data as last resort (expensive operation)
+      if (log.data) {
+        try {
+          return JSON.stringify(log.data).toLowerCase().includes(query);
+        } catch {
+          return false;
+        }
+      }
+
+      return false;
+    });
 
     setFilteredLogs(filtered);
   }, [logs, searchQuery, selectedLevels]);

@@ -511,22 +511,17 @@ export function AgentSessionsBrowser({
     return !session.sessionId.startsWith('agent-');
   }, [showAllSessions, namedOnly]);
 
-  // Auto-load more sessions if the filtered list is too small
-  // This handles the case where many sessions are filtered out (e.g., "agent-" prefix)
+  // Auto-load ALL remaining sessions in background after initial load
+  // This ensures full search capability and accurate stats
   useEffect(() => {
-    // Only auto-load if:
-    // 1. Not currently loading
-    // 2. There are more sessions available
-    // 3. We have sessions loaded but filter shows fewer than 50 visible
-    // 4. Not all sessions are loaded yet
     if (!loading && !isLoadingMoreSessions && hasMoreSessions && sessions.length > 0) {
-      const visibleCount = sessions.filter(isSessionVisible).length;
-      // If we have fewer than 50 visible sessions and more are available, load more
-      if (visibleCount < 50) {
+      // Small delay to let UI render first, then continue loading
+      const timer = setTimeout(() => {
         loadMoreSessions();
-      }
+      }, 50);
+      return () => clearTimeout(timer);
     }
-  }, [loading, isLoadingMoreSessions, hasMoreSessions, sessions, isSessionVisible, loadMoreSessions]);
+  }, [loading, isLoadingMoreSessions, hasMoreSessions, sessions.length, loadMoreSessions]);
 
   // Stats always show totals for ALL sessions (fetched progressively from backend)
   const stats = useMemo(() => {

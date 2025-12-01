@@ -2515,8 +2515,51 @@ export default function MaestroConsole() {
     return key === mainKey;
   };
 
+  // Ref to hold all keyboard handler dependencies - avoids re-attaching listener on every state change
+  // This is a critical performance optimization: the keyboard handler was being removed and re-added
+  // on every state change due to 51+ dependencies, causing memory leaks and event listener bloat
+  const keyboardHandlerRef = useRef({
+    shortcuts, activeFocus, activeRightTab, sessions, selectedSidebarIndex, activeSessionId,
+    quickActionOpen, settingsModalOpen, shortcutsHelpOpen, newInstanceModalOpen, aboutModalOpen,
+    processMonitorOpen, logViewerOpen, createGroupModalOpen, confirmModalOpen, renameInstanceModalOpen,
+    renameGroupModalOpen, activeSession, previewFile, fileTreeFilter, fileTreeFilterOpen, gitDiffPreview,
+    gitLogOpen, lightboxImage, hasOpenLayers, hasOpenModal, visibleSessions, sortedSessions, groups,
+    bookmarksCollapsed, leftSidebarOpen, editingSessionId, editingGroupId,
+    // Functions - these are stable but we include them for completeness
+    setLeftSidebarOpen, setRightPanelOpen, addNewSession, deleteSession, setQuickActionInitialMode,
+    setQuickActionOpen, cycleSession, toggleInputMode, setShortcutsHelpOpen, setSettingsModalOpen,
+    setSettingsTab, setActiveRightTab, setActiveFocus, setBookmarksCollapsed, setGroups,
+    setSelectedSidebarIndex, setActiveSessionId, handleViewGitDiff, setGitLogOpen, setActiveClaudeSessionId,
+    setAgentSessionsOpen, setLogViewerOpen, setProcessMonitorOpen, logsEndRef, inputRef, terminalOutputRef,
+    setSessions, createTab, closeTab, reopenClosedTab, getActiveTab, setRenameTabId, setRenameTabInitialName,
+    setRenameTabModalOpen, navigateToNextTab, navigateToPrevTab, navigateToTabByIndex, navigateToLastTab,
+    setFileTreeFilterOpen, isShortcut, isTabShortcut
+  });
+
+  // Update ref synchronously during render (before effects run)
+  keyboardHandlerRef.current = {
+    shortcuts, activeFocus, activeRightTab, sessions, selectedSidebarIndex, activeSessionId,
+    quickActionOpen, settingsModalOpen, shortcutsHelpOpen, newInstanceModalOpen, aboutModalOpen,
+    processMonitorOpen, logViewerOpen, createGroupModalOpen, confirmModalOpen, renameInstanceModalOpen,
+    renameGroupModalOpen, activeSession, previewFile, fileTreeFilter, fileTreeFilterOpen, gitDiffPreview,
+    gitLogOpen, lightboxImage, hasOpenLayers, hasOpenModal, visibleSessions, sortedSessions, groups,
+    bookmarksCollapsed, leftSidebarOpen, editingSessionId, editingGroupId,
+    setLeftSidebarOpen, setRightPanelOpen, addNewSession, deleteSession, setQuickActionInitialMode,
+    setQuickActionOpen, cycleSession, toggleInputMode, setShortcutsHelpOpen, setSettingsModalOpen,
+    setSettingsTab, setActiveRightTab, setActiveFocus, setBookmarksCollapsed, setGroups,
+    setSelectedSidebarIndex, setActiveSessionId, handleViewGitDiff, setGitLogOpen, setActiveClaudeSessionId,
+    setAgentSessionsOpen, setLogViewerOpen, setProcessMonitorOpen, logsEndRef, inputRef, terminalOutputRef,
+    setSessions, createTab, closeTab, reopenClosedTab, getActiveTab, setRenameTabId, setRenameTabInitialName,
+    setRenameTabModalOpen, navigateToNextTab, navigateToPrevTab, navigateToTabByIndex, navigateToLastTab,
+    setFileTreeFilterOpen, isShortcut, isTabShortcut
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Read all values from ref - this allows the handler to stay attached while still
+      // accessing current state values
+      const ctx = keyboardHandlerRef.current;
+
       // When layers (modals/overlays) are open, we need nuanced shortcut handling:
       // - Escape: handled by LayerStackContext in capture phase
       // - Tab: allowed for accessibility navigation
@@ -2528,7 +2571,7 @@ export default function MaestroConsole() {
       // OVERLAYS (FilePreview, LogViewer): Allow Cmd+Shift+[] for tab cycling
       //   - App.tsx handles this with modified behavior (cycle tabs not sessions)
 
-      if (hasOpenLayers()) {
+      if (ctx.hasOpenLayers()) {
         // Allow Tab for accessibility navigation within modals
         if (e.key === 'Tab') return;
 
@@ -2543,7 +2586,7 @@ export default function MaestroConsole() {
         // Allow session jump shortcuts (Alt+Cmd+NUMBER) even when modals are open
         const isSessionJumpShortcut = e.altKey && (e.metaKey || e.ctrlKey) && /^[0-9]$/.test(e.key);
 
-        if (hasOpenModal()) {
+        if (ctx.hasOpenModal()) {
           // TRUE MODAL is open - block most shortcuts from App.tsx
           // The modal's own handler will handle Cmd+Shift+[] if it supports it
           // BUT allow layout shortcuts (sidebar toggles), system utility shortcuts, and session jump to work
@@ -2564,33 +2607,33 @@ export default function MaestroConsole() {
       }
 
       // Skip all keyboard handling when editing a session or group name in the sidebar
-      if (editingSessionId || editingGroupId) {
+      if (ctx.editingSessionId || ctx.editingGroupId) {
         return;
       }
 
       // Sidebar navigation with arrow keys (works when sidebar has focus)
-      if (activeFocus === 'sidebar' && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === ' ')) {
+      if (ctx.activeFocus === 'sidebar' && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === ' ')) {
         e.preventDefault();
-        if (sortedSessions.length === 0) return;
+        if (ctx.sortedSessions.length === 0) return;
 
         // Get the currently selected session
-        const currentSession = sortedSessions[selectedSidebarIndex];
+        const currentSession = ctx.sortedSessions[ctx.selectedSidebarIndex];
 
         // ArrowLeft: Collapse the current group or bookmarks section
         if (e.key === 'ArrowLeft' && currentSession) {
           // Check if session is bookmarked and bookmarks section is expanded
-          if (currentSession.bookmarked && !bookmarksCollapsed) {
+          if (currentSession.bookmarked && !ctx.bookmarksCollapsed) {
             // Collapse bookmarks section
-            setBookmarksCollapsed(true);
+            ctx.setBookmarksCollapsed(true);
             return;
           }
 
           // Check if session is in a group
           if (currentSession.groupId) {
-            const currentGroup = groups.find(g => g.id === currentSession.groupId);
+            const currentGroup = ctx.groups.find(g => g.id === currentSession.groupId);
             if (currentGroup && !currentGroup.collapsed) {
               // Collapse the group
-              setGroups(prev => prev.map(g =>
+              ctx.setGroups(prev => prev.map(g =>
                 g.id === currentGroup.id ? { ...g, collapsed: true } : g
               ));
               return;
@@ -2602,18 +2645,18 @@ export default function MaestroConsole() {
         // ArrowRight: Expand the current group or bookmarks section (if collapsed)
         if (e.key === 'ArrowRight' && currentSession) {
           // Check if session is bookmarked and bookmarks section is collapsed
-          if (currentSession.bookmarked && bookmarksCollapsed) {
+          if (currentSession.bookmarked && ctx.bookmarksCollapsed) {
             // Expand bookmarks section
-            setBookmarksCollapsed(false);
+            ctx.setBookmarksCollapsed(false);
             return;
           }
 
           // Check if session is in a collapsed group
           if (currentSession.groupId) {
-            const currentGroup = groups.find(g => g.id === currentSession.groupId);
+            const currentGroup = ctx.groups.find(g => g.id === currentSession.groupId);
             if (currentGroup && currentGroup.collapsed) {
               // Expand the group
-              setGroups(prev => prev.map(g =>
+              ctx.setGroups(prev => prev.map(g =>
                 g.id === currentGroup.id ? { ...g, collapsed: false } : g
               ));
               return;
@@ -2624,10 +2667,10 @@ export default function MaestroConsole() {
 
         // Space: Close the current group and jump to nearest visible session
         if (e.key === ' ' && currentSession?.groupId) {
-          const currentGroup = groups.find(g => g.id === currentSession.groupId);
+          const currentGroup = ctx.groups.find(g => g.id === currentSession.groupId);
           if (currentGroup && !currentGroup.collapsed) {
             // Collapse the group
-            setGroups(prev => prev.map(g =>
+            ctx.setGroups(prev => prev.map(g =>
               g.id === currentGroup.id ? { ...g, collapsed: true } : g
             ));
 
@@ -2635,18 +2678,18 @@ export default function MaestroConsole() {
             const willBeVisible = (s: Session) => {
               if (s.groupId === currentGroup.id) return false; // In the group being collapsed
               if (!s.groupId) return true; // Ungrouped sessions are always visible
-              const g = groups.find(grp => grp.id === s.groupId);
+              const g = ctx.groups.find(grp => grp.id === s.groupId);
               return g && !g.collapsed; // In an expanded group
             };
 
             // Find current position in sortedSessions
-            const currentIndex = sortedSessions.findIndex(s => s.id === currentSession.id);
+            const currentIndex = ctx.sortedSessions.findIndex(s => s.id === currentSession.id);
 
             // First, look BELOW (after) the current position
             let nextVisible: Session | undefined;
-            for (let i = currentIndex + 1; i < sortedSessions.length; i++) {
-              if (willBeVisible(sortedSessions[i])) {
-                nextVisible = sortedSessions[i];
+            for (let i = currentIndex + 1; i < ctx.sortedSessions.length; i++) {
+              if (willBeVisible(ctx.sortedSessions[i])) {
+                nextVisible = ctx.sortedSessions[i];
                 break;
               }
             }
@@ -2654,17 +2697,17 @@ export default function MaestroConsole() {
             // If nothing below, look ABOVE (before) the current position
             if (!nextVisible) {
               for (let i = currentIndex - 1; i >= 0; i--) {
-                if (willBeVisible(sortedSessions[i])) {
-                  nextVisible = sortedSessions[i];
+                if (willBeVisible(ctx.sortedSessions[i])) {
+                  nextVisible = ctx.sortedSessions[i];
                   break;
                 }
               }
             }
 
             if (nextVisible) {
-              const newIndex = sortedSessions.findIndex(s => s.id === nextVisible!.id);
-              setSelectedSidebarIndex(newIndex);
-              setActiveSessionId(nextVisible.id);
+              const newIndex = ctx.sortedSessions.findIndex(s => s.id === nextVisible!.id);
+              ctx.setSelectedSidebarIndex(newIndex);
+              ctx.setActiveSessionId(nextVisible.id);
             }
             return;
           }
@@ -2672,19 +2715,19 @@ export default function MaestroConsole() {
 
         // ArrowUp/ArrowDown: Navigate through sessions, expanding collapsed groups as needed
         if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-          const currentIndex = selectedSidebarIndex;
-          const totalSessions = sortedSessions.length;
+          const currentIndex = ctx.selectedSidebarIndex;
+          const totalSessions = ctx.sortedSessions.length;
 
           // Helper to check if a session is in a collapsed group
           const isInCollapsedGroup = (session: Session) => {
             if (!session.groupId) return false;
-            const group = groups.find(g => g.id === session.groupId);
+            const group = ctx.groups.find(g => g.id === session.groupId);
             return group?.collapsed ?? false;
           };
 
           // Helper to get all sessions in a group
           const getGroupSessions = (groupId: string) => {
-            return sortedSessions.filter(s => s.groupId === groupId);
+            return ctx.sortedSessions.filter(s => s.groupId === groupId);
           };
 
           // Find the next session, skipping visible sessions in collapsed groups
@@ -2696,7 +2739,7 @@ export default function MaestroConsole() {
             // Moving down
             for (let i = 1; i <= totalSessions; i++) {
               const candidateIndex = (currentIndex + i) % totalSessions;
-              const candidate = sortedSessions[candidateIndex];
+              const candidate = ctx.sortedSessions[candidateIndex];
 
               if (!candidate.groupId) {
                 // Ungrouped session - can navigate to it
@@ -2704,7 +2747,7 @@ export default function MaestroConsole() {
                 break;
               }
 
-              const candidateGroup = groups.find(g => g.id === candidate.groupId);
+              const candidateGroup = ctx.groups.find(g => g.id === candidate.groupId);
               if (!candidateGroup?.collapsed) {
                 // Session in expanded group - can navigate to it
                 nextIndex = candidateIndex;
@@ -2717,7 +2760,7 @@ export default function MaestroConsole() {
                 // We've hit a collapsed group - expand it and go to FIRST item
                 foundCollapsedGroup = candidate.groupId;
                 const groupSessions = getGroupSessions(candidate.groupId);
-                nextIndex = sortedSessions.findIndex(s => s.id === groupSessions[0]?.id);
+                nextIndex = ctx.sortedSessions.findIndex(s => s.id === groupSessions[0]?.id);
                 break;
               }
               // Same collapsed group, keep looking (shouldn't happen if current is visible)
@@ -2726,7 +2769,7 @@ export default function MaestroConsole() {
             // Moving up
             for (let i = 1; i <= totalSessions; i++) {
               const candidateIndex = (currentIndex - i + totalSessions) % totalSessions;
-              const candidate = sortedSessions[candidateIndex];
+              const candidate = ctx.sortedSessions[candidateIndex];
 
               if (!candidate.groupId) {
                 // Ungrouped session - can navigate to it
@@ -2734,7 +2777,7 @@ export default function MaestroConsole() {
                 break;
               }
 
-              const candidateGroup = groups.find(g => g.id === candidate.groupId);
+              const candidateGroup = ctx.groups.find(g => g.id === candidate.groupId);
               if (!candidateGroup?.collapsed) {
                 // Session in expanded group - can navigate to it
                 nextIndex = candidateIndex;
@@ -2747,7 +2790,7 @@ export default function MaestroConsole() {
                 // We've hit a collapsed group - expand it and go to LAST item
                 foundCollapsedGroup = candidate.groupId;
                 const groupSessions = getGroupSessions(candidate.groupId);
-                nextIndex = sortedSessions.findIndex(s => s.id === groupSessions[groupSessions.length - 1]?.id);
+                nextIndex = ctx.sortedSessions.findIndex(s => s.id === groupSessions[groupSessions.length - 1]?.id);
                 break;
               }
               // Same collapsed group, keep looking
@@ -2756,21 +2799,21 @@ export default function MaestroConsole() {
 
           // If we found a collapsed group, expand it
           if (foundCollapsedGroup) {
-            setGroups(prev => prev.map(g =>
+            ctx.setGroups(prev => prev.map(g =>
               g.id === foundCollapsedGroup ? { ...g, collapsed: false } : g
             ));
           }
 
-          setSelectedSidebarIndex(nextIndex);
+          ctx.setSelectedSidebarIndex(nextIndex);
         }
         return;
       }
 
       // Enter to load selected session from sidebar
-      if (activeFocus === 'sidebar' && e.key === 'Enter') {
+      if (ctx.activeFocus === 'sidebar' && e.key === 'Enter') {
         e.preventDefault();
-        if (sortedSessions[selectedSidebarIndex]) {
-          setActiveSessionId(sortedSessions[selectedSidebarIndex].id);
+        if (ctx.sortedSessions[ctx.selectedSidebarIndex]) {
+          ctx.setActiveSessionId(ctx.sortedSessions[ctx.selectedSidebarIndex].id);
         }
         return;
       }
@@ -2778,105 +2821,105 @@ export default function MaestroConsole() {
       // Tab navigation
       if (e.key === 'Tab') {
         e.preventDefault();
-        if (activeFocus === 'sidebar' && !e.shiftKey) {
+        if (ctx.activeFocus === 'sidebar' && !e.shiftKey) {
           // Tab from sidebar goes to main input
-          setActiveFocus('main');
-          setTimeout(() => inputRef.current?.focus(), 0);
+          ctx.setActiveFocus('main');
+          setTimeout(() => ctx.inputRef.current?.focus(), 0);
           return;
         }
         const order: FocusArea[] = ['sidebar', 'main', 'right'];
-        const currentIdx = order.indexOf(activeFocus);
+        const currentIdx = order.indexOf(ctx.activeFocus);
         if (e.shiftKey) {
            const next = currentIdx === 0 ? order.length - 1 : currentIdx - 1;
-           setActiveFocus(order[next]);
+           ctx.setActiveFocus(order[next]);
         } else {
            const next = currentIdx === order.length - 1 ? 0 : currentIdx + 1;
-           setActiveFocus(order[next]);
+           ctx.setActiveFocus(order[next]);
         }
         return;
       }
 
       // Escape in main area focuses terminal output
-      if (activeFocus === 'main' && e.key === 'Escape' && document.activeElement === inputRef.current) {
+      if (ctx.activeFocus === 'main' && e.key === 'Escape' && document.activeElement === ctx.inputRef.current) {
         e.preventDefault();
-        inputRef.current?.blur();
-        terminalOutputRef.current?.focus();
+        ctx.inputRef.current?.blur();
+        ctx.terminalOutputRef.current?.focus();
         return;
       }
 
 
       // General shortcuts
-      if (isShortcut(e, 'toggleSidebar')) setLeftSidebarOpen(p => !p);
-      else if (isShortcut(e, 'toggleRightPanel')) setRightPanelOpen(p => !p);
-      else if (isShortcut(e, 'newInstance')) addNewSession();
-      else if (isShortcut(e, 'killInstance')) deleteSession(activeSessionId);
-      else if (isShortcut(e, 'moveToGroup')) {
-        if (activeSession) {
-          setQuickActionInitialMode('move-to-group');
-          setQuickActionOpen(true);
+      if (ctx.isShortcut(e, 'toggleSidebar')) ctx.setLeftSidebarOpen(p => !p);
+      else if (ctx.isShortcut(e, 'toggleRightPanel')) ctx.setRightPanelOpen(p => !p);
+      else if (ctx.isShortcut(e, 'newInstance')) ctx.addNewSession();
+      else if (ctx.isShortcut(e, 'killInstance')) ctx.deleteSession(ctx.activeSessionId);
+      else if (ctx.isShortcut(e, 'moveToGroup')) {
+        if (ctx.activeSession) {
+          ctx.setQuickActionInitialMode('move-to-group');
+          ctx.setQuickActionOpen(true);
         }
       }
-      else if (isShortcut(e, 'cyclePrev')) {
+      else if (ctx.isShortcut(e, 'cyclePrev')) {
         // Cycle to previous Maestro session (global shortcut)
-        cycleSession('prev');
+        ctx.cycleSession('prev');
       }
-      else if (isShortcut(e, 'cycleNext')) {
+      else if (ctx.isShortcut(e, 'cycleNext')) {
         // Cycle to next Maestro session (global shortcut)
-        cycleSession('next');
+        ctx.cycleSession('next');
       }
-      else if (isShortcut(e, 'toggleMode')) toggleInputMode();
-      else if (isShortcut(e, 'quickAction')) {
-        setQuickActionInitialMode('main');
-        setQuickActionOpen(true);
+      else if (ctx.isShortcut(e, 'toggleMode')) ctx.toggleInputMode();
+      else if (ctx.isShortcut(e, 'quickAction')) {
+        ctx.setQuickActionInitialMode('main');
+        ctx.setQuickActionOpen(true);
       }
-      else if (isShortcut(e, 'help')) setShortcutsHelpOpen(true);
-      else if (isShortcut(e, 'settings')) { setSettingsModalOpen(true); setSettingsTab('general'); }
-      else if (isShortcut(e, 'goToFiles')) { e.preventDefault(); setRightPanelOpen(true); setActiveRightTab('files'); setActiveFocus('right'); }
-      else if (isShortcut(e, 'goToHistory')) { e.preventDefault(); setRightPanelOpen(true); setActiveRightTab('history'); setActiveFocus('right'); }
-      else if (isShortcut(e, 'goToScratchpad')) { e.preventDefault(); setRightPanelOpen(true); setActiveRightTab('scratchpad'); setActiveFocus('right'); }
-      else if (isShortcut(e, 'focusInput')) {
+      else if (ctx.isShortcut(e, 'help')) ctx.setShortcutsHelpOpen(true);
+      else if (ctx.isShortcut(e, 'settings')) { ctx.setSettingsModalOpen(true); ctx.setSettingsTab('general'); }
+      else if (ctx.isShortcut(e, 'goToFiles')) { e.preventDefault(); ctx.setRightPanelOpen(true); ctx.setActiveRightTab('files'); ctx.setActiveFocus('right'); }
+      else if (ctx.isShortcut(e, 'goToHistory')) { e.preventDefault(); ctx.setRightPanelOpen(true); ctx.setActiveRightTab('history'); ctx.setActiveFocus('right'); }
+      else if (ctx.isShortcut(e, 'goToScratchpad')) { e.preventDefault(); ctx.setRightPanelOpen(true); ctx.setActiveRightTab('scratchpad'); ctx.setActiveFocus('right'); }
+      else if (ctx.isShortcut(e, 'focusInput')) {
         e.preventDefault();
-        setActiveFocus('main');
-        setTimeout(() => inputRef.current?.focus(), 0);
+        ctx.setActiveFocus('main');
+        setTimeout(() => ctx.inputRef.current?.focus(), 0);
       }
-      else if (isShortcut(e, 'focusSidebar')) {
+      else if (ctx.isShortcut(e, 'focusSidebar')) {
         e.preventDefault();
         // Expand sidebar if collapsed
-        if (!leftSidebarOpen) {
-          setLeftSidebarOpen(true);
+        if (!ctx.leftSidebarOpen) {
+          ctx.setLeftSidebarOpen(true);
         }
         // Focus the sidebar
-        setActiveFocus('sidebar');
+        ctx.setActiveFocus('sidebar');
       }
-      else if (isShortcut(e, 'viewGitDiff')) {
+      else if (ctx.isShortcut(e, 'viewGitDiff')) {
         e.preventDefault();
-        handleViewGitDiff();
+        ctx.handleViewGitDiff();
       }
-      else if (isShortcut(e, 'viewGitLog')) {
+      else if (ctx.isShortcut(e, 'viewGitLog')) {
         e.preventDefault();
-        if (activeSession?.isGitRepo) {
-          setGitLogOpen(true);
+        if (ctx.activeSession?.isGitRepo) {
+          ctx.setGitLogOpen(true);
         }
       }
-      else if (isShortcut(e, 'agentSessions')) {
+      else if (ctx.isShortcut(e, 'agentSessions')) {
         e.preventDefault();
-        if (activeSession?.toolType === 'claude-code') {
-          setActiveClaudeSessionId(null);
-          setAgentSessionsOpen(true);
+        if (ctx.activeSession?.toolType === 'claude-code') {
+          ctx.setActiveClaudeSessionId(null);
+          ctx.setAgentSessionsOpen(true);
         }
       }
-      else if (isShortcut(e, 'systemLogs')) {
+      else if (ctx.isShortcut(e, 'systemLogs')) {
         e.preventDefault();
-        setLogViewerOpen(true);
+        ctx.setLogViewerOpen(true);
       }
-      else if (isShortcut(e, 'processMonitor')) {
+      else if (ctx.isShortcut(e, 'processMonitor')) {
         e.preventDefault();
-        setProcessMonitorOpen(true);
+        ctx.setProcessMonitorOpen(true);
       }
-      else if (isShortcut(e, 'jumpToBottom')) {
+      else if (ctx.isShortcut(e, 'jumpToBottom')) {
         e.preventDefault();
         // Jump to the bottom of the current main panel output (AI logs or terminal output)
-        logsEndRef.current?.scrollIntoView({ behavior: 'instant' });
+        ctx.logsEndRef.current?.scrollIntoView({ behavior: 'instant' });
       }
 
       // Opt+Cmd+NUMBER: Jump to visible session by number (1-9, 0=10th)
@@ -2887,62 +2930,62 @@ export default function MaestroConsole() {
         const digit = digitMatch[1];
         const num = digit === '0' ? 10 : parseInt(digit, 10);
         const targetIndex = num - 1;
-        if (targetIndex >= 0 && targetIndex < visibleSessions.length) {
-          const targetSession = visibleSessions[targetIndex];
-          setActiveSessionId(targetSession.id);
+        if (targetIndex >= 0 && targetIndex < ctx.visibleSessions.length) {
+          const targetSession = ctx.visibleSessions[targetIndex];
+          ctx.setActiveSessionId(targetSession.id);
           // Also expand sidebar if collapsed
-          if (!leftSidebarOpen) {
-            setLeftSidebarOpen(true);
+          if (!ctx.leftSidebarOpen) {
+            ctx.setLeftSidebarOpen(true);
           }
         }
       }
 
       // Tab shortcuts (AI mode only, requires an explicitly selected session)
-      if (activeSessionId && activeSession?.inputMode === 'ai' && activeSession?.aiTabs) {
-        if (isTabShortcut(e, 'newTab')) {
+      if (ctx.activeSessionId && ctx.activeSession?.inputMode === 'ai' && ctx.activeSession?.aiTabs) {
+        if (ctx.isTabShortcut(e, 'newTab')) {
           e.preventDefault();
-          const result = createTab(activeSession);
-          setSessions(prev => prev.map(s =>
-            s.id === activeSession.id ? result.session : s
+          const result = ctx.createTab(ctx.activeSession);
+          ctx.setSessions(prev => prev.map(s =>
+            s.id === ctx.activeSession!.id ? result.session : s
           ));
           // Auto-focus the input so user can start typing immediately
-          setActiveFocus('main');
-          setTimeout(() => inputRef.current?.focus(), 50);
+          ctx.setActiveFocus('main');
+          setTimeout(() => ctx.inputRef.current?.focus(), 50);
         }
-        if (isTabShortcut(e, 'closeTab')) {
+        if (ctx.isTabShortcut(e, 'closeTab')) {
           e.preventDefault();
           // Only close if there's more than one tab (closeTab returns null otherwise)
-          const result = closeTab(activeSession, activeSession.activeTabId);
+          const result = ctx.closeTab(ctx.activeSession, ctx.activeSession.activeTabId);
           if (result) {
-            setSessions(prev => prev.map(s =>
-              s.id === activeSession.id ? result.session : s
+            ctx.setSessions(prev => prev.map(s =>
+              s.id === ctx.activeSession!.id ? result.session : s
             ));
           }
         }
-        if (isTabShortcut(e, 'reopenClosedTab')) {
+        if (ctx.isTabShortcut(e, 'reopenClosedTab')) {
           e.preventDefault();
           // Reopen the most recently closed tab, or switch to existing if duplicate
-          const result = reopenClosedTab(activeSession);
+          const result = ctx.reopenClosedTab(ctx.activeSession);
           if (result) {
-            setSessions(prev => prev.map(s =>
-              s.id === activeSession.id ? result.session : s
+            ctx.setSessions(prev => prev.map(s =>
+              s.id === ctx.activeSession!.id ? result.session : s
             ));
           }
         }
-        if (isTabShortcut(e, 'renameTab')) {
+        if (ctx.isTabShortcut(e, 'renameTab')) {
           e.preventDefault();
-          const activeTab = getActiveTab(activeSession);
+          const activeTab = ctx.getActiveTab(ctx.activeSession);
           // Only allow rename if tab has an active Claude session
           if (activeTab?.claudeSessionId) {
-            setRenameTabId(activeTab.id);
-            setRenameTabInitialName(activeTab.name || '');
-            setRenameTabModalOpen(true);
+            ctx.setRenameTabId(activeTab.id);
+            ctx.setRenameTabInitialName(activeTab.name || '');
+            ctx.setRenameTabModalOpen(true);
           }
         }
-        if (isTabShortcut(e, 'toggleReadOnlyMode')) {
+        if (ctx.isTabShortcut(e, 'toggleReadOnlyMode')) {
           e.preventDefault();
-          setSessions(prev => prev.map(s => {
-            if (s.id !== activeSession.id) return s;
+          ctx.setSessions(prev => prev.map(s => {
+            if (s.id !== ctx.activeSession!.id) return s;
             return {
               ...s,
               aiTabs: s.aiTabs.map(tab =>
@@ -2951,58 +2994,58 @@ export default function MaestroConsole() {
             };
           }));
         }
-        if (isTabShortcut(e, 'nextTab')) {
+        if (ctx.isTabShortcut(e, 'nextTab')) {
           e.preventDefault();
-          const result = navigateToNextTab(activeSession);
+          const result = ctx.navigateToNextTab(ctx.activeSession);
           if (result) {
-            setSessions(prev => prev.map(s =>
-              s.id === activeSession.id ? result.session : s
+            ctx.setSessions(prev => prev.map(s =>
+              s.id === ctx.activeSession!.id ? result.session : s
             ));
           }
         }
-        if (isTabShortcut(e, 'prevTab')) {
+        if (ctx.isTabShortcut(e, 'prevTab')) {
           e.preventDefault();
-          const result = navigateToPrevTab(activeSession);
+          const result = ctx.navigateToPrevTab(ctx.activeSession);
           if (result) {
-            setSessions(prev => prev.map(s =>
-              s.id === activeSession.id ? result.session : s
+            ctx.setSessions(prev => prev.map(s =>
+              s.id === ctx.activeSession!.id ? result.session : s
             ));
           }
         }
         // Cmd+1 through Cmd+8: Jump to specific tab by index
         for (let i = 1; i <= 8; i++) {
-          if (isTabShortcut(e, `goToTab${i}`)) {
+          if (ctx.isTabShortcut(e, `goToTab${i}`)) {
             e.preventDefault();
-            const result = navigateToTabByIndex(activeSession, i - 1);
+            const result = ctx.navigateToTabByIndex(ctx.activeSession, i - 1);
             if (result) {
-              setSessions(prev => prev.map(s =>
-                s.id === activeSession.id ? result.session : s
+              ctx.setSessions(prev => prev.map(s =>
+                s.id === ctx.activeSession!.id ? result.session : s
               ));
             }
             break;
           }
         }
         // Cmd+9: Jump to last tab
-        if (isTabShortcut(e, 'goToLastTab')) {
+        if (ctx.isTabShortcut(e, 'goToLastTab')) {
           e.preventDefault();
-          const result = navigateToLastTab(activeSession);
+          const result = ctx.navigateToLastTab(ctx.activeSession);
           if (result) {
-            setSessions(prev => prev.map(s =>
-              s.id === activeSession.id ? result.session : s
+            ctx.setSessions(prev => prev.map(s =>
+              s.id === ctx.activeSession!.id ? result.session : s
             ));
           }
         }
       }
 
       // Forward slash to open file tree filter when file tree has focus
-      if (e.key === '/' && activeFocus === 'right' && activeRightTab === 'files') {
+      if (e.key === '/' && ctx.activeFocus === 'right' && ctx.activeRightTab === 'files') {
         e.preventDefault();
-        setFileTreeFilterOpen(true);
+        ctx.setFileTreeFilterOpen(true);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [shortcuts, activeFocus, activeRightTab, sessions, selectedSidebarIndex, activeSessionId, quickActionOpen, settingsModalOpen, shortcutsHelpOpen, newInstanceModalOpen, aboutModalOpen, processMonitorOpen, logViewerOpen, createGroupModalOpen, confirmModalOpen, renameInstanceModalOpen, renameGroupModalOpen, activeSession, previewFile, fileTreeFilter, fileTreeFilterOpen, gitDiffPreview, gitLogOpen, lightboxImage, hasOpenLayers, hasOpenModal, visibleSessions, sortedSessions, groups, bookmarksCollapsed, leftSidebarOpen]);
+  }, []); // Empty dependencies - handler reads from ref
 
   // Track Opt+Cmd modifier keys to show session jump number badges
   useEffect(() => {

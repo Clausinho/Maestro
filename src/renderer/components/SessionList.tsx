@@ -180,12 +180,23 @@ export function SessionList(props: SessionListProps) {
   // Track git file change counts per session
   const [gitFileCounts, setGitFileCounts] = useState<Map<string, number>>(new Map());
 
-  // Poll git status for all Git sessions
+  // Poll git status for all Git sessions - optimized to reduce CPU usage
+  // - Only polls when app is visible (pauses when in background)
+  // - Uses 30-second interval instead of 10 seconds
+  // - Only polls sessions that are git repos
   useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null;
+
     const pollGitStatus = async () => {
+      // Skip polling if document is hidden (app in background)
+      if (document.hidden) return;
+
+      const gitSessions = sessions.filter(s => s.isGitRepo);
+      if (gitSessions.length === 0) return;
+
       const newCounts = new Map<string, number>();
 
-      for (const session of sessions.filter(s => s.isGitRepo)) {
+      for (const session of gitSessions) {
         try {
           const cwd = session.inputMode === 'terminal' ? (session.shellCwd || session.cwd) : session.cwd;
           const status = await gitService.getStatus(cwd);
@@ -198,9 +209,39 @@ export function SessionList(props: SessionListProps) {
       setGitFileCounts(newCounts);
     };
 
-    pollGitStatus();
-    const interval = setInterval(pollGitStatus, 10000); // Poll every 10 seconds
-    return () => clearInterval(interval);
+    const startPolling = () => {
+      pollGitStatus();
+      intervalId = setInterval(pollGitStatus, 30000); // Poll every 30 seconds (was 10)
+    };
+
+    const stopPolling = () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    // Handle visibility changes - pause polling when app is in background
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        // Resume polling and immediately refresh when becoming visible
+        startPolling();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Start polling if document is visible
+    if (!document.hidden) {
+      startPolling();
+    }
+
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [sessions]);
 
   // Filter sessions based on search query
