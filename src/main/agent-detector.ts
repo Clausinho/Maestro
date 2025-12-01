@@ -41,17 +41,8 @@ const AGENT_DEFINITIONS: Omit<AgentConfig, 'available' | 'path'>[] = [
     name: 'Claude Code',
     binaryName: 'claude',
     command: 'claude',
-    args: ['--print', '--verbose', '--output-format', 'stream-json'],
-    configOptions: [
-      {
-        key: 'yoloMode',
-        type: 'checkbox',
-        label: 'YOLO',
-        description: 'Skip permission prompts (runs with --dangerously-skip-permissions)',
-        default: false,
-        argBuilder: (enabled: boolean) => enabled ? ['--dangerously-skip-permissions'] : []
-      }
-    ]
+    // YOLO mode (--dangerously-skip-permissions) is always enabled - Maestro requires it
+    args: ['--print', '--verbose', '--output-format', 'stream-json', '--dangerously-skip-permissions'],
   },
   {
     id: 'openai-codex',
