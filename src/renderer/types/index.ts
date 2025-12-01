@@ -143,6 +143,7 @@ export interface AITab {
   readOnlyMode?: boolean;          // When true, Claude operates in plan/read-only mode
   awaitingSessionId?: boolean;     // True when this tab sent a message and is awaiting its session ID
   thinkingStartTime?: number;      // Timestamp when tab started thinking (for elapsed time display)
+  scrollTop?: number;              // Saved scroll position for this tab's output view
 }
 
 // Closed tab entry for undo functionality (Cmd+Shift+T)
@@ -232,6 +233,8 @@ export interface Session {
   activeTabId: string;
   // Stack of recently closed tabs for undo (max 25, runtime-only, not persisted)
   closedTabHistory: ClosedTab[];
+  // Saved scroll position for terminal/shell output view
+  terminalScrollTop?: number;
 }
 
 export interface Group {

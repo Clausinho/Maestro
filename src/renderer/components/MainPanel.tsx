@@ -121,6 +121,8 @@ interface MainPanelProps {
   onTabStar?: (tabId: string, starred: boolean) => void;
   onUpdateTabByClaudeSessionId?: (claudeSessionId: string, updates: { name?: string | null; starred?: boolean }) => void;
   onToggleTabReadOnlyMode?: () => void;
+  // Scroll position persistence
+  onScrollPositionChange?: (scrollTop: number) => void;
 }
 
 export function MainPanel(props: MainPanelProps) {
@@ -759,6 +761,12 @@ export function MainPanel(props: MainPanelProps) {
                 onRemoveQueuedItem={onRemoveQueuedItem}
                 onInterrupt={handleInterrupt}
                 audioFeedbackCommand={props.audioFeedbackCommand}
+                onScrollPositionChange={props.onScrollPositionChange}
+                initialScrollTop={
+                  activeSession.inputMode === 'ai'
+                    ? activeTab?.scrollTop
+                    : activeSession.terminalScrollTop
+                }
               />
 
               {/* Input Area (hidden in mobile landscape for focused reading) */}

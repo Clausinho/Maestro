@@ -775,6 +775,8 @@ interface TerminalOutputProps {
   onRemoveQueuedItem?: (itemId: string) => void; // Callback to remove a queued item from execution queue
   onInterrupt?: () => void; // Callback to interrupt the current process
   audioFeedbackCommand?: string; // TTS command for speech synthesis
+  onScrollPositionChange?: (scrollTop: number) => void; // Callback to save scroll position
+  initialScrollTop?: number; // Initial scroll position to restore
 }
 
 export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((props, ref) => {
@@ -782,7 +784,7 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
     session, theme, fontFamily, activeFocus, outputSearchOpen, outputSearchQuery,
     setOutputSearchOpen, setOutputSearchQuery, setActiveFocus, setLightboxImage,
     inputRef, logsEndRef, maxOutputLines, onDeleteLog, onRemoveQueuedItem, onInterrupt,
-    audioFeedbackCommand
+    audioFeedbackCommand, onScrollPositionChange, initialScrollTop
   } = props;
 
   // Use the forwarded ref if provided, otherwise create a local one
@@ -843,6 +845,11 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
 
   // Track read state per tab - stores the log count when user scrolled to bottom
   const tabReadStateRef = useRef<Map<string, number>>(new Map());
+
+  // Throttle timer ref for scroll position saves
+  const scrollSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track if initial scroll restore has been done
+  const hasRestoredScrollRef = useRef(false);
 
   // Get active tab ID for resetting state on tab switch
   const activeTabId = session.inputMode === 'ai' ? session.activeTabId : null;
@@ -1091,7 +1098,7 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
     );
   }, [collapsedLogs, outputSearchQuery]);
 
-  // Handle scroll to detect if user is at bottom
+  // Handle scroll to detect if user is at bottom and save scroll position (throttled)
   const handleScroll = useCallback(() => {
     if (!scrollContainerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
@@ -1107,7 +1114,18 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
         tabReadStateRef.current.set(activeTabId, filteredLogs.length);
       }
     }
-  }, [activeTabId, filteredLogs.length]);
+
+    // Throttled scroll position save (200ms)
+    if (onScrollPositionChange) {
+      if (scrollSaveTimerRef.current) {
+        clearTimeout(scrollSaveTimerRef.current);
+      }
+      scrollSaveTimerRef.current = setTimeout(() => {
+        onScrollPositionChange(scrollTop);
+        scrollSaveTimerRef.current = null;
+      }, 200);
+    }
+  }, [activeTabId, filteredLogs.length, onScrollPositionChange]);
 
   // Restore read state when switching tabs
   useEffect(() => {
@@ -1174,6 +1192,38 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
     }
     lastLogCountRef.current = currentCount;
   }, [filteredLogs.length, isAtBottom, activeTabId]);
+
+  // Restore scroll position when component mounts or initialScrollTop changes
+  // Uses requestAnimationFrame to ensure DOM is ready
+  useEffect(() => {
+    // Only restore if we have a saved position and haven't restored yet for this mount
+    if (initialScrollTop !== undefined && initialScrollTop > 0 && !hasRestoredScrollRef.current) {
+      hasRestoredScrollRef.current = true;
+      requestAnimationFrame(() => {
+        if (scrollContainerRef.current) {
+          const { scrollHeight, clientHeight } = scrollContainerRef.current;
+          // Clamp to max scrollable area
+          const maxScroll = Math.max(0, scrollHeight - clientHeight);
+          const targetScroll = Math.min(initialScrollTop, maxScroll);
+          scrollContainerRef.current.scrollTop = targetScroll;
+        }
+      });
+    }
+  }, [initialScrollTop]);
+
+  // Reset restore flag when session/tab changes (handled by key prop on TerminalOutput)
+  useEffect(() => {
+    hasRestoredScrollRef.current = false;
+  }, [session.id, activeTabId]);
+
+  // Cleanup throttle timer on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollSaveTimerRef.current) {
+        clearTimeout(scrollSaveTimerRef.current);
+      }
+    };
+  }, []);
 
   // Scroll to bottom function
   const scrollToBottom = useCallback(() => {

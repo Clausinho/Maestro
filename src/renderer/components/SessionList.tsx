@@ -674,6 +674,18 @@ export function SessionList(props: SessionListProps) {
                             </div>
                           )}
                           <div className="flex items-center gap-2 text-[10px] mt-0.5 opacity-70">
+                            {/* Session Jump Number Badge (Opt+Cmd+NUMBER) */}
+                            {getSessionJumpNumber(session.id) && (
+                              <div
+                                className="w-4 h-4 rounded flex items-center justify-center text-[10px] font-bold shrink-0"
+                                style={{
+                                  backgroundColor: theme.colors.accent,
+                                  color: theme.colors.bgMain
+                                }}
+                              >
+                                {getSessionJumpNumber(session.id)}
+                              </div>
+                            )}
                             <Activity className="w-3 h-3" /> {session.toolType}
                             {group && (
                               <span className="text-[9px] px-1 py-0.5 rounded" style={{ backgroundColor: theme.colors.bgActivity, color: theme.colors.textDim }}>
@@ -710,18 +722,6 @@ export function SessionList(props: SessionListProps) {
                             >
                               <Bot className="w-2.5 h-2.5" />
                               AUTO
-                            </div>
-                          )}
-                          {/* Session Jump Number Badge (Opt+Cmd+NUMBER) */}
-                          {getSessionJumpNumber(session.id) && (
-                            <div
-                              className="w-4 h-4 rounded flex items-center justify-center text-[10px] font-bold"
-                              style={{
-                                backgroundColor: theme.colors.accent,
-                                color: theme.colors.bgMain
-                              }}
-                            >
-                              {getSessionJumpNumber(session.id)}
                             </div>
                           )}
                           {/* AI Status Indicator */}
@@ -947,6 +947,18 @@ export function SessionList(props: SessionListProps) {
                               </span>
                             )}
                             <div className="flex items-center gap-2 text-[10px] mt-0.5 opacity-70">
+                              {/* Session Jump Number Badge (Opt+Cmd+NUMBER) */}
+                              {getSessionJumpNumber(session.id) && (
+                                <div
+                                  className="w-4 h-4 rounded flex items-center justify-center text-[10px] font-bold shrink-0"
+                                  style={{
+                                    backgroundColor: theme.colors.accent,
+                                    color: theme.colors.bgMain
+                                  }}
+                                >
+                                  {getSessionJumpNumber(session.id)}
+                                </div>
+                              )}
                               <Activity className="w-3 h-3" /> {session.toolType}
                             </div>
                           </div>
@@ -995,18 +1007,6 @@ export function SessionList(props: SessionListProps) {
                               >
                                 <Bot className="w-2.5 h-2.5" />
                                 AUTO
-                              </div>
-                            )}
-                            {/* Session Jump Number Badge (Opt+Cmd+NUMBER) */}
-                            {getSessionJumpNumber(session.id) && (
-                              <div
-                                className="w-4 h-4 rounded flex items-center justify-center text-[10px] font-bold"
-                                style={{
-                                  backgroundColor: theme.colors.accent,
-                                  color: theme.colors.bgMain
-                                }}
-                              >
-                                {getSessionJumpNumber(session.id)}
                               </div>
                             )}
                             {/* AI Status Indicator */}
@@ -1216,6 +1216,18 @@ export function SessionList(props: SessionListProps) {
                       </span>
                     )}
                     <div className="flex items-center gap-2 text-[10px] mt-0.5 opacity-70">
+                      {/* Session Jump Number Badge (Opt+Cmd+NUMBER) */}
+                      {getSessionJumpNumber(session.id) && (
+                        <div
+                          className="w-4 h-4 rounded flex items-center justify-center text-[10px] font-bold shrink-0"
+                          style={{
+                            backgroundColor: theme.colors.accent,
+                            color: theme.colors.bgMain
+                          }}
+                        >
+                          {getSessionJumpNumber(session.id)}
+                        </div>
+                      )}
                       <Activity className="w-3 h-3" /> {session.toolType}
                     </div>
                   </div>
@@ -1264,18 +1276,6 @@ export function SessionList(props: SessionListProps) {
                       >
                         <Bot className="w-2.5 h-2.5" />
                         AUTO
-                      </div>
-                    )}
-                    {/* Session Jump Number Badge (Opt+Cmd+NUMBER) */}
-                    {getSessionJumpNumber(session.id) && (
-                      <div
-                        className="w-4 h-4 rounded flex items-center justify-center text-[10px] font-bold"
-                        style={{
-                          backgroundColor: theme.colors.accent,
-                          color: theme.colors.bgMain
-                        }}
-                      >
-                        {getSessionJumpNumber(session.id)}
                       </div>
                     )}
                     {/* AI Status Indicator */}

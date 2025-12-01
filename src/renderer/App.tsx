@@ -2325,14 +2325,30 @@ export default function MaestroConsole() {
     return sorted;
   }, [sessions, groups]);
 
-  // Create visible sessions array (only sessions in expanded groups or ungrouped)
+  // Create visible sessions array for session jump shortcuts (Opt+Cmd+NUMBER)
+  // Order: Bookmarked sessions first (if bookmarks folder expanded), then groups/ungrouped
+  // Note: A session can appear twice if it's both bookmarked and in an expanded group
   const visibleSessions = useMemo(() => {
-    return sortedSessions.filter(session => {
+    const result: Session[] = [];
+
+    // Add bookmarked sessions first (if bookmarks folder is expanded)
+    if (!bookmarksCollapsed) {
+      const bookmarkedSessions = sessions
+        .filter(s => s.bookmarked)
+        .sort((a, b) => a.name.localeCompare(b.name));
+      result.push(...bookmarkedSessions);
+    }
+
+    // Add sessions from expanded groups and ungrouped sessions
+    const groupAndUngrouped = sortedSessions.filter(session => {
       if (!session.groupId) return true; // Ungrouped sessions always visible
       const group = groups.find(g => g.id === session.groupId);
       return group && !group.collapsed; // Only show if group is expanded
     });
-  }, [sortedSessions, groups]);
+    result.push(...groupAndUngrouped);
+
+    return result;
+  }, [sortedSessions, groups, sessions, bookmarksCollapsed]);
 
   // Persist sessions and groups to electron-store (only after initial load)
   useEffect(() => {
@@ -2492,21 +2508,23 @@ export default function MaestroConsole() {
         const isRightPanelShortcut = (e.metaKey || e.ctrlKey) && e.shiftKey && (keyLower === 'f' || keyLower === 'h' || keyLower === 's' || keyLower === 'j');
         // Allow system utility shortcuts (Alt+Cmd+L for logs, Alt+Cmd+P for processes) even when modals are open
         const isSystemUtilShortcut = e.altKey && (e.metaKey || e.ctrlKey) && (keyLower === 'l' || keyLower === 'p');
+        // Allow session jump shortcuts (Alt+Cmd+NUMBER) even when modals are open
+        const isSessionJumpShortcut = e.altKey && (e.metaKey || e.ctrlKey) && /^[0-9]$/.test(e.key);
 
         if (hasOpenModal()) {
           // TRUE MODAL is open - block most shortcuts from App.tsx
           // The modal's own handler will handle Cmd+Shift+[] if it supports it
-          // BUT allow layout shortcuts (sidebar toggles) and system utility shortcuts to work
-          if (!isLayoutShortcut && !isSystemUtilShortcut) {
+          // BUT allow layout shortcuts (sidebar toggles), system utility shortcuts, and session jump to work
+          if (!isLayoutShortcut && !isSystemUtilShortcut && !isSessionJumpShortcut) {
             return;
           }
-          // Fall through to handle layout/system utility shortcuts below
+          // Fall through to handle layout/system utility/session jump shortcuts below
         } else {
           // Only OVERLAYS are open (FilePreview, LogViewer, etc.)
           // Allow Cmd+Shift+[] to fall through to App.tsx handler
           // (which will cycle right panel tabs when previewFile is set)
           // Also allow right panel tab shortcuts to switch tabs while overlay is open
-          if (!isCycleShortcut && !isLayoutShortcut && !isRightPanelShortcut && !isSystemUtilShortcut) {
+          if (!isCycleShortcut && !isLayoutShortcut && !isRightPanelShortcut && !isSystemUtilShortcut && !isSessionJumpShortcut) {
             return;
           }
           // Fall through to cyclePrev/cycleNext logic below
@@ -3524,47 +3542,57 @@ export default function MaestroConsole() {
               { session: activeSession, gitBranch }
             );
 
-            // Queue the command if AI is busy
-            // For read-only mode tabs: only queue if THIS TAB is busy (allows parallel execution)
-            // For write mode tabs: queue if ANY tab in session is busy (prevents conflicts)
-            // EXCEPTION: Write commands can bypass the queue and run in parallel if ALL busy tabs
-            // and ALL queued items are read-only
+            // ALWAYS queue slash commands - they execute in order like write messages
+            // This ensures commands are processed sequentially through the queue
             const activeTab = getActiveTab(activeSession);
             const isReadOnlyMode = activeTab?.readOnlyMode === true;
+            const sessionIsIdle = activeSession.state !== 'busy';
 
-            // Check if write command can bypass queue (all running/queued items are read-only)
-            const canWriteBypassQueue = (): boolean => {
-              if (isReadOnlyMode) return false; // Only applies to write commands
-              if (activeSession.state !== 'busy') return false; // Nothing to bypass
-
-              // Check all busy tabs are in read-only mode
-              const busyTabs = activeSession.aiTabs.filter(tab => tab.state === 'busy');
-              const allBusyTabsReadOnly = busyTabs.every(tab => tab.readOnlyMode === true);
-              if (!allBusyTabsReadOnly) return false;
-
-              // Check all queued items are from read-only tabs
-              const allQueuedReadOnly = activeSession.executionQueue.every(item => item.readOnlyMode === true);
-              if (!allQueuedReadOnly) return false;
-
-              return true;
+            const queuedItem: QueuedItem = {
+              id: generateId(),
+              timestamp: Date.now(),
+              tabId: activeTab?.id || activeSession.activeTabId,
+              type: 'command',
+              command: matchingCustomCommand.command,
+              commandDescription: matchingCustomCommand.description,
+              tabName: activeTab?.name || (activeTab?.claudeSessionId ? activeTab.claudeSessionId.split('-')[0].toUpperCase() : 'New'),
+              readOnlyMode: isReadOnlyMode
             };
 
-            const shouldQueue = isReadOnlyMode
-              ? activeTab?.state === 'busy'
-              : activeSession.state === 'busy' && !canWriteBypassQueue();
+            // If session is idle, we need to set up state and process immediately
+            // If session is busy, just add to queue - it will be processed when current item finishes
+            if (sessionIsIdle) {
+              // Set up session and tab state for immediate processing
+              setSessions(prev => prev.map(s => {
+                if (s.id !== activeSessionId) return s;
 
-            if (shouldQueue) {
-              const queuedItem: QueuedItem = {
-                id: generateId(),
-                timestamp: Date.now(),
-                tabId: activeTab?.id || activeSession.activeTabId,
-                type: 'command',
-                command: matchingCustomCommand.command,
-                commandDescription: matchingCustomCommand.description,
-                tabName: activeTab?.name || (activeTab?.claudeSessionId ? activeTab.claudeSessionId.split('-')[0].toUpperCase() : 'New'),
-                readOnlyMode: isReadOnlyMode
-              };
+                // Set the target tab to busy
+                const updatedAiTabs = s.aiTabs.map(tab =>
+                  tab.id === queuedItem.tabId
+                    ? { ...tab, state: 'busy' as const, thinkingStartTime: Date.now() }
+                    : tab
+                );
 
+                return {
+                  ...s,
+                  state: 'busy' as SessionState,
+                  busySource: 'ai',
+                  thinkingStartTime: Date.now(),
+                  currentCycleTokens: 0,
+                  currentCycleBytes: 0,
+                  aiTabs: updatedAiTabs,
+                  // Add to queue - it will be removed by exit handler or stay for display
+                  executionQueue: [...s.executionQueue, queuedItem],
+                  aiCommandHistory: Array.from(new Set([...(s.aiCommandHistory || []), commandText])).slice(-50),
+                };
+              }));
+
+              // Process immediately after state is set up
+              setTimeout(() => {
+                processQueuedItem(activeSessionId, queuedItem);
+              }, 50);
+            } else {
+              // Session is busy - just add to queue
               setSessions(prev => prev.map(s => {
                 if (s.id !== activeSessionId) return s;
                 return {
@@ -3573,128 +3601,11 @@ export default function MaestroConsole() {
                   aiCommandHistory: Array.from(new Set([...(s.aiCommandHistory || []), commandText])).slice(-50),
                 };
               }));
-              setInputValue('');
-              setSlashCommandOpen(false);
-              if (inputRef.current) inputRef.current.style.height = 'auto';
-              return;
             }
 
-            // activeTab already defined above for queue check - reuse it
-            if (!activeTab) {
-              console.error('[processInput] No active tab for slash command');
-              return;
-            }
-
-            // Build target session ID using tab ID (same pattern as regular messages)
-            const targetSessionId = `${activeSessionId}-ai-${activeTab.id}`;
-            const isNewSession = !activeTab.claudeSessionId;
-
-            // Add user log showing the command with its interpolated prompt to the active tab
-            const newEntry: LogEntry = {
-              id: generateId(),
-              timestamp: Date.now(),
-              source: 'user',
-              text: substitutedPrompt,
-              aiCommand: {
-                command: matchingCustomCommand.command,
-                description: matchingCustomCommand.description
-              },
-              ...(isReadOnlyMode && { readOnly: true })
-            };
-
-            // Update session state: add log, set busy, set awaitingSessionId for new sessions
-            setSessions(prev => prev.map(s => {
-              if (s.id !== activeSessionId) return s;
-
-              // Update the active tab's logs and state
-              const updatedAiTabs = s.aiTabs.map(tab =>
-                tab.id === activeTab.id
-                  ? {
-                      ...tab,
-                      logs: [...tab.logs, newEntry],
-                      state: 'busy' as const,
-                      thinkingStartTime: Date.now(),
-                      awaitingSessionId: isNewSession ? true : tab.awaitingSessionId
-                    }
-                  : tab
-              );
-
-              return {
-                ...s,
-                state: 'busy' as SessionState,
-                busySource: 'ai',
-                thinkingStartTime: Date.now(),
-                currentCycleTokens: 0,
-                currentCycleBytes: 0,
-                aiCommandHistory: Array.from(new Set([...(s.aiCommandHistory || []), commandText])).slice(-50),
-                pendingAICommandForSynopsis: matchingCustomCommand.command,
-                aiTabs: updatedAiTabs
-              };
-            }));
-
-            // Spawn the agent with proper session ID format (same as regular messages)
-            (async () => {
-              try {
-                const agent = await window.maestro.agents.get('claude-code');
-                if (!agent) throw new Error('Claude Code agent not found');
-
-                // Get fresh session state to avoid stale closure
-                const freshSession = sessionsRef.current.find(s => s.id === activeSessionId);
-                if (!freshSession) throw new Error('Session not found');
-
-                const freshActiveTab = getActiveTab(freshSession);
-                const tabClaudeSessionId = freshActiveTab?.claudeSessionId;
-
-                // Build spawn args with resume if we have a session ID
-                const spawnArgs = [...(agent.args || [])];
-                if (tabClaudeSessionId) {
-                  spawnArgs.push('--resume', tabClaudeSessionId);
-                }
-
-                // Add read-only mode if tab has it enabled
-                if (freshActiveTab?.readOnlyMode) {
-                  spawnArgs.push('--permission-mode', 'plan');
-                }
-
-                const commandToUse = agent.path || agent.command;
-                console.log('[processInput] Spawning Claude for slash command:', {
-                  command: matchingCustomCommand.command,
-                  targetSessionId,
-                  claudeSessionId: tabClaudeSessionId || 'NEW SESSION'
-                });
-
-                await window.maestro.process.spawn({
-                  sessionId: targetSessionId,
-                  toolType: 'claude-code',
-                  cwd: freshSession.cwd,
-                  command: commandToUse,
-                  args: spawnArgs,
-                  prompt: substitutedPrompt
-                });
-              } catch (error: any) {
-                console.error('[processInput] Failed to spawn Claude for slash command:', error);
-                setSessions(prev => prev.map(s => {
-                  if (s.id !== activeSessionId) return s;
-                  const errorEntry: LogEntry = {
-                    id: generateId(),
-                    timestamp: Date.now(),
-                    source: 'system',
-                    text: `Error: Failed to run ${matchingCustomCommand.command} - ${error.message}`
-                  };
-                  const updatedAiTabs = s.aiTabs.map(tab =>
-                    tab.id === activeTab.id
-                      ? { ...tab, state: 'idle' as const, logs: [...tab.logs, errorEntry] }
-                      : tab
-                  );
-                  return {
-                    ...s,
-                    state: 'idle' as SessionState,
-                    busySource: undefined,
-                    aiTabs: updatedAiTabs
-                  };
-                }));
-              }
-            })();
+            setInputValue('');
+            setSlashCommandOpen(false);
+            if (inputRef.current) inputRef.current.style.height = 'auto';
           })();
           return;
         }
@@ -5890,6 +5801,29 @@ export default function MaestroConsole() {
               )
             };
           }));
+        }}
+        onScrollPositionChange={(scrollTop: number) => {
+          if (!activeSession) return;
+          // Save scroll position for the current view (AI tab or terminal)
+          if (activeSession.inputMode === 'ai') {
+            // Save to active AI tab's scrollTop
+            const activeTab = getActiveTab(activeSession);
+            if (!activeTab) return;
+            setSessions(prev => prev.map(s => {
+              if (s.id !== activeSession.id) return s;
+              return {
+                ...s,
+                aiTabs: s.aiTabs.map(tab =>
+                  tab.id === activeTab.id ? { ...tab, scrollTop } : tab
+                )
+              };
+            }));
+          } else {
+            // Save to session's terminalScrollTop
+            setSessions(prev => prev.map(s =>
+              s.id === activeSession.id ? { ...s, terminalScrollTop: scrollTop } : s
+            ));
+          }
         }}
       />
 
