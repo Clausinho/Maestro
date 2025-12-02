@@ -1068,7 +1068,7 @@ export default function MaestroConsole() {
         if (!session) return prev;
 
         // Check if we need to fetch commands (only on first session establishment)
-        const needsCommandFetch = !session.claudeCommands && session.toolType === 'claude';
+        const needsCommandFetch = !session.claudeCommands && session.toolType === 'claude-code';
 
         if (needsCommandFetch) {
           // Fetch commands asynchronously and update session

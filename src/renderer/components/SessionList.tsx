@@ -313,6 +313,16 @@ export function SessionList(props: SessionListProps) {
   const [liveOverlayOpen, setLiveOverlayOpen] = useState(false);
   const [urlCopied, setUrlCopied] = useState(false);
 
+  // Cloudflared installation status (cached after first check)
+  const [cloudflaredInstalled, setCloudflaredInstalled] = useState<boolean | null>(null);
+  const [cloudflaredChecked, setCloudflaredChecked] = useState(false);
+
+  // Tunnel state
+  const [tunnelStatus, setTunnelStatus] = useState<'off' | 'starting' | 'connected' | 'error'>('off');
+  const [tunnelUrl, setTunnelUrl] = useState<string | null>(null);
+  const [tunnelError, setTunnelError] = useState<string | null>(null);
+  const [copiedUrl, setCopiedUrl] = useState<'local' | 'remote' | null>(null);
+
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; sessionId: string } | null>(null);
   const contextMenuSession = contextMenu ? sessions.find(s => s.id === contextMenu.sessionId) : null;
