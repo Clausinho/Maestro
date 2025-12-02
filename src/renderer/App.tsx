@@ -5926,25 +5926,12 @@ export default function MaestroConsole() {
           handleResumeSession(claudeSessionId, messages, sessionName, starred);
         }}
         onNewClaudeSession={() => {
-          // Create a fresh AI terminal session by clearing the Claude session ID and AI logs
+          // Create a fresh AI tab
           if (activeSession) {
-            // Block clearing when there are queued items
-            if (activeSession.executionQueue.length > 0) {
-              addLogToActiveTab(activeSession.id, {
-                source: 'system',
-                text: 'Cannot clear session while items are queued. Remove queued items first.'
-              });
-              return;
-            }
             setSessions(prev => prev.map(s => {
               if (s.id !== activeSession.id) return s;
-              // Reset active tab's state to 'idle' for write-mode tracking
-              const updatedAiTabs = s.aiTabs?.length > 0
-                ? s.aiTabs.map(tab =>
-                    tab.id === s.activeTabId ? { ...tab, state: 'idle' as const } : tab
-                  )
-                : s.aiTabs;
-              return { ...s, claudeSessionId: undefined, aiLogs: [], state: 'idle', usageStats: undefined, contextUsage: 0, activeTimeMs: 0, aiTabs: updatedAiTabs };
+              const result = createTab(s);
+              return result.session;
             }));
             setActiveClaudeSessionId(null);
           }
