@@ -3517,7 +3517,8 @@ export default function MaestroConsole() {
   const toggleGlobalLive = async () => {
     try {
       if (isLiveMode) {
-        // Turn off - stop the server and clear state
+        // Stop tunnel first (if running), then stop web server
+        await window.maestro.tunnel.stop();
         const result = await window.maestro.live.disableAll();
         setIsLiveMode(false);
         setWebInterfaceUrl(null);
