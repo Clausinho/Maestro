@@ -5586,6 +5586,18 @@ export default function MaestroConsole() {
               setTimeout(() => setSuccessFlashNotification(null), 2000);
             }
           }}
+          onDebugReleaseQueuedItem={() => {
+            if (!activeSession || activeSession.executionQueue.length === 0) return;
+            const [nextItem, ...remainingQueue] = activeSession.executionQueue;
+            // Update state to remove item from queue
+            setSessions(prev => prev.map(s => {
+              if (s.id !== activeSessionId) return s;
+              return { ...s, executionQueue: remainingQueue };
+            }));
+            // Process the item
+            processQueuedItem(activeSessionId, nextItem);
+            console.log('[Debug] Released queued item:', nextItem);
+          }}
         />
       )}
       {lightboxImage && (

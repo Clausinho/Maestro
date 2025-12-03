@@ -58,6 +58,7 @@ interface QuickActionsModalProps {
   isAiMode?: boolean;
   setPlaygroundOpen?: (open: boolean) => void;
   onRefreshGitFileState?: () => Promise<void>;
+  onDebugReleaseQueuedItem?: () => void;
 }
 
 export function QuickActionsModal(props: QuickActionsModalProps) {
@@ -71,7 +72,8 @@ export function QuickActionsModal(props: QuickActionsModalProps) {
     deleteSession, addNewSession, setSettingsModalOpen, setSettingsTab,
     setShortcutsHelpOpen, setAboutModalOpen, setLogViewerOpen, setProcessMonitorOpen,
     setAgentSessionsOpen, setActiveClaudeSessionId, setGitDiffPreview, setGitLogOpen, startFreshSession,
-    onRenameTab, onToggleReadOnlyMode, onOpenTabSwitcher, tabShortcuts, isAiMode, setPlaygroundOpen, onRefreshGitFileState
+    onRenameTab, onToggleReadOnlyMode, onOpenTabSwitcher, tabShortcuts, isAiMode, setPlaygroundOpen, onRefreshGitFileState,
+    onDebugReleaseQueuedItem
   } = props;
 
   const [search, setSearch] = useState('');
@@ -303,6 +305,15 @@ export function QuickActionsModal(props: QuickActionsModalProps) {
       setPlaygroundOpen(true);
       setQuickActionOpen(false);
     } }] : []),
+    ...(activeSession && activeSession.executionQueue?.length > 0 && onDebugReleaseQueuedItem ? [{
+      id: 'debugReleaseQueued',
+      label: 'Debug: Release Next Queued Item',
+      subtext: `Process next item from queue (${activeSession.executionQueue.length} queued)`,
+      action: () => {
+        onDebugReleaseQueuedItem();
+        setQuickActionOpen(false);
+      }
+    }] : []),
   ];
 
   const groupActions: QuickAction[] = [
