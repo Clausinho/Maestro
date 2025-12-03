@@ -274,18 +274,51 @@ export const RightPanel = forwardRef<RightPanelHandle, RightPanelProps>(function
             borderColor: theme.colors.warning
           }}
         >
+          {/* Header with status and overall progress */}
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin" style={{ color: theme.colors.warning }} />
               <span className="text-xs font-bold uppercase" style={{ color: theme.colors.textMain }}>
                 {batchRunState.isStopping ? 'Stopping...' : 'Auto Mode Running'}
               </span>
+              {/* Loop iteration indicator */}
+              {batchRunState.loopEnabled && batchRunState.loopIteration > 0 && (
+                <span
+                  className="text-[10px] px-1.5 py-0.5 rounded"
+                  style={{ backgroundColor: theme.colors.accent + '30', color: theme.colors.accent }}
+                >
+                  Loop {batchRunState.loopIteration + 1}
+                </span>
+              )}
             </div>
-            <span className="text-xs font-mono" style={{ color: theme.colors.textDim }}>
-              {batchRunState.completedTasks} / {batchRunState.totalTasks} tasks
-            </span>
           </div>
-          {/* Progress bar */}
+
+          {/* Document progress - only show if we have multiple documents */}
+          {batchRunState.documents && batchRunState.documents.length > 1 && (
+            <div className="mb-2">
+              <span className="text-xs font-bold" style={{ color: theme.colors.textMain }}>
+                Document {batchRunState.currentDocumentIndex + 1} of {batchRunState.documents.length}:
+                {' '}{batchRunState.documents[batchRunState.currentDocumentIndex]}
+              </span>
+            </div>
+          )}
+
+          {/* Task progress within current document */}
+          <div className="text-xs mb-2" style={{ color: theme.colors.textDim }}>
+            {batchRunState.documents && batchRunState.documents.length > 0 ? (
+              <>
+                Task {batchRunState.currentDocTasksCompleted + 1} of {batchRunState.currentDocTasksTotal}
+                {batchRunState.documents.length === 1 && batchRunState.documents[0] && (
+                  <span> in {batchRunState.documents[0]}</span>
+                )}
+              </>
+            ) : (
+              // Fallback to legacy fields if new fields not populated
+              `Task ${batchRunState.currentTaskIndex + 1} of ${batchRunState.totalTasks}`
+            )}
+          </div>
+
+          {/* Overall progress bar */}
           <div
             className="h-1.5 rounded-full overflow-hidden"
             style={{ backgroundColor: theme.colors.border }}
@@ -293,15 +326,26 @@ export const RightPanel = forwardRef<RightPanelHandle, RightPanelProps>(function
             <div
               className="h-full transition-all duration-500 ease-out"
               style={{
-                width: `${batchRunState.totalTasks > 0 ? (batchRunState.completedTasks / batchRunState.totalTasks) * 100 : 0}%`,
+                width: `${
+                  batchRunState.totalTasksAcrossAllDocs > 0
+                    ? (batchRunState.completedTasksAcrossAllDocs / batchRunState.totalTasksAcrossAllDocs) * 100
+                    : batchRunState.totalTasks > 0
+                      ? (batchRunState.completedTasks / batchRunState.totalTasks) * 100
+                      : 0
+                }%`,
                 backgroundColor: batchRunState.isStopping ? theme.colors.error : theme.colors.warning
               }}
             />
           </div>
+
+          {/* Overall completed count */}
           <div className="mt-2 text-[10px]" style={{ color: theme.colors.textDim }}>
             {batchRunState.isStopping
               ? 'Waiting for current task to complete before stopping...'
-              : `Task ${batchRunState.currentTaskIndex + 1} in progress...`}
+              : batchRunState.totalTasksAcrossAllDocs > 0
+                ? `${batchRunState.completedTasksAcrossAllDocs} / ${batchRunState.totalTasksAcrossAllDocs} total tasks completed`
+                : `${batchRunState.completedTasks} / ${batchRunState.totalTasks} tasks completed`
+            }
           </div>
         </div>
       )}
