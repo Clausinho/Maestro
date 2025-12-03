@@ -219,6 +219,49 @@ contextBridge.exposeInMainWorld('maestro', {
     show: (cwd: string, hash: string) => ipcRenderer.invoke('git:show', cwd, hash),
     showFile: (cwd: string, ref: string, filePath: string) =>
       ipcRenderer.invoke('git:showFile', cwd, ref, filePath) as Promise<{ content?: string; error?: string }>,
+    // Git worktree operations for Auto Run parallelization
+    worktreeInfo: (worktreePath: string) =>
+      ipcRenderer.invoke('git:worktreeInfo', worktreePath) as Promise<{
+        success: boolean;
+        exists?: boolean;
+        isWorktree?: boolean;
+        currentBranch?: string;
+        repoRoot?: string;
+        error?: string;
+      }>,
+    getRepoRoot: (cwd: string) =>
+      ipcRenderer.invoke('git:getRepoRoot', cwd) as Promise<{
+        success: boolean;
+        root?: string;
+        error?: string;
+      }>,
+    worktreeSetup: (mainRepoCwd: string, worktreePath: string, branchName: string) =>
+      ipcRenderer.invoke('git:worktreeSetup', mainRepoCwd, worktreePath, branchName) as Promise<{
+        success: boolean;
+        created?: boolean;
+        currentBranch?: string;
+        requestedBranch?: string;
+        branchMismatch?: boolean;
+        error?: string;
+      }>,
+    worktreeCheckout: (worktreePath: string, branchName: string, createIfMissing: boolean) =>
+      ipcRenderer.invoke('git:worktreeCheckout', worktreePath, branchName, createIfMissing) as Promise<{
+        success: boolean;
+        hasUncommittedChanges: boolean;
+        error?: string;
+      }>,
+    createPR: (worktreePath: string, baseBranch: string, title: string, body: string) =>
+      ipcRenderer.invoke('git:createPR', worktreePath, baseBranch, title, body) as Promise<{
+        success: boolean;
+        prUrl?: string;
+        error?: string;
+      }>,
+    getDefaultBranch: (cwd: string) =>
+      ipcRenderer.invoke('git:getDefaultBranch', cwd) as Promise<{
+        success: boolean;
+        branch?: string;
+        error?: string;
+      }>,
   },
 
   // File System API
@@ -563,6 +606,43 @@ export interface MaestroAPI {
     }>;
     show: (cwd: string, hash: string) => Promise<{ stdout: string; stderr: string }>;
     showFile: (cwd: string, ref: string, filePath: string) => Promise<{ content?: string; error?: string }>;
+    // Git worktree operations for Auto Run parallelization
+    worktreeInfo: (worktreePath: string) => Promise<{
+      success: boolean;
+      exists?: boolean;
+      isWorktree?: boolean;
+      currentBranch?: string;
+      repoRoot?: string;
+      error?: string;
+    }>;
+    getRepoRoot: (cwd: string) => Promise<{
+      success: boolean;
+      root?: string;
+      error?: string;
+    }>;
+    worktreeSetup: (mainRepoCwd: string, worktreePath: string, branchName: string) => Promise<{
+      success: boolean;
+      created?: boolean;
+      currentBranch?: string;
+      requestedBranch?: string;
+      branchMismatch?: boolean;
+      error?: string;
+    }>;
+    worktreeCheckout: (worktreePath: string, branchName: string, createIfMissing: boolean) => Promise<{
+      success: boolean;
+      hasUncommittedChanges: boolean;
+      error?: string;
+    }>;
+    createPR: (worktreePath: string, baseBranch: string, title: string, body: string) => Promise<{
+      success: boolean;
+      prUrl?: string;
+      error?: string;
+    }>;
+    getDefaultBranch: (cwd: string) => Promise<{
+      success: boolean;
+      branch?: string;
+      error?: string;
+    }>;
   };
   fs: {
     readDir: (dirPath: string) => Promise<DirectoryEntry[]>;

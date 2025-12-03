@@ -1129,6 +1129,269 @@ function setupIpcHandlers() {
     }
   });
 
+  // Git worktree operations for Auto Run parallelization
+
+  // Get information about a worktree at a given path
+  ipcMain.handle('git:worktreeInfo', async (_, worktreePath: string) => {
+    try {
+      // Check if the path exists
+      try {
+        await fs.access(worktreePath);
+      } catch {
+        return { success: true, exists: false, isWorktree: false };
+      }
+
+      // Check if it's a git directory (could be main repo or worktree)
+      const isInsideWorkTree = await execFileNoThrow('git', ['rev-parse', '--is-inside-work-tree'], worktreePath);
+      if (isInsideWorkTree.exitCode !== 0) {
+        return { success: true, exists: true, isWorktree: false };
+      }
+
+      // Get the git directory path
+      const gitDirResult = await execFileNoThrow('git', ['rev-parse', '--git-dir'], worktreePath);
+      if (gitDirResult.exitCode !== 0) {
+        return { success: false, error: 'Failed to get git directory' };
+      }
+      const gitDir = gitDirResult.stdout.trim();
+
+      // A worktree's .git is a file pointing to the main repo, not a directory
+      // Check if this is a worktree by looking for .git file (not directory) or checking git-common-dir
+      const gitCommonDirResult = await execFileNoThrow('git', ['rev-parse', '--git-common-dir'], worktreePath);
+      const gitCommonDir = gitCommonDirResult.exitCode === 0 ? gitCommonDirResult.stdout.trim() : gitDir;
+
+      // If git-dir and git-common-dir are different, this is a worktree
+      const isWorktree = gitDir !== gitCommonDir;
+
+      // Get the current branch
+      const branchResult = await execFileNoThrow('git', ['rev-parse', '--abbrev-ref', 'HEAD'], worktreePath);
+      const currentBranch = branchResult.exitCode === 0 ? branchResult.stdout.trim() : undefined;
+
+      // Get the repository root (of the main repository)
+      const repoRootResult = await execFileNoThrow('git', ['rev-parse', '--show-toplevel'], worktreePath);
+      let repoRoot: string | undefined;
+
+      if (isWorktree && gitCommonDir) {
+        // For worktrees, we need to find the main repo root from the common dir
+        // The common dir points to the .git folder of the main repo
+        // The main repo root is the parent of the .git folder
+        const path = require('path');
+        const commonDirAbs = path.isAbsolute(gitCommonDir)
+          ? gitCommonDir
+          : path.resolve(worktreePath, gitCommonDir);
+        repoRoot = path.dirname(commonDirAbs);
+      } else if (repoRootResult.exitCode === 0) {
+        repoRoot = repoRootResult.stdout.trim();
+      }
+
+      return {
+        success: true,
+        exists: true,
+        isWorktree,
+        currentBranch,
+        repoRoot
+      };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  });
+
+  // Get the root directory of the git repository
+  ipcMain.handle('git:getRepoRoot', async (_, cwd: string) => {
+    try {
+      const result = await execFileNoThrow('git', ['rev-parse', '--show-toplevel'], cwd);
+      if (result.exitCode !== 0) {
+        return { success: false, error: result.stderr || 'Not a git repository' };
+      }
+      return { success: true, root: result.stdout.trim() };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  });
+
+  // Create or reuse a worktree
+  ipcMain.handle('git:worktreeSetup', async (_, mainRepoCwd: string, worktreePath: string, branchName: string) => {
+    try {
+      const path = require('path');
+
+      // First check if the worktree path already exists
+      let pathExists = true;
+      try {
+        await fs.access(worktreePath);
+      } catch {
+        pathExists = false;
+      }
+
+      if (pathExists) {
+        // Check if it's already a worktree of this repo
+        const worktreeInfoResult = await execFileNoThrow('git', ['rev-parse', '--is-inside-work-tree'], worktreePath);
+        if (worktreeInfoResult.exitCode !== 0) {
+          return { success: false, error: 'Path exists but is not a git worktree or repository' };
+        }
+
+        // Get the common dir to check if it's the same repo
+        const gitCommonDirResult = await execFileNoThrow('git', ['rev-parse', '--git-common-dir'], worktreePath);
+        const mainGitDirResult = await execFileNoThrow('git', ['rev-parse', '--git-dir'], mainRepoCwd);
+
+        if (gitCommonDirResult.exitCode === 0 && mainGitDirResult.exitCode === 0) {
+          const worktreeCommonDir = path.resolve(worktreePath, gitCommonDirResult.stdout.trim());
+          const mainGitDir = path.resolve(mainRepoCwd, mainGitDirResult.stdout.trim());
+
+          // Normalize paths for comparison
+          const normalizedWorktreeCommon = path.normalize(worktreeCommonDir);
+          const normalizedMainGit = path.normalize(mainGitDir);
+
+          if (normalizedWorktreeCommon !== normalizedMainGit) {
+            return { success: false, error: 'Worktree path belongs to a different repository' };
+          }
+        }
+
+        // Get current branch in the existing worktree
+        const currentBranchResult = await execFileNoThrow('git', ['rev-parse', '--abbrev-ref', 'HEAD'], worktreePath);
+        const currentBranch = currentBranchResult.exitCode === 0 ? currentBranchResult.stdout.trim() : '';
+
+        return {
+          success: true,
+          created: false,
+          currentBranch,
+          requestedBranch: branchName,
+          branchMismatch: currentBranch !== branchName && branchName !== ''
+        };
+      }
+
+      // Worktree doesn't exist, create it
+      // First check if the branch exists
+      const branchExistsResult = await execFileNoThrow('git', ['rev-parse', '--verify', branchName], mainRepoCwd);
+      const branchExists = branchExistsResult.exitCode === 0;
+
+      let createResult;
+      if (branchExists) {
+        // Branch exists, just add worktree pointing to it
+        createResult = await execFileNoThrow('git', ['worktree', 'add', worktreePath, branchName], mainRepoCwd);
+      } else {
+        // Branch doesn't exist, create it with -b flag
+        createResult = await execFileNoThrow('git', ['worktree', 'add', '-b', branchName, worktreePath], mainRepoCwd);
+      }
+
+      if (createResult.exitCode !== 0) {
+        return { success: false, error: createResult.stderr || 'Failed to create worktree' };
+      }
+
+      return {
+        success: true,
+        created: true,
+        currentBranch: branchName,
+        requestedBranch: branchName,
+        branchMismatch: false
+      };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  });
+
+  // Checkout a branch in a worktree (with uncommitted changes check)
+  ipcMain.handle('git:worktreeCheckout', async (_, worktreePath: string, branchName: string, createIfMissing: boolean) => {
+    try {
+      // Check for uncommitted changes
+      const statusResult = await execFileNoThrow('git', ['status', '--porcelain'], worktreePath);
+      if (statusResult.exitCode !== 0) {
+        return { success: false, hasUncommittedChanges: false, error: 'Failed to check git status' };
+      }
+
+      const hasUncommittedChanges = statusResult.stdout.trim().length > 0;
+      if (hasUncommittedChanges) {
+        return {
+          success: false,
+          hasUncommittedChanges: true,
+          error: 'Worktree has uncommitted changes. Please commit or stash them first.'
+        };
+      }
+
+      // Check if branch exists
+      const branchExistsResult = await execFileNoThrow('git', ['rev-parse', '--verify', branchName], worktreePath);
+      const branchExists = branchExistsResult.exitCode === 0;
+
+      let checkoutResult;
+      if (branchExists) {
+        checkoutResult = await execFileNoThrow('git', ['checkout', branchName], worktreePath);
+      } else if (createIfMissing) {
+        checkoutResult = await execFileNoThrow('git', ['checkout', '-b', branchName], worktreePath);
+      } else {
+        return { success: false, hasUncommittedChanges: false, error: `Branch '${branchName}' does not exist` };
+      }
+
+      if (checkoutResult.exitCode !== 0) {
+        return { success: false, hasUncommittedChanges: false, error: checkoutResult.stderr || 'Checkout failed' };
+      }
+
+      return { success: true, hasUncommittedChanges: false };
+    } catch (error) {
+      return { success: false, hasUncommittedChanges: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  });
+
+  // Create a PR from the worktree branch to a base branch
+  ipcMain.handle('git:createPR', async (_, worktreePath: string, baseBranch: string, title: string, body: string) => {
+    try {
+      // First, push the current branch to origin
+      const pushResult = await execFileNoThrow('git', ['push', '-u', 'origin', 'HEAD'], worktreePath);
+      if (pushResult.exitCode !== 0) {
+        return { success: false, error: `Failed to push branch: ${pushResult.stderr}` };
+      }
+
+      // Create the PR using gh CLI
+      const prResult = await execFileNoThrow('gh', [
+        'pr', 'create',
+        '--base', baseBranch,
+        '--title', title,
+        '--body', body
+      ], worktreePath);
+
+      if (prResult.exitCode !== 0) {
+        // Check if gh CLI is not installed
+        if (prResult.stderr.includes('command not found') || prResult.stderr.includes('not recognized')) {
+          return { success: false, error: 'GitHub CLI (gh) is not installed. Please install it to create PRs.' };
+        }
+        return { success: false, error: prResult.stderr || 'Failed to create PR' };
+      }
+
+      // The PR URL is typically in stdout
+      const prUrl = prResult.stdout.trim();
+      return { success: true, prUrl };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  });
+
+  // Get the default branch name (main or master)
+  ipcMain.handle('git:getDefaultBranch', async (_, cwd: string) => {
+    try {
+      // First try to get the default branch from remote
+      const remoteResult = await execFileNoThrow('git', ['remote', 'show', 'origin'], cwd);
+      if (remoteResult.exitCode === 0) {
+        // Parse "HEAD branch: main" from the output
+        const match = remoteResult.stdout.match(/HEAD branch:\s*(\S+)/);
+        if (match) {
+          return { success: true, branch: match[1] };
+        }
+      }
+
+      // Fallback: check if main or master exists locally
+      const mainResult = await execFileNoThrow('git', ['rev-parse', '--verify', 'main'], cwd);
+      if (mainResult.exitCode === 0) {
+        return { success: true, branch: 'main' };
+      }
+
+      const masterResult = await execFileNoThrow('git', ['rev-parse', '--verify', 'master'], cwd);
+      if (masterResult.exitCode === 0) {
+        return { success: true, branch: 'master' };
+      }
+
+      return { success: false, error: 'Could not determine default branch' };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  });
+
   // File system operations
   ipcMain.handle('fs:readDir', async (_, dirPath: string) => {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
