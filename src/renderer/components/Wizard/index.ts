@@ -8,6 +8,7 @@
 
 export { MaestroWizard } from './MaestroWizard';
 export { WizardProvider, useWizard } from './WizardContext';
+export { WizardResumeModal } from './WizardResumeModal';
 export type {
   WizardState,
   WizardStep,

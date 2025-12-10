@@ -27,7 +27,7 @@ import { StandingOvationOverlay } from './components/StandingOvationOverlay';
 import { FirstRunCelebration } from './components/FirstRunCelebration';
 import { PlaygroundPanel } from './components/PlaygroundPanel';
 import { AutoRunSetupModal } from './components/AutoRunSetupModal';
-import { MaestroWizard, useWizard } from './components/Wizard';
+import { MaestroWizard, useWizard, WizardResumeModal, SerializableWizardState } from './components/Wizard';
 import { TourOverlay } from './components/Wizard/tour';
 import { CONDUCTOR_BADGES } from './constants/conductorBadges';
 
@@ -126,7 +126,12 @@ export default function MaestroConsole() {
   } = useNavigationHistory();
 
   // --- WIZARD (onboarding wizard for new users) ---
-  const { openWizard: openWizardModal } = useWizard();
+  const {
+    openWizard: openWizardModal,
+    restoreState: restoreWizardState,
+    loadResumeState,
+    clearResumeState,
+  } = useWizard();
 
   // --- SETTINGS (from useSettings hook) ---
   const settings = useSettings();
@@ -290,6 +295,10 @@ export default function MaestroConsole() {
 
   // Auto Run Setup Modal State
   const [autoRunSetupModalOpen, setAutoRunSetupModalOpen] = useState(false);
+
+  // Wizard Resume Modal State
+  const [wizardResumeModalOpen, setWizardResumeModalOpen] = useState(false);
+  const [wizardResumeState, setWizardResumeState] = useState<SerializableWizardState | null>(null);
 
   // Tab Switcher Modal State
   const [tabSwitcherOpen, setTabSwitcherOpen] = useState(false);
@@ -572,9 +581,18 @@ export default function MaestroConsole() {
         // Mark sessions as loaded for splash screen coordination
         setSessionsLoaded(true);
 
-        // If no sessions were loaded, automatically open the onboarding wizard
+        // If no sessions were loaded, check for wizard resume state or open wizard
         if (!hasSessionsLoaded) {
-          openWizardModal();
+          // Check if there's a saved wizard state to resume
+          const savedResumeState = await loadResumeState();
+          if (savedResumeState) {
+            // Show resume dialog instead of opening wizard directly
+            setWizardResumeState(savedResumeState);
+            setWizardResumeModalOpen(true);
+          } else {
+            // No resume state, start fresh wizard
+            openWizardModal();
+          }
         }
       }
     };
@@ -7204,6 +7222,40 @@ export default function MaestroConsole() {
         setCustomAICommands={setCustomAICommands}
         initialTab={settingsTab}
       />
+
+      {/* --- WIZARD RESUME MODAL (asks if user wants to resume incomplete wizard) --- */}
+      {wizardResumeModalOpen && wizardResumeState && (
+        <WizardResumeModal
+          theme={theme}
+          resumeState={wizardResumeState}
+          onResume={() => {
+            // Close the resume modal
+            setWizardResumeModalOpen(false);
+            // Restore the saved wizard state
+            restoreWizardState(wizardResumeState);
+            // Open the wizard at the restored step
+            openWizardModal();
+            // Clear the resume state holder
+            setWizardResumeState(null);
+          }}
+          onStartFresh={() => {
+            // Close the resume modal
+            setWizardResumeModalOpen(false);
+            // Clear any saved resume state
+            clearResumeState();
+            // Open a fresh wizard
+            openWizardModal();
+            // Clear the resume state holder
+            setWizardResumeState(null);
+          }}
+          onClose={() => {
+            // Just close the modal without doing anything
+            // The user can open the wizard manually later if they want
+            setWizardResumeModalOpen(false);
+            setWizardResumeState(null);
+          }}
+        />
+      )}
 
       {/* --- MAESTRO WIZARD (onboarding wizard for new users) --- */}
       <MaestroWizard theme={theme} />
