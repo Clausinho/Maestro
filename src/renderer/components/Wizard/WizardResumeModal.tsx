@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { RefreshCw, RotateCcw, FolderOpen } from 'lucide-react';
+import { RefreshCw, RotateCcw, FolderOpen, AlertTriangle } from 'lucide-react';
 import type { Theme } from '../../types';
 import { useLayerStack } from '../../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../../constants/modalPriorities';
@@ -16,7 +16,7 @@ import { STEP_INDEX } from './WizardContext';
 interface WizardResumeModalProps {
   theme: Theme;
   resumeState: SerializableWizardState;
-  onResume: () => void;
+  onResume: (directoryInvalid?: boolean) => void;
   onStartFresh: () => void;
   onClose: () => void;
 }
@@ -57,6 +57,41 @@ export function WizardResumeModal({
   const layerIdRef = useRef<string>();
   const resumeButtonRef = useRef<HTMLButtonElement>(null);
   const [focusedButton, setFocusedButton] = useState<'resume' | 'fresh'>('resume');
+  const [directoryValid, setDirectoryValid] = useState<boolean | null>(null);
+  const [isValidating, setIsValidating] = useState(false);
+
+  // Validate directory path on mount if present
+  useEffect(() => {
+    let mounted = true;
+
+    async function validateDirectory() {
+      if (!resumeState.directoryPath) {
+        // No directory to validate
+        setDirectoryValid(true);
+        return;
+      }
+
+      setIsValidating(true);
+      try {
+        // Use git.isRepo which will fail if directory doesn't exist
+        await window.maestro.git.isRepo(resumeState.directoryPath);
+        if (mounted) {
+          setDirectoryValid(true);
+        }
+      } catch {
+        // Directory doesn't exist or is inaccessible
+        if (mounted) {
+          setDirectoryValid(false);
+        }
+      }
+      if (mounted) {
+        setIsValidating(false);
+      }
+    }
+
+    validateDirectory();
+    return () => { mounted = false; };
+  }, [resumeState.directoryPath]);
 
   // Focus resume button on mount
   useEffect(() => {
@@ -90,6 +125,11 @@ export function WizardResumeModal({
     }
   }, [onClose, updateLayerHandler]);
 
+  // Handle resume click with directory validation status
+  const handleResume = () => {
+    onResume(directoryValid === false);
+  };
+
   // Handle keyboard navigation between buttons
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Tab') {
@@ -101,7 +141,7 @@ export function WizardResumeModal({
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (focusedButton === 'resume') {
-        onResume();
+        handleResume();
       } else {
         onStartFresh();
       }
@@ -210,16 +250,32 @@ export function WizardResumeModal({
               <div className="flex items-start gap-3">
                 <div className="w-8" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs" style={{ color: theme.colors.textDim }}>
-                    Directory
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs" style={{ color: theme.colors.textDim }}>
+                      Directory
+                    </p>
+                    {isValidating && (
+                      <div
+                        className="w-3 h-3 border border-t-transparent rounded-full animate-spin"
+                        style={{ borderColor: theme.colors.accent, borderTopColor: 'transparent' }}
+                      />
+                    )}
+                  </div>
                   <p
                     className="text-sm font-mono truncate"
-                    style={{ color: theme.colors.textMain }}
+                    style={{ color: directoryValid === false ? theme.colors.error : theme.colors.textMain }}
                     title={resumeState.directoryPath}
                   >
                     {resumeState.directoryPath}
                   </p>
+                  {directoryValid === false && (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <AlertTriangle className="w-3 h-3 flex-shrink-0" style={{ color: theme.colors.warning }} />
+                      <p className="text-xs" style={{ color: theme.colors.warning }}>
+                        Directory no longer exists — you'll need to select a new location
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -245,19 +301,33 @@ export function WizardResumeModal({
         <div className="p-5 pt-0 space-y-3">
           <button
             ref={resumeButtonRef}
-            onClick={onResume}
+            onClick={handleResume}
             onFocus={() => setFocusedButton('resume')}
+            disabled={isValidating}
             className="w-full py-3 px-4 rounded-lg flex items-center justify-center gap-2 font-medium transition-all duration-200 outline-none"
             style={{
               backgroundColor: theme.colors.accent,
               color: theme.colors.accentForeground,
+              opacity: isValidating ? 0.7 : 1,
               boxShadow: focusedButton === 'resume'
                 ? `0 0 0 2px ${theme.colors.bgSidebar}, 0 0 0 4px ${theme.colors.accent}`
                 : 'none',
             }}
           >
-            <RefreshCw className="w-4 h-4" />
-            Resume Where I Left Off
+            {isValidating ? (
+              <>
+                <div
+                  className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin"
+                  style={{ borderColor: theme.colors.accentForeground, borderTopColor: 'transparent' }}
+                />
+                Checking...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4" />
+                Resume Where I Left Off
+              </>
+            )}
           </button>
 
           <button

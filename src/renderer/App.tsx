@@ -7228,11 +7228,26 @@ export default function MaestroConsole() {
         <WizardResumeModal
           theme={theme}
           resumeState={wizardResumeState}
-          onResume={() => {
+          onResume={(directoryInvalid?: boolean) => {
             // Close the resume modal
             setWizardResumeModalOpen(false);
-            // Restore the saved wizard state
-            restoreWizardState(wizardResumeState);
+
+            // If directory is invalid, redirect to directory selection step with error
+            if (directoryInvalid) {
+              const modifiedState = {
+                ...wizardResumeState,
+                currentStep: 'directory-selection' as const,
+                directoryError: 'The previously selected directory no longer exists. Please choose a new location.',
+                // Clear the directory path so user must select a new one
+                directoryPath: '',
+                isGitRepo: false,
+              };
+              restoreWizardState(modifiedState);
+            } else {
+              // Restore the saved wizard state as-is
+              restoreWizardState(wizardResumeState);
+            }
+
             // Open the wizard at the restored step
             openWizardModal();
             // Clear the resume state holder
