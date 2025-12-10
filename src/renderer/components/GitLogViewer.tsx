@@ -26,6 +26,7 @@ interface GitLogViewerProps {
 
 export function GitLogViewer({ cwd, theme, onClose }: GitLogViewerProps) {
   const [entries, setEntries] = useState<GitLogEntry[]>([]);
+  const [totalCommits, setTotalCommits] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -47,11 +48,20 @@ export function GitLogViewer({ cwd, theme, onClose }: GitLogViewerProps) {
       setLoading(true);
       setError(null);
       try {
-        const result = await window.maestro.git.log(cwd, { limit: 200 });
-        if (result.error) {
-          setError(result.error);
+        // Fetch log entries and total count in parallel
+        const [logResult, countResult] = await Promise.all([
+          window.maestro.git.log(cwd, { limit: 200 }),
+          window.maestro.git.commitCount(cwd),
+        ]);
+
+        if (logResult.error) {
+          setError(logResult.error);
         } else {
-          setEntries(result.entries);
+          setEntries(logResult.entries);
+        }
+
+        if (!countResult.error) {
+          setTotalCommits(countResult.count);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load git log');
@@ -296,7 +306,9 @@ export function GitLogViewer({ cwd, theme, onClose }: GitLogViewerProps) {
               {cwd}
             </span>
             <span className="text-xs" style={{ color: theme.colors.textDim }}>
-              {entries.length} commits
+              {totalCommits !== null && totalCommits > entries.length
+                ? `${entries.length} of ${totalCommits} commits`
+                : `${entries.length} commits`}
             </span>
           </div>
           <button

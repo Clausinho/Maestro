@@ -1561,8 +1561,8 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
       className="flex-1 flex flex-col overflow-hidden transition-colors outline-none relative"
       style={{ backgroundColor: session.inputMode === 'ai' ? theme.colors.bgMain : theme.colors.bgActivity }}
       onKeyDown={(e) => {
-        // / to open search
-        if (e.key === '/' && !outputSearchOpen) {
+        // Cmd+F to open search
+        if (e.key === 'f' && (e.metaKey || e.ctrlKey) && !outputSearchOpen) {
           e.preventDefault();
           setOutputSearchOpen(true);
           return;

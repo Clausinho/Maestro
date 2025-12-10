@@ -37,8 +37,11 @@ export const DEFAULT_SHORTCUTS: Record<string, Shortcut> = {
 // Non-editable shortcuts (displayed in help but not configurable)
 export const FIXED_SHORTCUTS: Record<string, Shortcut> = {
   jumpToSession: { id: 'jumpToSession', label: 'Jump to Session (1-9, 0=10th)', keys: ['Alt', 'Meta', '1-0'] },
-  filterFiles: { id: 'filterFiles', label: 'Filter Files (in Files tab)', keys: ['/'] },
-  filterSessions: { id: 'filterSessions', label: 'Filter Sessions (in Left Panel)', keys: ['/'] },
+  filterFiles: { id: 'filterFiles', label: 'Filter Files (in Files tab)', keys: ['Meta', 'f'] },
+  filterSessions: { id: 'filterSessions', label: 'Filter Sessions (in Left Panel)', keys: ['Meta', 'f'] },
+  filterHistory: { id: 'filterHistory', label: 'Filter History (in History tab)', keys: ['Meta', 'f'] },
+  searchLogs: { id: 'searchLogs', label: 'Search System Logs', keys: ['Meta', 'f'] },
+  searchOutput: { id: 'searchOutput', label: 'Search Output (in Main Window)', keys: ['Meta', 'f'] },
 };
 
 // Tab navigation shortcuts (AI mode only)

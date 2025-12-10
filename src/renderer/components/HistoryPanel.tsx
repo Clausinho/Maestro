@@ -697,8 +697,8 @@ export const HistoryPanel = React.memo(forwardRef<HistoryPanelHandle, HistoryPan
 
   // Keyboard navigation handler
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    // Open search filter with / key
-    if (e.key === '/' && !searchFilterOpen) {
+    // Open search filter with Cmd+F
+    if (e.key === 'f' && (e.metaKey || e.ctrlKey) && !searchFilterOpen) {
       e.preventDefault();
       setSearchFilterOpen(true);
       // Focus the search input after state update

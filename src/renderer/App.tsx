@@ -3672,8 +3672,8 @@ export default function MaestroConsole() {
         }
       }
 
-      // Forward slash to open file tree filter when file tree has focus
-      if (e.key === '/' && ctx.activeFocus === 'right' && ctx.activeRightTab === 'files') {
+      // Cmd+F to open file tree filter when file tree has focus
+      if (e.key === 'f' && (e.metaKey || e.ctrlKey) && ctx.activeFocus === 'right' && ctx.activeRightTab === 'files') {
         e.preventDefault();
         ctx.setFileTreeFilterOpen(true);
       }

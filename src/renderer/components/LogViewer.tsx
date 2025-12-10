@@ -242,8 +242,8 @@ export function LogViewer({ theme, onClose, logLevel = 'info', savedSelectedLeve
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // Open search with /
-    if (e.key === '/' && !searchOpen && document.activeElement !== searchInputRef.current) {
+    // Open search with Cmd+F
+    if (e.key === 'f' && (e.metaKey || e.ctrlKey) && !searchOpen && document.activeElement !== searchInputRef.current) {
       e.preventDefault();
       setSearchOpen(true);
     }
@@ -621,7 +621,7 @@ export function LogViewer({ theme, onClose, logLevel = 'info', savedSelectedLeve
           className="px-4 py-2 border-t flex items-center justify-center text-xs opacity-50"
           style={{ backgroundColor: theme.colors.bgMain, borderColor: theme.colors.border, color: theme.colors.textDim }}
         >
-          Press <kbd className="px-1.5 py-0.5 rounded mx-1 font-bold" style={{ backgroundColor: theme.colors.bgActivity }}>/</kbd> to search
+          Press <kbd className="px-1.5 py-0.5 rounded mx-1 font-bold" style={{ backgroundColor: theme.colors.bgActivity }}>⌘F</kbd> to search
         </div>
       )}
 

@@ -181,7 +181,7 @@ describe('LogViewer', () => {
       render(<LogViewer theme={mockTheme} onClose={vi.fn()} />);
 
       // Open search
-      fireEvent.keyDown(screen.getByRole('dialog'), { key: '/' });
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'f', metaKey: true });
 
       await waitFor(() => {
         expect(mockUpdateLayerHandler).toHaveBeenCalled();
@@ -349,10 +349,10 @@ describe('LogViewer', () => {
       ]);
     });
 
-    it('should open search with / key', async () => {
+    it('should open search with Cmd+F', async () => {
       render(<LogViewer theme={mockTheme} onClose={vi.fn()} />);
 
-      fireEvent.keyDown(screen.getByRole('dialog'), { key: '/' });
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'f', metaKey: true });
 
       await waitFor(() => {
         expect(screen.getByPlaceholderText('Search logs...')).toBeInTheDocument();
@@ -366,7 +366,7 @@ describe('LogViewer', () => {
         expect(screen.getByText('Alpha message')).toBeInTheDocument();
       });
 
-      fireEvent.keyDown(screen.getByRole('dialog'), { key: '/' });
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'f', metaKey: true });
       const searchInput = await screen.findByPlaceholderText('Search logs...');
       fireEvent.change(searchInput, { target: { value: 'Beta' } });
 
@@ -383,7 +383,7 @@ describe('LogViewer', () => {
         expect(screen.getByText('Alpha message')).toBeInTheDocument();
       });
 
-      fireEvent.keyDown(screen.getByRole('dialog'), { key: '/' });
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'f', metaKey: true });
       const searchInput = await screen.findByPlaceholderText('Search logs...');
       fireEvent.change(searchInput, { target: { value: 'ModuleB' } });
 
@@ -400,7 +400,7 @@ describe('LogViewer', () => {
         expect(screen.getByText('Alpha message')).toBeInTheDocument();
       });
 
-      fireEvent.keyDown(screen.getByRole('dialog'), { key: '/' });
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'f', metaKey: true });
       const searchInput = await screen.findByPlaceholderText('Search logs...');
       fireEvent.change(searchInput, { target: { value: 'searchable' } });
 
@@ -413,7 +413,7 @@ describe('LogViewer', () => {
     it('should close search and clear query with ESC button', async () => {
       render(<LogViewer theme={mockTheme} onClose={vi.fn()} />);
 
-      fireEvent.keyDown(screen.getByRole('dialog'), { key: '/' });
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'f', metaKey: true });
       const searchInput = await screen.findByPlaceholderText('Search logs...');
       fireEvent.change(searchInput, { target: { value: 'test' } });
 
@@ -432,7 +432,7 @@ describe('LogViewer', () => {
         expect(screen.getByText('Alpha message')).toBeInTheDocument();
       });
 
-      fireEvent.keyDown(screen.getByRole('dialog'), { key: '/' });
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'f', metaKey: true });
       const searchInput = await screen.findByPlaceholderText('Search logs...');
       fireEvent.change(searchInput, { target: { value: 'ALPHA' } });
 
@@ -448,7 +448,7 @@ describe('LogViewer', () => {
         expect(screen.getByText('Alpha message')).toBeInTheDocument();
       });
 
-      fireEvent.keyDown(screen.getByRole('dialog'), { key: '/' });
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'f', metaKey: true });
       const searchInput = await screen.findByPlaceholderText('Search logs...');
       fireEvent.change(searchInput, { target: { value: 'nonexistent' } });
 
@@ -845,7 +845,7 @@ describe('LogViewer', () => {
       });
 
       // Open search
-      fireEvent.keyDown(screen.getByRole('dialog'), { key: '/' });
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'f', metaKey: true });
       await screen.findByPlaceholderText('Search logs...');
 
       const scrollBySpy = vi.fn();
@@ -1013,7 +1013,7 @@ describe('LogViewer', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/Press/)).toBeInTheDocument();
-        expect(screen.getByText('/')).toBeInTheDocument();
+        expect(screen.getByText('⌘F')).toBeInTheDocument();
         expect(screen.getByText(/to search/)).toBeInTheDocument();
       });
     });
@@ -1021,7 +1021,7 @@ describe('LogViewer', () => {
     it('should hide search hint when search is open', async () => {
       render(<LogViewer theme={mockTheme} onClose={vi.fn()} />);
 
-      fireEvent.keyDown(screen.getByRole('dialog'), { key: '/' });
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'f', metaKey: true });
 
       await waitFor(() => {
         expect(screen.queryByText(/Press.*to search/)).not.toBeInTheDocument();
@@ -1080,7 +1080,7 @@ describe('LogViewer', () => {
       });
 
       // Search should not crash with circular data
-      fireEvent.keyDown(screen.getByRole('dialog'), { key: '/' });
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'f', metaKey: true });
       const searchInput = await screen.findByPlaceholderText('Search logs...');
       fireEvent.change(searchInput, { target: { value: 'searchterm' } });
 

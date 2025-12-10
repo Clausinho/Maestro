@@ -1226,6 +1226,15 @@ function setupIpcHandlers() {
     return { entries, error: null };
   });
 
+  ipcMain.handle('git:commitCount', async (_, cwd: string) => {
+    // Get total commit count using rev-list
+    const result = await execFileNoThrow('git', ['rev-list', '--count', 'HEAD'], cwd);
+    if (result.exitCode !== 0) {
+      return { count: 0, error: result.stderr };
+    }
+    return { count: parseInt(result.stdout.trim(), 10) || 0, error: null };
+  });
+
   ipcMain.handle('git:show', async (_, cwd: string, hash: string) => {
     // Get the full diff for a specific commit
     const result = await execFileNoThrow('git', ['show', '--stat', '--patch', hash], cwd);

@@ -676,8 +676,8 @@ export function SessionList(props: SessionListProps) {
       onClick={() => setActiveFocus('sidebar')}
       onFocus={() => setActiveFocus('sidebar')}
       onKeyDown={(e) => {
-        // Open session filter with / key when sidebar has focus
-        if (e.key === '/' && activeFocus === 'sidebar' && leftSidebarOpen && !sessionFilterOpen) {
+        // Open session filter with Cmd+F when sidebar has focus
+        if (e.key === 'f' && (e.metaKey || e.ctrlKey) && activeFocus === 'sidebar' && leftSidebarOpen && !sessionFilterOpen) {
           e.preventDefault();
           setSessionFilterOpen(true);
         }

@@ -1,11 +1,10 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Minimize2, Eye, Edit, Play, Square, HelpCircle, Loader2, Image } from 'lucide-react';
+import { X, Minimize2, Eye, Edit, Play, Square, Loader2, Image } from 'lucide-react';
 import type { Theme, BatchRunState, SessionState } from '../types';
 import { useLayerStack } from '../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
 import { AutoRun, AutoRunHandle } from './AutoRun';
-import { AutoRunnerHelpModal } from './AutoRunnerHelpModal';
 
 interface AutoRunExpandedModalProps {
   theme: Theme;
@@ -57,7 +56,6 @@ export function AutoRunExpandedModal({
   const onCloseRef = useRef(onClose);
   const autoRunRef = useRef<AutoRunHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [helpModalOpen, setHelpModalOpen] = React.useState(false);
   onCloseRef.current = onClose;
 
   const isLocked = batchRunState?.isRunning || false;
@@ -221,15 +219,6 @@ export function AutoRunExpandedModal({
                 Run
               </button>
             )}
-            {/* Help button */}
-            <button
-              onClick={() => setHelpModalOpen(true)}
-              className="flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-white/10"
-              style={{ color: theme.colors.textDim }}
-              title="Learn about Auto Runner"
-            >
-              <HelpCircle className="w-4 h-4" />
-            </button>
           </div>
 
           {/* Right side - Collapse/Close */}
@@ -269,14 +258,6 @@ export function AutoRunExpandedModal({
           />
         </div>
       </div>
-
-      {/* Help Modal */}
-      {helpModalOpen && (
-        <AutoRunnerHelpModal
-          theme={theme}
-          onClose={() => setHelpModalOpen(false)}
-        />
-      )}
     </div>,
     document.body
   );

@@ -348,13 +348,13 @@ describe('TerminalOutput', () => {
       expect(logItems.length).toBe(1);
     });
 
-    it('opens search when / key is pressed', () => {
+    it('opens search when Cmd+F is pressed', () => {
       const setOutputSearchOpen = vi.fn();
       const props = createDefaultProps({ setOutputSearchOpen });
       const { container } = render(<TerminalOutput {...props} />);
 
       const outputDiv = container.firstChild as HTMLElement;
-      fireEvent.keyDown(outputDiv, { key: '/' });
+      fireEvent.keyDown(outputDiv, { key: 'f', metaKey: true });
 
       expect(setOutputSearchOpen).toHaveBeenCalledWith(true);
     });

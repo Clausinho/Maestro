@@ -246,12 +246,14 @@ function SearchHighlightedContent({
   content,
   searchQuery,
   currentMatchIndex,
-  theme
+  theme,
+  onMatchesRendered
 }: {
   content: string;
   searchQuery: string;
   currentMatchIndex: number;
   theme: any;
+  onMatchesRendered?: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -282,6 +284,7 @@ function SearchHighlightedContent({
         if (matchIndex === currentMatchIndex) {
           mark.style.backgroundColor = theme.colors.accent;
           mark.style.color = '#fff';
+          mark.dataset.current = 'true';
         } else {
           mark.style.backgroundColor = '#ffd700';
           mark.style.color = '#000';
@@ -293,7 +296,13 @@ function SearchHighlightedContent({
         ref.current!.appendChild(document.createTextNode(part));
       }
     });
-  }, [content, searchQuery, currentMatchIndex, theme.colors.accent]);
+
+    // Notify parent that marks are rendered so it can scroll
+    if (onMatchesRendered) {
+      // Use requestAnimationFrame to ensure DOM is painted
+      requestAnimationFrame(() => onMatchesRendered());
+    }
+  }, [content, searchQuery, currentMatchIndex, theme.colors.accent, onMatchesRendered]);
 
   return (
     <div
@@ -924,60 +933,62 @@ const AutoRunInner = forwardRef<AutoRunHandle, AutoRunProps>(function AutoRunInn
     setCurrentMatchIndex(prevIndex);
   }, [currentMatchIndex, totalMatches]);
 
-  // Scroll to current match
+  // Scroll to current match in preview mode - called after marks are rendered
+  const scrollToCurrentMatchInPreview = useCallback(() => {
+    if (!searchOpen || !searchQuery.trim() || totalMatches === 0) return;
+    if (mode !== 'preview' || !previewRef.current) return;
+
+    // Find and scroll to the current match element (marked with data-current)
+    const currentMark = previewRef.current.querySelector('mark.search-match[data-current="true"]');
+    if (currentMark) {
+      currentMark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [searchOpen, searchQuery, totalMatches, mode]);
+
+  // Scroll to current match in edit mode
   useEffect(() => {
     if (!searchOpen || !searchQuery.trim() || totalMatches === 0) return;
+    if (mode !== 'edit' || !textareaRef.current) return;
 
-    // Find the current match element and scroll to it
-    const container = mode === 'edit' ? textareaRef.current : previewRef.current;
-    if (!container) return;
+    // For edit mode, find the match position in the text and scroll
+    const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escapedQuery, 'gi');
+    let matchPosition = -1;
 
-    // For preview mode, find and scroll to the highlighted match
-    if (mode === 'preview') {
-      const marks = previewRef.current?.querySelectorAll('mark.search-match');
-      if (marks && marks.length > 0 && currentMatchIndex >= 0 && currentMatchIndex < marks.length) {
-        marks.forEach((mark, i) => {
-          const el = mark as HTMLElement;
-          if (i === currentMatchIndex) {
-            el.style.backgroundColor = theme.colors.accent;
-            el.style.color = '#fff';
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          } else {
-            el.style.backgroundColor = '#ffd700';
-            el.style.color = '#000';
-          }
-        });
-      }
-    } else if (mode === 'edit') {
-      // For edit mode, find the match position in the text and scroll
-      const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(escapedQuery, 'gi');
-      let matchCount = 0;
-      let match;
-      let matchPosition = -1;
-
-      while ((match = regex.exec(localContent)) !== null) {
-        if (matchCount === currentMatchIndex) {
-          matchPosition = match.index;
-          break;
-        }
-        matchCount++;
-      }
-
-      if (matchPosition >= 0 && textareaRef.current) {
-        // Calculate approximate scroll position based on character position
-        const textarea = textareaRef.current;
-        const textBeforeMatch = localContent.substring(0, matchPosition);
-        const lineCount = (textBeforeMatch.match(/\n/g) || []).length;
-        const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 20;
-        const scrollTarget = Math.max(0, lineCount * lineHeight - textarea.clientHeight / 2);
-        textarea.scrollTop = scrollTarget;
-
-        // Also select the match text
-        textarea.setSelectionRange(matchPosition, matchPosition + searchQuery.length);
-      }
+    // Find the nth match position using matchAll
+    const matches = Array.from(localContent.matchAll(regex));
+    if (currentMatchIndex < matches.length) {
+      matchPosition = matches[currentMatchIndex].index!;
     }
-  }, [currentMatchIndex, searchOpen, searchQuery, totalMatches, mode, localContent, theme.colors.accent]);
+
+    if (matchPosition >= 0 && textareaRef.current) {
+      const textarea = textareaRef.current;
+
+      // Create a temporary element to measure text height accurately
+      const measureDiv = document.createElement('div');
+      measureDiv.style.cssText = window.getComputedStyle(textarea).cssText;
+      measureDiv.style.height = 'auto';
+      measureDiv.style.position = 'absolute';
+      measureDiv.style.visibility = 'hidden';
+      measureDiv.style.whiteSpace = 'pre-wrap';
+      measureDiv.style.wordWrap = 'break-word';
+      measureDiv.style.width = `${textarea.clientWidth}px`;
+
+      // Set content up to the match position
+      const textBeforeMatch = localContent.substring(0, matchPosition);
+      measureDiv.textContent = textBeforeMatch;
+      document.body.appendChild(measureDiv);
+
+      const scrollTarget = Math.max(0, measureDiv.scrollHeight - textarea.clientHeight / 2);
+      document.body.removeChild(measureDiv);
+
+      textarea.scrollTop = scrollTarget;
+
+      // Select the match text to highlight it
+      textarea.focus();
+      textarea.setSelectionRange(matchPosition, matchPosition + searchQuery.length);
+    }
+  }, [currentMatchIndex, searchOpen, searchQuery, totalMatches, mode, localContent]);
 
   // Handle image paste
   const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
@@ -1761,7 +1772,7 @@ const AutoRunInner = forwardRef<AutoRunHandle, AutoRunProps>(function AutoRunInn
                 goToPrevMatch();
               }
             }}
-            placeholder={mode === 'edit' ? "Search... (⌘F to open, Enter: next, Shift+Enter: prev)" : "Search... (/ to open, Enter: next, Shift+Enter: prev)"}
+            placeholder="Search... (⌘F to open, Enter: next, Shift+Enter: prev)"
             className="flex-1 bg-transparent outline-none text-sm"
             style={{ color: theme.colors.textMain }}
             autoFocus
@@ -1850,7 +1861,7 @@ const AutoRunInner = forwardRef<AutoRunHandle, AutoRunProps>(function AutoRunInn
                 }}
               >
                 <FolderOpen className="w-4 h-4" />
-                Change Folder
+                Change Auto-run Folder
               </button>
             </div>
           </div>
@@ -1902,8 +1913,8 @@ const AutoRunInner = forwardRef<AutoRunHandle, AutoRunProps>(function AutoRunInn
                 e.stopPropagation();
                 toggleMode();
               }
-              // '/' to open search in preview mode (mutually exclusive with Cmd+F in edit mode)
-              if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+              // Cmd+F to open search in preview mode (same as edit mode)
+              if (e.key === 'f' && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
                 e.stopPropagation();
                 openSearch();
@@ -1924,6 +1935,7 @@ const AutoRunInner = forwardRef<AutoRunHandle, AutoRunProps>(function AutoRunInn
                 searchQuery={searchQuery}
                 currentMatchIndex={currentMatchIndex}
                 theme={theme}
+                onMatchesRendered={scrollToCurrentMatchInPreview}
               />
             ) : (
               <ReactMarkdown

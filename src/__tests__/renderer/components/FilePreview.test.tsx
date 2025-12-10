@@ -694,7 +694,7 @@ describe('FilePreview', () => {
   // =============================================================================
 
   describe('search functionality', () => {
-    it('opens search with / key', async () => {
+    it('opens search with Cmd+F', async () => {
       render(
         <FilePreview
           file={createMockFile()}
@@ -707,7 +707,7 @@ describe('FilePreview', () => {
       );
 
       const container = screen.getByText('test.ts').closest('[tabindex="0"]');
-      fireEvent.keyDown(container!, { key: '/' });
+      fireEvent.keyDown(container!, { key: 'f', metaKey: true });
 
       await waitFor(() => {
         expect(screen.getByPlaceholderText(/Search in file/)).toBeInTheDocument();
@@ -727,7 +727,7 @@ describe('FilePreview', () => {
       );
 
       const container = screen.getByText('test.ts').closest('[tabindex="0"]');
-      fireEvent.keyDown(container!, { key: '/' });
+      fireEvent.keyDown(container!, { key: 'f', metaKey: true });
 
       await waitFor(() => {
         const searchInput = screen.getByPlaceholderText(/Search in file/);
@@ -749,7 +749,7 @@ describe('FilePreview', () => {
 
       // Open search
       const container = screen.getByText('test.ts').closest('[tabindex="0"]');
-      fireEvent.keyDown(container!, { key: '/' });
+      fireEvent.keyDown(container!, { key: 'f', metaKey: true });
 
       await waitFor(() => {
         expect(screen.getByPlaceholderText(/Search in file/)).toBeInTheDocument();
@@ -778,7 +778,7 @@ describe('FilePreview', () => {
 
       // Open search
       const container = screen.getByText('test.ts').closest('[tabindex="0"]');
-      fireEvent.keyDown(container!, { key: '/' });
+      fireEvent.keyDown(container!, { key: 'f', metaKey: true });
 
       await waitFor(() => {
         expect(screen.getByPlaceholderText(/Search in file/)).toBeInTheDocument();
@@ -811,7 +811,7 @@ describe('FilePreview', () => {
 
       // Open search
       const container = screen.getByText('test.md').closest('[tabindex="0"]');
-      fireEvent.keyDown(container!, { key: '/' });
+      fireEvent.keyDown(container!, { key: 'f', metaKey: true });
 
       await waitFor(() => {
         expect(screen.getByPlaceholderText(/Search in file/)).toBeInTheDocument();
@@ -844,7 +844,7 @@ describe('FilePreview', () => {
 
       // Open search
       const container = screen.getByText('test.md').closest('[tabindex="0"]');
-      fireEvent.keyDown(container!, { key: '/' });
+      fireEvent.keyDown(container!, { key: 'f', metaKey: true });
 
       await waitFor(() => {
         expect(screen.getByPlaceholderText(/Search in file/)).toBeInTheDocument();
@@ -1001,7 +1001,7 @@ describe('FilePreview', () => {
 
       // Open search
       const container = screen.getByText('test.ts').closest('[tabindex="0"]');
-      fireEvent.keyDown(container!, { key: '/' });
+      fireEvent.keyDown(container!, { key: 'f', metaKey: true });
 
       await waitFor(() => {
         expect(mockUpdateLayerHandler).toHaveBeenCalled();
@@ -1464,7 +1464,7 @@ describe('FilePreview', () => {
 
       // Open search
       const container = screen.getByText('test.md').closest('[tabindex="0"]');
-      fireEvent.keyDown(container!, { key: '/' });
+      fireEvent.keyDown(container!, { key: 'f', metaKey: true });
 
       await waitFor(() => {
         expect(screen.getByPlaceholderText(/Search in file/)).toBeInTheDocument();
@@ -1503,7 +1503,7 @@ describe('FilePreview', () => {
 
       // Open search
       const container = screen.getByText('test.md').closest('[tabindex="0"]');
-      fireEvent.keyDown(container!, { key: '/' });
+      fireEvent.keyDown(container!, { key: 'f', metaKey: true });
 
       await waitFor(() => {
         expect(screen.getByPlaceholderText(/Search in file/)).toBeInTheDocument();
@@ -1548,7 +1548,7 @@ describe('FilePreview', () => {
 
       // Open search
       const container = screen.getByText('test.md').closest('[tabindex="0"]');
-      fireEvent.keyDown(container!, { key: '/' });
+      fireEvent.keyDown(container!, { key: 'f', metaKey: true });
 
       await waitFor(() => {
         expect(screen.getByPlaceholderText(/Search in file/)).toBeInTheDocument();
@@ -1587,7 +1587,7 @@ describe('FilePreview', () => {
 
       // Open search
       const container = screen.getByText('test.md').closest('[tabindex="0"]');
-      fireEvent.keyDown(container!, { key: '/' });
+      fireEvent.keyDown(container!, { key: 'f', metaKey: true });
 
       await waitFor(() => {
         expect(screen.getByPlaceholderText(/Search in file/)).toBeInTheDocument();
@@ -2114,7 +2114,7 @@ describe('Search in markdown with highlighting', () => {
 
     // Open search
     const container = screen.getByText('test.md').closest('[tabindex="0"]');
-    fireEvent.keyDown(container!, { key: '/' });
+    fireEvent.keyDown(container!, { key: 'f', metaKey: true });
 
     await waitFor(() => {
       expect(screen.getByPlaceholderText(/Search in file/)).toBeInTheDocument();
@@ -2148,7 +2148,7 @@ describe('Search in markdown with highlighting', () => {
 
     // Open search
     const container = screen.getByText('test.md').closest('[tabindex="0"]');
-    fireEvent.keyDown(container!, { key: '/' });
+    fireEvent.keyDown(container!, { key: 'f', metaKey: true });
 
     await waitFor(() => {
       expect(screen.getByPlaceholderText(/Search in file/)).toBeInTheDocument();

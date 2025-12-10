@@ -123,6 +123,8 @@ Each session shows a color-coded status indicator:
 - 🟠 **Pulsing Orange** - Attempting to establish connection
 
 ## Screenshots
+All these screenshots were captured in the them "Pedurple". For screenshots of other themes, see [THEMES.md](THEMES.md)
+
 ### Main Screen
 <img width="3592" height="2302" alt="image" src="https://github.com/user-attachments/assets/a65b27a7-0db7-4b3f-ac23-7ef08e3b614e" />
 
@@ -206,7 +208,7 @@ Each session shows a color-coded status indicator:
 | Slash Commands | Type `/` to open autocomplete |
 | Focus Output | `Esc` while in input |
 | Focus Input | `Esc` while in output |
-| Open Output Search | `/` while in output |
+| Open Output Search | `Cmd+F` while in output |
 | Scroll Output | `Up/Down Arrow` while in output |
 | Page Up/Down | `Alt+Up/Down Arrow` while in output |
 | Jump to Top/Bottom | `Cmd+Up/Down Arrow` while in output |
@@ -251,9 +253,9 @@ In AI mode, use `@` to reference files in your prompts:
 |--------|-----|
 | Navigate Agents | `Up/Down Arrow` while in sidebar |
 | Select Agent | `Enter` while in sidebar |
-| Open Session Filter | `/` while in sidebar |
+| Open Session Filter | `Cmd+F` while in sidebar |
 | Navigate Files | `Up/Down Arrow` while in file tree |
-| Open File Tree Filter | `/` while in file tree |
+| Open File Tree Filter | `Cmd+F` while in file tree |
 | Open File Preview | `Enter` on selected file |
 | Close Preview/Filter/Modal | `Esc` |
 
@@ -262,7 +264,7 @@ In AI mode, use `@` to reference files in your prompts:
 | Action | macOS | Windows/Linux |
 |--------|-------|---------------|
 | Copy File Path | `Cmd+P` | `Ctrl+P` |
-| Open Search | `/` | `/` |
+| Open Search | `Cmd+F` | `Ctrl+F` |
 | Scroll | `Up/Down Arrow` | `Up/Down Arrow` |
 | Close | `Esc` | `Esc` |
 

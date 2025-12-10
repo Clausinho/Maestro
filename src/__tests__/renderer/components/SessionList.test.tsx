@@ -393,7 +393,7 @@ describe('SessionList', () => {
   // ============================================================================
 
   describe('Session Filter', () => {
-    it('opens filter input with / key', () => {
+    it('opens filter input with Cmd+F', () => {
       const props = createDefaultProps({
         leftSidebarOpen: true,
         activeFocus: 'sidebar',
@@ -402,7 +402,7 @@ describe('SessionList', () => {
 
       // Get the sidebar div and trigger keydown
       const sidebar = container.firstChild as HTMLElement;
-      fireEvent.keyDown(sidebar, { key: '/' });
+      fireEvent.keyDown(sidebar, { key: 'f', metaKey: true });
 
       expect(screen.getByPlaceholderText('Filter agents...')).toBeInTheDocument();
     });
@@ -416,7 +416,7 @@ describe('SessionList', () => {
 
       // Open filter
       const sidebar = container.firstChild as HTMLElement;
-      fireEvent.keyDown(sidebar, { key: '/' });
+      fireEvent.keyDown(sidebar, { key: 'f', metaKey: true });
 
       // Verify filter is open
       const input = screen.getByPlaceholderText('Filter agents...');
@@ -443,7 +443,7 @@ describe('SessionList', () => {
 
       // Open filter
       const sidebar = container.firstChild as HTMLElement;
-      fireEvent.keyDown(sidebar, { key: '/' });
+      fireEvent.keyDown(sidebar, { key: 'f', metaKey: true });
 
       // Type in filter
       const input = screen.getByPlaceholderText('Filter agents...');
@@ -2302,9 +2302,9 @@ describe('SessionList', () => {
       });
       const { container } = render(<SessionList {...props} />);
 
-      // Open filter with / key
+      // Open filter with Cmd+F
       const sidebar = container.firstChild as HTMLElement;
-      fireEvent.keyDown(sidebar, { key: '/' });
+      fireEvent.keyDown(sidebar, { key: 'f', metaKey: true });
 
       // Filter should collapse all groups by default
       await waitFor(() => {
@@ -2335,7 +2335,7 @@ describe('SessionList', () => {
 
       // Open filter
       const sidebar = container.firstChild as HTMLElement;
-      fireEvent.keyDown(sidebar, { key: '/' });
+      fireEvent.keyDown(sidebar, { key: 'f', metaKey: true });
 
       // Type to filter by AI tab name
       const input = screen.getByPlaceholderText('Filter agents...');
@@ -2365,7 +2365,7 @@ describe('SessionList', () => {
 
       // Open filter
       const sidebar = container.firstChild as HTMLElement;
-      fireEvent.keyDown(sidebar, { key: '/' });
+      fireEvent.keyDown(sidebar, { key: 'f', metaKey: true });
 
       // Clear any previous calls
       setGroups.mockClear();
@@ -2395,7 +2395,7 @@ describe('SessionList', () => {
 
       // Open filter
       const sidebar = container.firstChild as HTMLElement;
-      fireEvent.keyDown(sidebar, { key: '/' });
+      fireEvent.keyDown(sidebar, { key: 'f', metaKey: true });
 
       // Clear previous calls
       setBookmarksCollapsed.mockClear();

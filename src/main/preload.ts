@@ -221,6 +221,8 @@ contextBridge.exposeInMainWorld('maestro', {
     info: (cwd: string) => ipcRenderer.invoke('git:info', cwd),
     log: (cwd: string, options?: { limit?: number; search?: string }) =>
       ipcRenderer.invoke('git:log', cwd, options),
+    commitCount: (cwd: string) =>
+      ipcRenderer.invoke('git:commitCount', cwd) as Promise<{ count: number; error: string | null }>,
     show: (cwd: string, hash: string) => ipcRenderer.invoke('git:show', cwd, hash),
     showFile: (cwd: string, ref: string, filePath: string) =>
       ipcRenderer.invoke('git:showFile', cwd, ref, filePath) as Promise<{ content?: string; error?: string }>,

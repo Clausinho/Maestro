@@ -453,10 +453,10 @@ describe('HistoryPanel', () => {
         expect(screen.getByText('Test summary')).toBeInTheDocument();
       });
 
-      // Open search with / key
+      // Open search with Cmd+F
       const listContainer = container.querySelector('[tabIndex="0"]');
       if (listContainer) {
-        fireEvent.keyDown(listContainer, { key: '/' });
+        fireEvent.keyDown(listContainer, { key: 'f', metaKey: true });
       }
 
       await waitFor(() => {
@@ -575,7 +575,7 @@ describe('HistoryPanel', () => {
       // Open search
       const listContainer = container.querySelector('[tabIndex="0"]');
       if (listContainer) {
-        fireEvent.keyDown(listContainer, { key: '/' });
+        fireEvent.keyDown(listContainer, { key: 'f', metaKey: true });
       }
 
       const searchInput = await screen.findByPlaceholderText('Filter history...');
@@ -608,7 +608,7 @@ describe('HistoryPanel', () => {
       // Open search
       const listContainer = container.querySelector('[tabIndex="0"]');
       if (listContainer) {
-        fireEvent.keyDown(listContainer, { key: '/' });
+        fireEvent.keyDown(listContainer, { key: 'f', metaKey: true });
       }
 
       const searchInput = await screen.findByPlaceholderText('Filter history...');
@@ -640,7 +640,7 @@ describe('HistoryPanel', () => {
       // Open search
       const listContainer = container.querySelector('[tabIndex="0"]');
       if (listContainer) {
-        fireEvent.keyDown(listContainer, { key: '/' });
+        fireEvent.keyDown(listContainer, { key: 'f', metaKey: true });
       }
 
       const searchInput = await screen.findByPlaceholderText('Filter history...');
@@ -669,7 +669,7 @@ describe('HistoryPanel', () => {
       // Open search
       const listContainer = container.querySelector('[tabIndex="0"]');
       if (listContainer) {
-        fireEvent.keyDown(listContainer, { key: '/' });
+        fireEvent.keyDown(listContainer, { key: 'f', metaKey: true });
       }
 
       const searchInput = await screen.findByPlaceholderText('Filter history...');
@@ -702,7 +702,7 @@ describe('HistoryPanel', () => {
       // Open search
       const listContainer = container.querySelector('[tabIndex="0"]');
       if (listContainer) {
-        fireEvent.keyDown(listContainer, { key: '/' });
+        fireEvent.keyDown(listContainer, { key: 'f', metaKey: true });
       }
 
       const searchInput = await screen.findByPlaceholderText('Filter history...');
@@ -736,7 +736,7 @@ describe('HistoryPanel', () => {
       // Open search
       const listContainer = container.querySelector('[tabIndex="0"]');
       if (listContainer) {
-        fireEvent.keyDown(listContainer, { key: '/' });
+        fireEvent.keyDown(listContainer, { key: 'f', metaKey: true });
       }
 
       const searchInput = await screen.findByPlaceholderText('Filter history...');
@@ -894,7 +894,7 @@ describe('HistoryPanel', () => {
 
       // Open search
       const listContainer = container.querySelector('[tabIndex="0"]');
-      fireEvent.keyDown(listContainer!, { key: '/' });
+      fireEvent.keyDown(listContainer!, { key: 'f', metaKey: true });
 
       const searchInput = await screen.findByPlaceholderText('Filter history...');
 

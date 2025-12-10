@@ -684,7 +684,7 @@ export function FilePreview({ file, onClose, theme, markdownRawMode, setMarkdown
 
   // Handle keyboard events
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === '/' && !e.metaKey && !e.ctrlKey) {
+    if (e.key === 'f' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       e.stopPropagation();
       setSearchOpen(true);

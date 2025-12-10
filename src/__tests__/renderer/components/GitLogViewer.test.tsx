@@ -84,6 +84,7 @@ describe('GitLogViewer', () => {
 
   const gitLogMock = () => vi.mocked(window.maestro.git.log);
   const gitShowMock = () => vi.mocked(window.maestro.git.show);
+  const gitCommitCountMock = () => vi.mocked(window.maestro.git.commitCount);
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -92,6 +93,11 @@ describe('GitLogViewer', () => {
     gitLogMock().mockResolvedValue({
       entries: [createGitLogEntry()],
       error: undefined,
+    });
+
+    gitCommitCountMock().mockResolvedValue({
+      count: 1,
+      error: null,
     });
 
     gitShowMock().mockResolvedValue({
@@ -160,11 +166,44 @@ diff --git a/src/test.ts b/src/test.ts
         ],
         error: undefined,
       });
+      gitCommitCountMock().mockResolvedValue({ count: 3, error: null });
 
       render(<GitLogViewer {...defaultProps} />);
 
       await waitFor(() => {
         expect(screen.getByText('3 commits')).toBeInTheDocument();
+      });
+    });
+
+    it('should display "X of TOTAL commits" when total exceeds displayed', async () => {
+      gitLogMock().mockResolvedValue({
+        entries: [
+          createGitLogEntry({ hash: 'abc1', shortHash: 'abc1' }),
+          createGitLogEntry({ hash: 'abc2', shortHash: 'abc2' }),
+        ],
+        error: undefined,
+      });
+      gitCommitCountMock().mockResolvedValue({ count: 500, error: null });
+
+      render(<GitLogViewer {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('2 of 500 commits')).toBeInTheDocument();
+      });
+    });
+
+    it('should handle commitCount error gracefully', async () => {
+      gitLogMock().mockResolvedValue({
+        entries: [createGitLogEntry()],
+        error: undefined,
+      });
+      gitCommitCountMock().mockResolvedValue({ count: 0, error: 'Failed to count' });
+
+      render(<GitLogViewer {...defaultProps} />);
+
+      await waitFor(() => {
+        // Falls back to showing just the number of loaded entries
+        expect(screen.getByText('1 commits')).toBeInTheDocument();
       });
     });
 

@@ -948,13 +948,13 @@ describe('AutoRun', () => {
   });
 
   describe('Preview Mode Features', () => {
-    it('opens search with / key in preview mode', async () => {
+    it('opens search with Cmd+F in preview mode', async () => {
       const props = createDefaultProps({ mode: 'preview' });
       render(<AutoRun {...props} />);
 
       // Find the preview container and trigger keydown
       const previewContainer = screen.getByTestId('react-markdown').parentElement!;
-      fireEvent.keyDown(previewContainer, { key: '/' });
+      fireEvent.keyDown(previewContainer, { key: 'f', metaKey: true });
 
       await waitFor(() => {
         expect(screen.getByPlaceholderText(/Search/)).toBeInTheDocument();
@@ -2057,7 +2057,7 @@ describe('Preview Mode with Search', () => {
     render(<AutoRun {...props} />);
 
     const preview = screen.getByTestId('react-markdown').parentElement!;
-    fireEvent.keyDown(preview, { key: '/' });
+    fireEvent.keyDown(preview, { key: 'f', metaKey: true });
 
     const searchInput = await screen.findByPlaceholderText(/Search/);
     fireEvent.change(searchInput, { target: { value: 'Find' } });

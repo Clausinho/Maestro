@@ -358,8 +358,10 @@ export function BatchRunnerModal(props: BatchRunnerModalProps) {
         const sameRepo = !worktreeInfoResult.repoRoot || (mainRepoRootResult.success &&
           worktreeInfoResult.repoRoot === mainRepoRootResult.root);
 
-        // Check for branch mismatch (only if branch name is provided)
+        // Check for branch mismatch (only if branch name is provided AND the path is already a git repo)
+        // If there's no currentBranch, the directory isn't a git repo yet, so no mismatch
         const branchMismatch = branchName !== '' &&
+          worktreeInfoResult.currentBranch !== undefined &&
           worktreeInfoResult.currentBranch !== branchName;
 
         // If there's a branch mismatch and it's the same repo, check for uncommitted changes
