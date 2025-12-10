@@ -15,6 +15,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { Theme, AgentConfig } from '../../../types';
 import { useWizard } from '../WizardContext';
+import { ScreenReaderAnnouncement } from '../ScreenReaderAnnouncement';
 
 interface DirectorySelectionScreenProps {
   theme: Theme;
@@ -39,6 +40,10 @@ export function DirectorySelectionScreen({ theme }: DirectorySelectionScreenProp
   const [isValidating, setIsValidating] = useState(false);
   const [isBrowsing, setIsBrowsing] = useState(false);
   const [isDetecting, setIsDetecting] = useState(true);
+
+  // Screen reader announcement state
+  const [announcement, setAnnouncement] = useState('');
+  const [announcementKey, setAnnouncementKey] = useState(0);
 
   // Refs for focus management
   const inputRef = useRef<HTMLInputElement>(null);
@@ -65,8 +70,11 @@ export function DirectorySelectionScreen({ theme }: DirectorySelectionScreenProp
           // If no directory is currently selected, use the detected path
           if (!state.directoryPath) {
             setDirectoryPath(agentConfig.path);
-            // Also validate this path
-            validateDirectory(agentConfig.path);
+            // Also validate this path (announce with detection message)
+            validateDirectory(agentConfig.path, false);
+            // Announce detection complete
+            setAnnouncement(`Project location detected: ${agentConfig.path}`);
+            setAnnouncementKey((prev) => prev + 1);
           }
         }
       } catch (error) {
@@ -87,7 +95,7 @@ export function DirectorySelectionScreen({ theme }: DirectorySelectionScreenProp
   /**
    * Validate directory and check Git repo status
    */
-  const validateDirectory = useCallback(async (path: string) => {
+  const validateDirectory = useCallback(async (path: string, shouldAnnounce: boolean = true) => {
     if (!path.trim()) {
       setDirectoryError(null);
       setIsGitRepo(false);
@@ -103,11 +111,27 @@ export function DirectorySelectionScreen({ theme }: DirectorySelectionScreenProp
       const isRepo = await window.maestro.git.isRepo(path);
       setIsGitRepo(isRepo);
       setDirectoryError(null);
+
+      // Announce validation result
+      if (shouldAnnounce) {
+        if (isRepo) {
+          setAnnouncement('Directory validated. Git repository detected.');
+        } else {
+          setAnnouncement('Directory validated. Not a Git repository.');
+        }
+        setAnnouncementKey((prev) => prev + 1);
+      }
     } catch (error) {
       // If git check fails, the directory might not exist or is inaccessible
       console.error('Directory validation error:', error);
       setDirectoryError('Unable to access this directory. Please check the path exists.');
       setIsGitRepo(false);
+
+      // Announce error
+      if (shouldAnnounce) {
+        setAnnouncement('Error: Unable to access this directory. Please check the path exists.');
+        setAnnouncementKey((prev) => prev + 1);
+      }
     }
 
     setIsValidating(false);
@@ -230,6 +254,13 @@ export function DirectorySelectionScreen({ theme }: DirectorySelectionScreenProp
       onKeyDown={handleKeyDown}
       tabIndex={-1}
     >
+      {/* Screen reader announcements */}
+      <ScreenReaderAnnouncement
+        message={announcement}
+        announceKey={announcementKey}
+        politeness="polite"
+      />
+
       {/* Header */}
       <div className="text-center mb-8">
         <h3

@@ -14,6 +14,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { Theme, AgentConfig } from '../../../types';
 import { useWizard } from '../WizardContext';
+import { ScreenReaderAnnouncement } from '../ScreenReaderAnnouncement';
 
 interface AgentSelectionScreenProps {
   theme: Theme;
@@ -188,6 +189,10 @@ export function AgentSelectionScreen({ theme }: AgentSelectionScreenProps): JSX.
   const [isDetecting, setIsDetecting] = useState(true);
   const [detectedAgents, setDetectedAgents] = useState<AgentConfig[]>([]);
 
+  // Screen reader announcement state
+  const [announcement, setAnnouncement] = useState('');
+  const [announcementKey, setAnnouncementKey] = useState(0);
+
   // Refs
   const containerRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -206,19 +211,40 @@ export function AgentSelectionScreen({ theme }: AgentSelectionScreenProps): JSX.
           setDetectedAgents(visibleAgents);
           setAvailableAgents(visibleAgents);
 
+          // Count available agents for announcement
+          const availableCount = visibleAgents.filter((a: AgentConfig) => a.available).length;
+          const totalCount = visibleAgents.length;
+
           // Auto-select Claude Code if it's available and nothing is selected
           if (!state.selectedAgent) {
             const claudeCode = visibleAgents.find((a: AgentConfig) => a.id === 'claude-code' && a.available);
             if (claudeCode) {
               setSelectedAgent('claude-code');
+              // Announce detection complete with auto-selection
+              setAnnouncement(
+                `Agent detection complete. ${availableCount} of ${totalCount} agents available. Claude Code automatically selected.`
+              );
+            } else {
+              // Announce detection complete without auto-selection
+              setAnnouncement(
+                `Agent detection complete. ${availableCount} of ${totalCount} agents available.`
+              );
             }
+          } else {
+            // Announce detection complete (agent already selected from restore)
+            setAnnouncement(
+              `Agent detection complete. ${availableCount} of ${totalCount} agents available.`
+            );
           }
+          setAnnouncementKey((prev) => prev + 1);
 
           setIsDetecting(false);
         }
       } catch (error) {
         console.error('Failed to detect agents:', error);
         if (mounted) {
+          setAnnouncement('Failed to detect available agents. Please try again.');
+          setAnnouncementKey((prev) => prev + 1);
           setIsDetecting(false);
         }
       }
@@ -360,6 +386,9 @@ export function AgentSelectionScreen({ theme }: AgentSelectionScreenProps): JSX.
     if (detected?.available) {
       setSelectedAgent(tile.id as any);
       setFocusedTileIndex(index);
+      // Announce agent selection
+      setAnnouncement(`${tile.name} selected`);
+      setAnnouncementKey((prev) => prev + 1);
     }
   }, [detectedAgents, setSelectedAgent]);
 
@@ -403,6 +432,13 @@ export function AgentSelectionScreen({ theme }: AgentSelectionScreenProps): JSX.
       onKeyDown={handleKeyDown}
       tabIndex={-1}
     >
+      {/* Screen reader announcements */}
+      <ScreenReaderAnnouncement
+        message={announcement}
+        announceKey={announcementKey}
+        politeness="polite"
+      />
+
       {/* Header */}
       <div className="text-center mb-8">
         <h3

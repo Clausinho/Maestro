@@ -36,6 +36,7 @@ import type { Theme } from '../../../types';
 import { useWizard } from '../WizardContext';
 import { phaseGenerator, AUTO_RUN_FOLDER_NAME } from '../services/phaseGenerator';
 import { MermaidRenderer } from '../../MermaidRenderer';
+import { ScreenReaderAnnouncement } from '../ScreenReaderAnnouncement';
 
 // Memoize remarkPlugins array - it never changes
 const REMARK_PLUGINS = [remarkGfm];
@@ -1267,6 +1268,10 @@ export function PhaseReviewScreen({
   );
   const generationStartedRef = useRef(false);
 
+  // Screen reader announcement state
+  const [announcement, setAnnouncement] = useState('');
+  const [announcementKey, setAnnouncementKey] = useState(0);
+
   /**
    * Start the document generation process
    */
@@ -1279,6 +1284,10 @@ export function PhaseReviewScreen({
     setGeneratingDocuments(true);
     setGenerationError(null);
     setProgressMessage('Creating your action plan...');
+
+    // Announce generation start
+    setAnnouncement('Creating your action plan. This may take a minute or two.');
+    setAnnouncementKey((prev) => prev + 1);
 
     try {
       // Generate documents
@@ -1312,15 +1321,30 @@ export function PhaseReviewScreen({
                 // Update context with generated documents (including saved paths)
                 setGeneratedDocuments(genResult.documents);
                 setGeneratingDocuments(false);
+
+                // Announce success
+                const taskCount = genResult.documents[0]?.taskCount || 0;
+                setAnnouncement(
+                  `Action plan created successfully with ${taskCount} tasks. You can review and edit the plan, then choose how to proceed.`
+                );
+                setAnnouncementKey((prev) => prev + 1);
               } else {
                 setGenerationError(saveResult.error || 'Failed to save documents');
                 setGeneratingDocuments(false);
+
+                // Announce save error
+                setAnnouncement(`Error: Failed to save documents. ${saveResult.error || ''}`);
+                setAnnouncementKey((prev) => prev + 1);
               }
             }
           },
           onError: (error) => {
             setGenerationError(error);
             setGeneratingDocuments(false);
+
+            // Announce error
+            setAnnouncement(`Error generating action plan: ${error}. You can try again or go back.`);
+            setAnnouncementKey((prev) => prev + 1);
           },
         }
       );
@@ -1376,25 +1400,52 @@ export function PhaseReviewScreen({
   }, [startGeneration, state.generatedDocuments.length]);
 
   // Render based on current state
+  // Note: We wrap each return to include the screen reader announcement component
+  const announcementElement = (
+    <ScreenReaderAnnouncement
+      message={announcement}
+      announceKey={announcementKey}
+      politeness="polite"
+    />
+  );
+
   if (state.generationError) {
     return (
-      <ErrorDisplay
-        error={state.generationError}
-        onRetry={handleRetry}
-        onSkip={handleGoBack}
-        theme={theme}
-      />
+      <>
+        {announcementElement}
+        <ErrorDisplay
+          error={state.generationError}
+          onRetry={handleRetry}
+          onSkip={handleGoBack}
+          theme={theme}
+        />
+      </>
     );
   }
 
   if (state.isGeneratingDocuments) {
-    return <LoadingIndicator message={progressMessage} theme={theme} />;
+    return (
+      <>
+        {announcementElement}
+        <LoadingIndicator message={progressMessage} theme={theme} />
+      </>
+    );
   }
 
   if (state.generatedDocuments.length > 0) {
-    return <DocumentReview theme={theme} onLaunchSession={onLaunchSession} />;
+    return (
+      <>
+        {announcementElement}
+        <DocumentReview theme={theme} onLaunchSession={onLaunchSession} />
+      </>
+    );
   }
 
   // Fallback - should not normally reach here
-  return <LoadingIndicator message="Preparing..." theme={theme} />;
+  return (
+    <>
+      {announcementElement}
+      <LoadingIndicator message="Preparing..." theme={theme} />
+    </>
+  );
 }

@@ -11,6 +11,7 @@ import { useWizard, WIZARD_TOTAL_STEPS, STEP_INDEX, type WizardStep } from './Wi
 import { useLayerStack } from '../../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../../constants/modalPriorities';
 import { WizardExitConfirmModal } from './WizardExitConfirmModal';
+import { ScreenReaderAnnouncement } from './ScreenReaderAnnouncement';
 import type { Theme } from '../../types';
 
 /** Duration of the fade-out animation in ms */
@@ -78,6 +79,10 @@ export function MaestroWizard({ theme, onLaunchSession }: MaestroWizardProps): J
   const [isTransitioning, setIsTransitioning] = useState(false);
   // transitionDirection indicates whether we're moving forward or backward
   const [transitionDirection, setTransitionDirection] = useState<'forward' | 'backward'>('forward');
+
+  // State for screen reader announcements
+  const [announcement, setAnnouncement] = useState('');
+  const [announcementKey, setAnnouncementKey] = useState(0);
 
   // Refs for stable callbacks
   const closeWizardRef = useRef(closeWizard);
@@ -152,6 +157,18 @@ export function MaestroWizard({ theme, onLaunchSession }: MaestroWizardProps): J
     }
   }, [state.isOpen, state.currentStep]);
 
+  // Announce step changes to screen readers
+  useEffect(() => {
+    // Only announce when wizard is open and not transitioning
+    if (state.isOpen && !isTransitioning) {
+      const stepNumber = STEP_INDEX[displayedStep];
+      const title = getStepTitle(displayedStep);
+      const newAnnouncement = `Step ${stepNumber} of ${WIZARD_TOTAL_STEPS}: ${title}`;
+      setAnnouncement(newAnnouncement);
+      setAnnouncementKey((prev) => prev + 1);
+    }
+  }, [state.isOpen, displayedStep, isTransitioning]);
+
   // Register with layer stack for Escape handling
   useEffect(() => {
     if (state.isOpen && !showExitConfirm) {
@@ -211,6 +228,13 @@ export function MaestroWizard({ theme, onLaunchSession }: MaestroWizardProps): J
         }
       }}
     >
+      {/* Screen reader announcements for step changes */}
+      <ScreenReaderAnnouncement
+        message={announcement}
+        announceKey={announcementKey}
+        politeness="polite"
+      />
+
       <div
         className="w-[90vw] h-[80vh] max-w-5xl rounded-xl border shadow-2xl flex flex-col overflow-hidden wizard-modal"
         style={{

@@ -26,6 +26,7 @@ import {
   createUserMessage,
   createAssistantMessage,
 } from '../services/conversationManager';
+import { ScreenReaderAnnouncement } from '../ScreenReaderAnnouncement';
 
 interface ConversationScreenProps {
   theme: Theme;
@@ -223,6 +224,13 @@ export function ConversationScreen({ theme }: ConversationScreenProps): JSX.Elem
   const [showInitialQuestion, setShowInitialQuestion] = useState(true);
   const [errorRetryCount, setErrorRetryCount] = useState(0);
 
+  // Screen reader announcement state
+  const [announcement, setAnnouncement] = useState('');
+  const [announcementKey, setAnnouncementKey] = useState(0);
+
+  // Track previous ready state to avoid duplicate announcements
+  const prevReadyRef = useRef(state.isReadyToProceed);
+
   // Refs
   const containerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -298,6 +306,17 @@ export function ConversationScreen({ theme }: ConversationScreenProps): JSX.Elem
     };
   }, []);
 
+  // Announce when ready to proceed status changes
+  useEffect(() => {
+    if (state.isReadyToProceed && !prevReadyRef.current) {
+      setAnnouncement(
+        `Confidence level ${state.confidenceLevel}%. Ready to proceed! You can now create your action plan.`
+      );
+      setAnnouncementKey((prev) => prev + 1);
+    }
+    prevReadyRef.current = state.isReadyToProceed;
+  }, [state.isReadyToProceed, state.confidenceLevel]);
+
   /**
    * Handle sending a message to the agent
    */
@@ -317,6 +336,10 @@ export function ConversationScreen({ theme }: ConversationScreenProps): JSX.Elem
 
     // Set loading state
     setConversationLoading(true);
+
+    // Announce that AI is thinking
+    setAnnouncement('Message sent. AI assistant is thinking...');
+    setAnnouncementKey((prev) => prev + 1);
 
     try {
       // Re-initialize conversation if needed
@@ -349,11 +372,25 @@ export function ConversationScreen({ theme }: ConversationScreenProps): JSX.Elem
 
               // Update confidence level
               if (sendResult.response.structured) {
-                setConfidenceLevel(sendResult.response.structured.confidence);
-                setIsReadyToProceed(
+                const newConfidence = sendResult.response.structured.confidence;
+                setConfidenceLevel(newConfidence);
+
+                const isReady =
                   sendResult.response.structured.ready &&
-                    sendResult.response.structured.confidence >= READY_CONFIDENCE_THRESHOLD
-                );
+                  newConfidence >= READY_CONFIDENCE_THRESHOLD;
+                setIsReadyToProceed(isReady);
+
+                // Announce response received with confidence (ready state will be announced by effect)
+                if (!isReady) {
+                  setAnnouncement(
+                    `Response received. Project understanding at ${newConfidence}%.`
+                  );
+                  setAnnouncementKey((prev) => prev + 1);
+                }
+              } else {
+                // No structured data - just announce response received
+                setAnnouncement('Response received from AI assistant.');
+                setAnnouncementKey((prev) => prev + 1);
               }
 
               // Reset error retry count on success
@@ -364,6 +401,9 @@ export function ConversationScreen({ theme }: ConversationScreenProps): JSX.Elem
             console.error('Conversation error:', error);
             setConversationError(error);
             setErrorRetryCount((prev) => prev + 1);
+            // Announce error
+            setAnnouncement(`Error: ${error}. Please try again.`);
+            setAnnouncementKey((prev) => prev + 1);
           },
         }
       );
@@ -443,6 +483,13 @@ export function ConversationScreen({ theme }: ConversationScreenProps): JSX.Elem
       tabIndex={-1}
       onKeyDown={handleKeyDown}
     >
+      {/* Screen reader announcements */}
+      <ScreenReaderAnnouncement
+        message={announcement}
+        announceKey={announcementKey}
+        politeness="polite"
+      />
+
       {/* Confidence Meter Header */}
       <div
         className="px-6 py-4 border-b"
