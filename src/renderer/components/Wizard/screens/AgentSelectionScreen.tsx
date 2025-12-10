@@ -228,12 +228,33 @@ export function AgentSelectionScreen({ theme }: AgentSelectionScreenProps): JSX.
     return () => { mounted = false; };
   }, [setAvailableAgents, setSelectedAgent, state.selectedAgent]);
 
-  // Focus the first tile on mount
+  // Focus the appropriate tile on mount (selected tile or first available)
   useEffect(() => {
-    if (!isDetecting && tileRefs.current[0]) {
-      tileRefs.current[0].focus();
+    if (!isDetecting) {
+      // Find the index of the selected agent, or first available agent
+      let focusIndex = 0;
+      if (state.selectedAgent) {
+        const selectedIndex = AGENT_TILES.findIndex(t => t.id === state.selectedAgent);
+        if (selectedIndex !== -1) {
+          focusIndex = selectedIndex;
+          setFocusedTileIndex(selectedIndex);
+        }
+      } else {
+        // Find first available agent
+        const firstAvailableIndex = AGENT_TILES.findIndex(tile => {
+          const detected = detectedAgents.find(a => a.id === tile.id);
+          return detected?.available;
+        });
+        if (firstAvailableIndex !== -1) {
+          focusIndex = firstAvailableIndex;
+          setFocusedTileIndex(firstAvailableIndex);
+        }
+      }
+
+      // Focus the appropriate tile
+      tileRefs.current[focusIndex]?.focus();
     }
-  }, [isDetecting]);
+  }, [isDetecting, state.selectedAgent, detectedAgents]);
 
   /**
    * Handle keyboard navigation
