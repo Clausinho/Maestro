@@ -14,7 +14,7 @@ import { tunnelManager } from './tunnel-manager';
 import { getThemeById } from './themes';
 import { checkForUpdates } from './update-checker';
 import Store from 'electron-store';
-import { registerGitHandlers, registerAutorunHandlers, registerHistoryHandlers } from './ipc/handlers';
+import { registerGitHandlers, registerAutorunHandlers, registerHistoryHandlers, registerAgentsHandlers } from './ipc/handlers';
 
 // Demo mode: use a separate data directory for fresh demos
 const DEMO_MODE = process.argv.includes('--demo') || !!process.env.MAESTRO_DEMO_DIR;
@@ -1200,6 +1200,12 @@ function setupIpcHandlers() {
     setHistoryNeedsReload: (value: boolean) => { historyNeedsReload = value; },
   });
 
+  // Agent management operations - extracted to src/main/ipc/handlers/agents.ts
+  registerAgentsHandlers({
+    getAgentDetector: () => agentDetector,
+    agentConfigsStore,
+  });
+
   // File system operations
   ipcMain.handle('fs:homeDir', () => {
     return os.homedir();
@@ -1397,168 +1403,7 @@ function setupIpcHandlers() {
     return webServer?.getWebClientCount() || 0;
   });
 
-  // Helper to strip non-serializable functions from agent configs
-  const stripAgentFunctions = (agent: any) => {
-    if (!agent) return null;
-
-    return {
-      ...agent,
-      configOptions: agent.configOptions?.map((opt: any) => {
-        const { argBuilder, ...serializableOpt } = opt;
-        return serializableOpt;
-      })
-    };
-  };
-
-  // Agent management
-  ipcMain.handle('agents:detect', async () => {
-    if (!agentDetector) throw new Error('Agent detector not initialized');
-    logger.info('Detecting available agents', 'AgentDetector');
-    const agents = await agentDetector.detectAgents();
-    logger.info(`Detected ${agents.length} agents`, 'AgentDetector', {
-      agents: agents.map(a => a.id)
-    });
-    // Strip argBuilder functions before sending over IPC
-    return agents.map(stripAgentFunctions);
-  });
-
-  // Refresh agent detection with debug info (clears cache and returns detailed error info)
-  ipcMain.handle('agents:refresh', async (_event, agentId?: string) => {
-    if (!agentDetector) throw new Error('Agent detector not initialized');
-
-    // Clear the cache to force re-detection
-    agentDetector.clearCache();
-
-    // Get environment info for debugging
-    const envPath = process.env.PATH || '';
-    const homeDir = process.env.HOME || '';
-
-    // Detect all agents fresh
-    const agents = await agentDetector.detectAgents();
-
-    // If a specific agent was requested, return detailed debug info
-    if (agentId) {
-      const agent = agents.find(a => a.id === agentId);
-      const command = process.platform === 'win32' ? 'where' : 'which';
-
-      // Try to find the binary manually to get error info
-      let debugInfo = {
-        agentId,
-        available: agent?.available || false,
-        path: agent?.path || null,
-        binaryName: agent?.binaryName || agentId,
-        envPath,
-        homeDir,
-        platform: process.platform,
-        whichCommand: command,
-        error: null as string | null,
-      };
-
-      if (!agent?.available) {
-        // Try running which/where to get error output
-        const result = await execFileNoThrow(command, [agent?.binaryName || agentId]);
-        debugInfo.error = result.exitCode !== 0
-          ? `${command} ${agent?.binaryName || agentId} failed (exit code ${result.exitCode}): ${result.stderr || 'Binary not found in PATH'}`
-          : null;
-      }
-
-      logger.info(`Agent refresh debug info for ${agentId}`, 'AgentDetector', debugInfo);
-      return { agents: agents.map(stripAgentFunctions), debugInfo };
-    }
-
-    logger.info(`Refreshed agent detection`, 'AgentDetector', {
-      agents: agents.map(a => ({ id: a.id, available: a.available, path: a.path }))
-    });
-    return { agents: agents.map(stripAgentFunctions), debugInfo: null };
-  });
-
-  ipcMain.handle('agents:get', async (_event, agentId: string) => {
-    if (!agentDetector) throw new Error('Agent detector not initialized');
-    logger.debug(`Getting agent: ${agentId}`, 'AgentDetector');
-    const agent = await agentDetector.getAgent(agentId);
-    // Strip argBuilder functions before sending over IPC
-    return stripAgentFunctions(agent);
-  });
-
-  // Agent configuration management
-  ipcMain.handle('agents:getConfig', async (_event, agentId: string) => {
-    const allConfigs = agentConfigsStore.get('configs', {});
-    return allConfigs[agentId] || {};
-  });
-
-  ipcMain.handle('agents:setConfig', async (_event, agentId: string, config: Record<string, any>) => {
-    const allConfigs = agentConfigsStore.get('configs', {});
-    allConfigs[agentId] = config;
-    agentConfigsStore.set('configs', allConfigs);
-    logger.info(`Updated config for agent: ${agentId}`, 'AgentConfig', config);
-    return true;
-  });
-
-  ipcMain.handle('agents:getConfigValue', async (_event, agentId: string, key: string) => {
-    const allConfigs = agentConfigsStore.get('configs', {});
-    const agentConfig = allConfigs[agentId] || {};
-    return agentConfig[key];
-  });
-
-  ipcMain.handle('agents:setConfigValue', async (_event, agentId: string, key: string, value: any) => {
-    const allConfigs = agentConfigsStore.get('configs', {});
-    if (!allConfigs[agentId]) {
-      allConfigs[agentId] = {};
-    }
-    allConfigs[agentId][key] = value;
-    agentConfigsStore.set('configs', allConfigs);
-    logger.debug(`Updated config ${key} for agent ${agentId}`, 'AgentConfig', { value });
-    return true;
-  });
-
-  // Set custom path for an agent - used when agent is not in standard PATH locations
-  ipcMain.handle('agents:setCustomPath', async (_event, agentId: string, customPath: string | null) => {
-    if (!agentDetector) throw new Error('Agent detector not initialized');
-
-    const allConfigs = agentConfigsStore.get('configs', {});
-    if (!allConfigs[agentId]) {
-      allConfigs[agentId] = {};
-    }
-
-    if (customPath) {
-      allConfigs[agentId].customPath = customPath;
-      logger.info(`Set custom path for agent ${agentId}: ${customPath}`, 'AgentConfig');
-    } else {
-      delete allConfigs[agentId].customPath;
-      logger.info(`Cleared custom path for agent ${agentId}`, 'AgentConfig');
-    }
-
-    agentConfigsStore.set('configs', allConfigs);
-
-    // Update agent detector with all custom paths
-    const allCustomPaths: Record<string, string> = {};
-    for (const [id, config] of Object.entries(allConfigs)) {
-      if (config && typeof config === 'object' && 'customPath' in config && config.customPath) {
-        allCustomPaths[id] = config.customPath as string;
-      }
-    }
-    agentDetector.setCustomPaths(allCustomPaths);
-
-    return true;
-  });
-
-  // Get custom path for an agent
-  ipcMain.handle('agents:getCustomPath', async (_event, agentId: string) => {
-    const allConfigs = agentConfigsStore.get('configs', {});
-    return allConfigs[agentId]?.customPath || null;
-  });
-
-  // Get all custom paths for agents
-  ipcMain.handle('agents:getAllCustomPaths', async () => {
-    const allConfigs = agentConfigsStore.get('configs', {});
-    const customPaths: Record<string, string> = {};
-    for (const [agentId, config] of Object.entries(allConfigs)) {
-      if (config && typeof config === 'object' && 'customPath' in config && config.customPath) {
-        customPaths[agentId] = config.customPath as string;
-      }
-    }
-    return customPaths;
-  });
+  // Agent management operations - extracted to src/main/ipc/handlers/agents.ts
 
   // Folder selection dialog
   ipcMain.handle('dialog:selectFolder', async () => {

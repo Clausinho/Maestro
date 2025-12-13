@@ -13,20 +13,31 @@ import { registerGitHandlers } from './git';
 import { registerAutorunHandlers } from './autorun';
 import { registerPlaybooksHandlers } from './playbooks';
 import { registerHistoryHandlers, HistoryHandlerDependencies } from './history';
+import { registerAgentsHandlers, AgentsHandlerDependencies } from './agents';
 import { HistoryEntry } from '../../../shared/types';
+import { AgentDetector } from '../../agent-detector';
 
 // Re-export individual handlers for selective registration
 export { registerGitHandlers };
 export { registerAutorunHandlers };
 export { registerPlaybooksHandlers };
 export { registerHistoryHandlers };
+export { registerAgentsHandlers };
 export type { HistoryHandlerDependencies };
+export type { AgentsHandlerDependencies };
 
 /**
  * Interface for history store data (matches main/index.ts definition)
  */
 interface HistoryData {
   entries: HistoryEntry[];
+}
+
+/**
+ * Interface for agent configuration store data
+ */
+interface AgentConfigsData {
+  configs: Record<string, Record<string, any>>;
 }
 
 /**
@@ -40,6 +51,9 @@ export interface HandlerDependencies {
   historyStore: Store<HistoryData>;
   getHistoryNeedsReload: () => boolean;
   setHistoryNeedsReload: (value: boolean) => void;
+  // Agents-specific dependencies
+  getAgentDetector: () => AgentDetector | null;
+  agentConfigsStore: Store<AgentConfigsData>;
 }
 
 /**
@@ -55,8 +69,11 @@ export function registerAllHandlers(deps: HandlerDependencies): void {
     getHistoryNeedsReload: deps.getHistoryNeedsReload,
     setHistoryNeedsReload: deps.setHistoryNeedsReload,
   });
+  registerAgentsHandlers({
+    getAgentDetector: deps.getAgentDetector,
+    agentConfigsStore: deps.agentConfigsStore,
+  });
   // Future handlers will be registered here:
-  // registerAgentsHandlers();
   // registerProcessHandlers();
   // registerPersistenceHandlers();
   // registerSystemHandlers();
