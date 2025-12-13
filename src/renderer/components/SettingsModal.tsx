@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, memo } from 'react';
-import { X, Key, Moon, Sun, Keyboard, Check, Terminal, Bell, Volume2, Square, Cpu, Clock, Settings, Palette, Sparkles, History, Download } from 'lucide-react';
+import { X, Key, Moon, Sun, Keyboard, Check, Terminal, Bell, Cpu, Settings, Palette, Sparkles, History, Download } from 'lucide-react';
 import type { AgentConfig, Theme, Shortcut, ShellInfo, CustomAICommand } from '../types';
 import { useLayerStack } from '../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
@@ -9,6 +9,7 @@ import { ToggleButtonGroup, ToggleButtonOption } from './ToggleButtonGroup';
 import { SettingCheckbox } from './SettingCheckbox';
 import { AgentSelectionPanel } from './AgentSelectionPanel';
 import { FontConfigurationPanel } from './FontConfigurationPanel';
+import { NotificationsPanel } from './NotificationsPanel';
 
 // Feature flags - set to true to enable dormant features
 const FEATURE_FLAGS = {
@@ -88,9 +89,6 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
   const [shellsLoading, setShellsLoading] = useState(false);
   const [shellsLoaded, setShellsLoaded] = useState(false);
   const [customAgentPaths, setCustomAgentPaths] = useState<Record<string, string>>({});
-
-  // TTS test state
-  const [testTtsId, setTestTtsId] = useState<number | null>(null);
 
   // Layer stack integration
   const { registerLayer, unregisterLayer, updateLayerHandler } = useLayerStack();
@@ -998,143 +996,17 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
           {activeTab === 'theme' && themePickerContent}
 
           {activeTab === 'notifications' && (
-            <div className="space-y-6">
-              {/* OS Notifications */}
-              <div>
-                <SettingCheckbox
-                  icon={Bell}
-                  sectionLabel="Operating System Notifications"
-                  title="Enable OS Notifications"
-                  description="Show desktop notifications when tasks complete or require attention"
-                  checked={props.osNotificationsEnabled}
-                  onChange={props.setOsNotificationsEnabled}
-                  theme={theme}
-                />
-                <button
-                  onClick={() => window.maestro.notification.show('Maestro', 'Test notification - notifications are working!')}
-                  className="mt-2 px-3 py-1.5 rounded text-xs font-medium transition-all"
-                  style={{
-                    backgroundColor: theme.colors.bgActivity,
-                    color: theme.colors.textMain,
-                    border: `1px solid ${theme.colors.border}`
-                  }}
-                >
-                  Test Notification
-                </button>
-              </div>
-
-              {/* Audio Feedback */}
-              <div>
-                <SettingCheckbox
-                  icon={Volume2}
-                  sectionLabel="Audio Feedback"
-                  title="Enable Audio Feedback"
-                  description="Speak the one-sentence feedback synopsis from LLM analysis using text-to-speech"
-                  checked={props.audioFeedbackEnabled}
-                  onChange={props.setAudioFeedbackEnabled}
-                  theme={theme}
-                />
-
-                {/* Audio Command Configuration */}
-                <div className="mt-3">
-                  <label className="block text-xs font-medium opacity-70 mb-1">TTS Command</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={props.audioFeedbackCommand}
-                      onChange={(e) => props.setAudioFeedbackCommand(e.target.value)}
-                      placeholder="say"
-                      className="flex-1 p-2 rounded border bg-transparent outline-none text-sm font-mono"
-                      style={{ borderColor: theme.colors.border, color: theme.colors.textMain }}
-                    />
-                    {testTtsId !== null ? (
-                      <button
-                        onClick={async () => {
-                          console.log('[TTS] Stop test button clicked, ttsId:', testTtsId);
-                          try {
-                            await window.maestro.notification.stopSpeak(testTtsId);
-                          } catch (err) {
-                            console.error('[TTS] Stop error:', err);
-                          }
-                          setTestTtsId(null);
-                        }}
-                        className="px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-1"
-                        style={{
-                          backgroundColor: theme.colors.error,
-                          color: '#fff',
-                          border: `1px solid ${theme.colors.error}`
-                        }}
-                      >
-                        <Square className="w-3 h-3" fill="currentColor" />
-                        Stop
-                      </button>
-                    ) : (
-                      <button
-                        onClick={async () => {
-                          console.log('[TTS] Test button clicked, command:', props.audioFeedbackCommand);
-                          try {
-                            const result = await window.maestro.notification.speak("Howdy, I'm Maestro, here to conduct your agentic tools into a well-tuned symphony.", props.audioFeedbackCommand);
-                            console.log('[TTS] Speak result:', result);
-                            if (result.success && result.ttsId) {
-                              setTestTtsId(result.ttsId);
-                              // Auto-clear after the message should be done (about 5 seconds for this phrase)
-                              setTimeout(() => setTestTtsId(null), 8000);
-                            }
-                          } catch (err) {
-                            console.error('[TTS] Speak error:', err);
-                          }
-                        }}
-                        className="px-3 py-2 rounded text-xs font-medium transition-all"
-                        style={{
-                          backgroundColor: theme.colors.bgActivity,
-                          color: theme.colors.textMain,
-                          border: `1px solid ${theme.colors.border}`
-                        }}
-                      >
-                        Test
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-xs opacity-50 mt-2" style={{ color: theme.colors.textDim }}>
-                    Command that accepts text via stdin. Pipes are supported (e.g., <code className="px-1 py-0.5 rounded" style={{ backgroundColor: theme.colors.bgActivity }}>cmd1 | cmd2</code>). Examples: <code className="px-1 py-0.5 rounded" style={{ backgroundColor: theme.colors.bgActivity }}>say</code> (macOS), <code className="px-1 py-0.5 rounded" style={{ backgroundColor: theme.colors.bgActivity }}>espeak</code> (Linux), <code className="px-1 py-0.5 rounded" style={{ backgroundColor: theme.colors.bgActivity }}>festival --tts</code>
-                  </p>
-                </div>
-              </div>
-
-              {/* Toast Duration */}
-              <div>
-                <label className="block text-xs font-bold opacity-70 uppercase mb-2 flex items-center gap-2">
-                  <Clock className="w-3 h-3" />
-                  Toast Notification Duration
-                </label>
-                <ToggleButtonGroup
-                  options={[
-                    { value: -1, label: 'Off' },
-                    { value: 5, label: '5s' },
-                    { value: 10, label: '10s' },
-                    { value: 20, label: '20s' },
-                    { value: 30, label: '30s' },
-                    { value: 0, label: 'Never' },
-                  ]}
-                  value={props.toastDuration}
-                  onChange={props.setToastDuration}
-                  theme={theme}
-                />
-                <p className="text-xs opacity-50 mt-2">
-                  How long toast notifications remain on screen. "Off" disables them entirely. "Never" means they stay until manually dismissed.
-                </p>
-              </div>
-
-              {/* Info about when notifications are triggered */}
-              <div className="p-3 rounded-lg" style={{ backgroundColor: theme.colors.bgActivity, border: `1px solid ${theme.colors.border}` }}>
-                <div className="text-xs font-medium mb-2" style={{ color: theme.colors.textMain }}>When are notifications triggered?</div>
-                <ul className="text-xs opacity-70 space-y-1" style={{ color: theme.colors.textDim }}>
-                  <li>• When an AI task completes</li>
-                  <li>• When a long-running command finishes</li>
-                  <li>• When the LLM analysis generates a feedback synopsis (audio only, if configured)</li>
-                </ul>
-              </div>
-            </div>
+            <NotificationsPanel
+              osNotificationsEnabled={props.osNotificationsEnabled}
+              setOsNotificationsEnabled={props.setOsNotificationsEnabled}
+              audioFeedbackEnabled={props.audioFeedbackEnabled}
+              setAudioFeedbackEnabled={props.setAudioFeedbackEnabled}
+              audioFeedbackCommand={props.audioFeedbackCommand}
+              setAudioFeedbackCommand={props.setAudioFeedbackCommand}
+              toastDuration={props.toastDuration}
+              setToastDuration={props.setToastDuration}
+              theme={theme}
+            />
           )}
 
           {activeTab === 'aicommands' && (
