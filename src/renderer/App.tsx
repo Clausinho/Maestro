@@ -6033,6 +6033,7 @@ export default function MaestroConsole() {
           theme={theme}
           isOpen={tourOpen}
           fromWizard={tourFromWizard}
+          shortcuts={shortcuts}
           onClose={() => {
             setTourOpen(false);
             setTourCompleted(true);
