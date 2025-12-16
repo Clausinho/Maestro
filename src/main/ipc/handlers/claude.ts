@@ -20,7 +20,7 @@ import os from 'os';
 import fs from 'fs/promises';
 import Store from 'electron-store';
 import { logger } from '../../utils/logger';
-import { withIpcErrorLogging, createIpcHandler } from '../../utils/ipcHandler';
+import { withIpcErrorLogging } from '../../utils/ipcHandler';
 import { CLAUDE_SESSION_PARSE_LIMITS, CLAUDE_PRICING } from '../../constants';
 import {
   encodeClaudeProjectPath,
@@ -532,7 +532,6 @@ export function registerClaudeHandlers(deps: ClaudeHandlerDependencies): void {
       // List all .jsonl files
       const files = await fs.readdir(projectDir);
       const sessionFiles = files.filter(f => f.endsWith('.jsonl'));
-      const totalSessions = sessionFiles.length;
 
       // Track which sessions need processing
       const sessionsToProcess: { filename: string; filePath: string; mtimeMs: number }[] = [];
@@ -558,9 +557,16 @@ export function registerClaudeHandlers(deps: ClaudeHandlerDependencies): void {
       // Build new cache
       const newCache: SessionStatsCache = {
         version: STATS_CACHE_VERSION,
-        projectPath,
-        lastUpdated: Date.now(),
         sessions: {},
+        totals: {
+          totalSessions: 0,
+          totalMessages: 0,
+          totalCostUsd: 0,
+          totalSizeBytes: 0,
+          totalTokens: 0,
+          oldestTimestamp: null,
+        },
+        lastUpdated: Date.now(),
       };
 
       // Copy still-valid cached sessions
