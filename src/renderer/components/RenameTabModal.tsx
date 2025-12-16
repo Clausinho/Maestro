@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import type { Theme } from '../types';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
 import { Modal, ModalFooter } from './ui/Modal';
+import { FormInput } from './ui/FormInput';
 
 interface RenameTabModalProps {
   theme: Theme;
@@ -43,20 +44,13 @@ export function RenameTabModal(props: RenameTabModalProps) {
         />
       }
     >
-      <input
+      <FormInput
         ref={inputRef}
-        type="text"
+        theme={theme}
         value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            handleRename();
-          }
-        }}
+        onChange={setValue}
+        onSubmit={handleRename}
         placeholder={placeholder}
-        className="w-full p-3 rounded border bg-transparent outline-none"
-        style={{ borderColor: theme.colors.border, color: theme.colors.textMain }}
       />
     </Modal>
   );
