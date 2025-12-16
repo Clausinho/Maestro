@@ -1,8 +1,7 @@
-import React, { useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
+import React, { useRef, useCallback } from 'react';
 import type { Theme } from '../types';
-import { useLayerStack } from '../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
+import { Modal, ModalFooter } from './ui/Modal';
 
 interface ConfirmModalProps {
   theme: Theme;
@@ -12,88 +11,37 @@ interface ConfirmModalProps {
 }
 
 export function ConfirmModal({ theme, message, onConfirm, onClose }: ConfirmModalProps) {
-  const { registerLayer, unregisterLayer, updateLayerHandler } = useLayerStack();
-  const layerIdRef = useRef<string>();
   const confirmButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Focus confirm button on mount
-  useEffect(() => {
-    confirmButtonRef.current?.focus();
-  }, []);
-
-  // Register layer on mount
-  useEffect(() => {
-    const id = registerLayer({
-      id: '', // Will be assigned by registerLayer
-      type: 'modal',
-      priority: MODAL_PRIORITIES.CONFIRM,
-      blocksLowerLayers: true,
-      capturesFocus: true,
-      focusTrap: 'strict',
-      ariaLabel: 'Confirm Action',
-      onEscape: onClose,
-    });
-    layerIdRef.current = id;
-    return () => {
-      if (layerIdRef.current) {
-        unregisterLayer(layerIdRef.current);
-      }
-    };
-  }, [registerLayer, unregisterLayer]);
-
-  // Update handler when dependencies change
-  useEffect(() => {
-    if (layerIdRef.current) {
-      updateLayerHandler(layerIdRef.current, onClose);
+  const handleConfirm = useCallback(() => {
+    if (onConfirm) {
+      onConfirm();
     }
-  }, [onClose, updateLayerHandler]);
+    onClose();
+  }, [onConfirm, onClose]);
 
   return (
-    <div
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[10000] animate-in fade-in duration-200"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Confirm Action"
-      tabIndex={-1}
-      onKeyDown={(e) => {
-        e.stopPropagation();
-      }}
+    <Modal
+      theme={theme}
+      title="Confirm Action"
+      priority={MODAL_PRIORITIES.CONFIRM}
+      onClose={onClose}
+      width={450}
+      zIndex={10000}
+      initialFocusRef={confirmButtonRef}
+      footer={
+        <ModalFooter
+          theme={theme}
+          onCancel={onClose}
+          onConfirm={handleConfirm}
+          destructive
+          confirmButtonRef={confirmButtonRef}
+        />
+      }
     >
-      <div className="w-[450px] border rounded-lg shadow-2xl overflow-hidden" style={{ backgroundColor: theme.colors.bgSidebar, borderColor: theme.colors.border }}>
-        <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: theme.colors.border }}>
-          <h2 className="text-sm font-bold" style={{ color: theme.colors.textMain }}>Confirm Action</h2>
-          <button onClick={onClose} style={{ color: theme.colors.textDim }}>
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <div className="p-6">
-          <p className="text-sm leading-relaxed" style={{ color: theme.colors.textMain }}>
-            {message}
-          </p>
-          <div className="mt-6 flex justify-end gap-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 rounded border hover:bg-white/5 transition-colors"
-              style={{ borderColor: theme.colors.border, color: theme.colors.textMain }}
-            >
-              Cancel
-            </button>
-            <button
-              ref={confirmButtonRef}
-              onClick={() => {
-                if (onConfirm) {
-                  onConfirm();
-                }
-                onClose();
-              }}
-              className="px-4 py-2 rounded text-white outline-none focus:ring-2 focus:ring-offset-1"
-              style={{ backgroundColor: theme.colors.error }}
-            >
-              Confirm
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+      <p className="text-sm leading-relaxed" style={{ color: theme.colors.textMain }}>
+        {message}
+      </p>
+    </Modal>
   );
 }

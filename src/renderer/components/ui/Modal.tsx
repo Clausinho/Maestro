@@ -132,6 +132,7 @@ export function Modal({
       aria-label={title}
       tabIndex={-1}
       onClick={handleBackdropClick}
+      onKeyDown={(e) => e.stopPropagation()}
       data-testid={testId}
     >
       <div
@@ -230,6 +231,8 @@ export interface ModalFooterProps {
   showCancel?: boolean;
   /** Additional class name for confirm button */
   confirmClassName?: string;
+  /** Ref to attach to confirm button for focus management */
+  confirmButtonRef?: React.RefObject<HTMLButtonElement>;
 }
 
 export function ModalFooter({
@@ -242,6 +245,7 @@ export function ModalFooter({
   destructive = false,
   showCancel = true,
   confirmClassName = '',
+  confirmButtonRef,
 }: ModalFooterProps) {
   return (
     <>
@@ -259,10 +263,11 @@ export function ModalFooter({
         </button>
       )}
       <button
+        ref={confirmButtonRef}
         type="button"
         onClick={onConfirm}
         disabled={confirmDisabled}
-        className={`px-4 py-2 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${confirmClassName}`}
+        className={`px-4 py-2 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed outline-none focus:ring-2 focus:ring-offset-1 ${confirmClassName}`}
         style={{
           backgroundColor: destructive ? theme.colors.error : theme.colors.accent,
           color: destructive ? '#ffffff' : theme.colors.accentForeground,
