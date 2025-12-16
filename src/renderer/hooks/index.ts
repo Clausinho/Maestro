@@ -32,6 +32,7 @@ export { useSortedSessions, stripLeadingEmojis, compareNamesIgnoringEmojis } fro
 export { useInputProcessing, DEFAULT_IMAGE_ONLY_PROMPT } from './useInputProcessing';
 export { useModalLayer } from './useModalLayer';
 export { useClickOutside } from './useClickOutside';
+export { useListNavigation } from './useListNavigation';
 
 export type { UseSettingsReturn } from './useSettings';
 export type { UseSessionManagerReturn } from './useSessionManager';
@@ -115,3 +116,4 @@ export type {
 } from './useInputProcessing';
 export type { UseModalLayerOptions } from './useModalLayer';
 export type { UseClickOutsideOptions } from './useClickOutside';
+export type { UseListNavigationOptions, UseListNavigationReturn } from './useListNavigation';
