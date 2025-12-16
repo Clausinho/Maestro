@@ -10,7 +10,7 @@ import { CONDUCTOR_BADGES, getBadgeForTime } from '../constants/conductorBadges'
 import { getStatusColor, getContextColor, formatActiveTime } from '../utils/theme';
 import { formatShortcutKeys } from '../utils/shortcutFormatter';
 import { SessionItem } from './SessionItem';
-import { useGitStatusPolling, useLiveOverlay } from '../hooks';
+import { useGitStatusPolling, useLiveOverlay, useClickOutside } from '../hooks';
 
 // ============================================================================
 // SessionContextMenu - Right-click context menu for session items
@@ -45,15 +45,7 @@ function SessionContextMenu({
   const [showMoveSubmenu, setShowMoveSubmenu] = useState(false);
 
   // Close on click outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onDismiss();
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [onDismiss]);
+  useClickOutside(menuRef, onDismiss);
 
   // Close on Escape
   useEffect(() => {
