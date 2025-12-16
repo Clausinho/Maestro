@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Download, ExternalLink, Loader2, CheckCircle2, AlertCircle, RefreshCw, ChevronDown, ChevronRight, RotateCcw } from 'lucide-react';
 import type { Theme } from '../types';
-import { useLayerStack } from '../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
 import ReactMarkdown from 'react-markdown';
+import { Modal } from './ui/Modal';
 
 interface Release {
   tag_name: string;
@@ -36,9 +36,6 @@ interface UpdateCheckModalProps {
 }
 
 export function UpdateCheckModal({ theme, onClose }: UpdateCheckModalProps) {
-  const { registerLayer, unregisterLayer } = useLayerStack();
-  const layerIdRef = useRef<string>();
-  const containerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<UpdateCheckResult | null>(null);
   const [expandedReleases, setExpandedReleases] = useState<Set<string>>(new Set());
@@ -46,9 +43,6 @@ export function UpdateCheckModal({ theme, onClose }: UpdateCheckModalProps) {
   // Auto-updater state
   const [downloadStatus, setDownloadStatus] = useState<UpdateStatus>({ status: 'idle' });
   const [downloadError, setDownloadError] = useState<string | null>(null);
-
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
 
   // Check for updates on mount
   useEffect(() => {
@@ -136,329 +130,304 @@ export function UpdateCheckModal({ theme, onClose }: UpdateCheckModalProps) {
     window.maestro.updates.install();
   };
 
-  // Register layer on mount
-  useEffect(() => {
-    const id = registerLayer({
-      type: 'modal',
-      priority: MODAL_PRIORITIES.UPDATE_CHECK,
-      blocksLowerLayers: true,
-      capturesFocus: true,
-      focusTrap: 'strict',
-      ariaLabel: 'Check for Updates',
-      onEscape: () => onCloseRef.current(),
-    });
-    layerIdRef.current = id;
-
-    containerRef.current?.focus();
-
-    return () => {
-      if (layerIdRef.current) {
-        unregisterLayer(layerIdRef.current);
-      }
-    };
-  }, [registerLayer, unregisterLayer]);
-
   const isDownloading = downloadStatus.status === 'downloading';
   const isDownloaded = downloadStatus.status === 'downloaded';
 
-  return (
+  // Custom header with refresh button
+  const customHeader = (
     <div
-      ref={containerRef}
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] animate-in fade-in duration-200"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Check for Updates"
-      tabIndex={-1}
+      className="p-4 border-b flex items-center justify-between shrink-0"
+      style={{ borderColor: theme.colors.border }}
     >
-      <div
-        className="w-[500px] max-h-[80vh] border rounded-lg shadow-2xl overflow-hidden flex flex-col"
-        style={{ backgroundColor: theme.colors.bgSidebar, borderColor: theme.colors.border }}
-      >
-        {/* Header */}
-        <div
-          className="p-4 border-b flex items-center justify-between shrink-0"
-          style={{ borderColor: theme.colors.border }}
+      <div className="flex items-center gap-2">
+        <Download className="w-5 h-5" style={{ color: theme.colors.accent }} />
+        <h2 className="text-sm font-bold" style={{ color: theme.colors.textMain }}>
+          Check for Updates
+        </h2>
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={checkForUpdates}
+          disabled={loading || isDownloading}
+          className="p-1 rounded hover:bg-white/10 transition-colors disabled:opacity-50"
+          title="Refresh"
         >
-          <div className="flex items-center gap-2">
-            <Download className="w-5 h-5" style={{ color: theme.colors.accent }} />
-            <h2 className="text-sm font-bold" style={{ color: theme.colors.textMain }}>
-              Check for Updates
-            </h2>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={checkForUpdates}
-              disabled={loading || isDownloading}
-              className="p-1 rounded hover:bg-white/10 transition-colors disabled:opacity-50"
-              title="Refresh"
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
-                style={{ color: theme.colors.textDim }}
-              />
-            </button>
-            <button
-              onClick={onClose}
-              className="p-1 rounded hover:bg-white/10 transition-colors"
-              style={{ color: theme.colors.textDim }}
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+          <RefreshCw
+            className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
+            style={{ color: theme.colors.textDim }}
+          />
+        </button>
+        <button
+          onClick={onClose}
+          className="p-1 rounded hover:bg-white/10 transition-colors"
+          style={{ color: theme.colors.textDim }}
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
 
-        {/* Content */}
-        <div className="p-5 space-y-4 overflow-y-auto flex-1">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-8 gap-3">
-              <Loader2 className="w-8 h-8 animate-spin" style={{ color: theme.colors.accent }} />
-              <span className="text-sm" style={{ color: theme.colors.textDim }}>
-                Checking for updates...
-              </span>
+  return (
+    <Modal
+      theme={theme}
+      title="Check for Updates"
+      priority={MODAL_PRIORITIES.UPDATE_CHECK}
+      onClose={onClose}
+      customHeader={customHeader}
+      width={500}
+      maxHeight="80vh"
+    >
+      <div className="space-y-4 -my-2">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-8 gap-3">
+            <Loader2 className="w-8 h-8 animate-spin" style={{ color: theme.colors.accent }} />
+            <span className="text-sm" style={{ color: theme.colors.textDim }}>
+              Checking for updates...
+            </span>
+          </div>
+        ) : result?.error ? (
+          <div className="flex flex-col items-center justify-center py-8 gap-3">
+            <AlertCircle className="w-8 h-8" style={{ color: theme.colors.error }} />
+            <span className="text-sm text-center" style={{ color: theme.colors.textDim }}>
+              {result.error}
+            </span>
+            <button
+              onClick={() => window.maestro.shell.openExternal(result.releasesUrl)}
+              className="flex items-center gap-2 text-sm hover:underline"
+              style={{ color: theme.colors.accent }}
+            >
+              Check releases manually
+              <ExternalLink className="w-3 h-3" />
+            </button>
+          </div>
+        ) : result?.updateAvailable ? (
+          <>
+            {/* Update Available Banner */}
+            <div
+              className="p-4 rounded-lg border"
+              style={{
+                backgroundColor: `${theme.colors.warning}15`,
+                borderColor: theme.colors.warning,
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <Download className="w-5 h-5 mt-0.5" style={{ color: theme.colors.warning }} />
+                <div className="flex-1">
+                  <div className="text-sm font-bold mb-1" style={{ color: theme.colors.textMain }}>
+                    Update Available!
+                  </div>
+                  <div className="text-xs mb-2" style={{ color: theme.colors.textDim }}>
+                    You are <span className="font-bold" style={{ color: theme.colors.warning }}>
+                      {result.versionsBehind} version{result.versionsBehind !== 1 ? 's' : ''}
+                    </span> behind the latest release.
+                  </div>
+                  <div className="text-xs font-mono" style={{ color: theme.colors.textDim }}>
+                    Current: v{result.currentVersion} → Latest: v{result.latestVersion}
+                  </div>
+                </div>
+              </div>
             </div>
-          ) : result?.error ? (
-            <div className="flex flex-col items-center justify-center py-8 gap-3">
-              <AlertCircle className="w-8 h-8" style={{ color: theme.colors.error }} />
-              <span className="text-sm text-center" style={{ color: theme.colors.textDim }}>
-                {result.error}
-              </span>
-              <button
-                onClick={() => window.maestro.shell.openExternal(result.releasesUrl)}
-                className="flex items-center gap-2 text-sm hover:underline"
-                style={{ color: theme.colors.accent }}
-              >
-                Check releases manually
-                <ExternalLink className="w-3 h-3" />
-              </button>
+
+            {/* Release Notes */}
+            <div>
+              <div className="text-sm font-bold mb-3" style={{ color: theme.colors.textMain }}>
+                Release Notes
+              </div>
+              <div className="space-y-2">
+                {result.releases.map((release) => (
+                  <div
+                    key={release.tag_name}
+                    className="border rounded overflow-hidden"
+                    style={{ borderColor: theme.colors.border }}
+                  >
+                    <button
+                      onClick={() => toggleRelease(release.tag_name)}
+                      className="w-full flex items-center justify-between p-3 hover:bg-white/5 transition-colors text-left"
+                      style={{ backgroundColor: theme.colors.bgActivity }}
+                    >
+                      <div className="flex items-center gap-2">
+                        {expandedReleases.has(release.tag_name) ? (
+                          <ChevronDown className="w-4 h-4" style={{ color: theme.colors.textDim }} />
+                        ) : (
+                          <ChevronRight className="w-4 h-4" style={{ color: theme.colors.textDim }} />
+                        )}
+                        <span className="font-mono font-bold text-sm" style={{ color: theme.colors.accent }}>
+                          {release.tag_name}
+                        </span>
+                        {release.name && release.name !== release.tag_name && (
+                          <span className="text-xs" style={{ color: theme.colors.textDim }}>
+                            - {release.name}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs" style={{ color: theme.colors.textDim }}>
+                        {formatDate(release.published_at)}
+                      </span>
+                    </button>
+                    {expandedReleases.has(release.tag_name) && (
+                      <div
+                        className="p-3 border-t text-xs prose prose-sm prose-invert max-w-none"
+                        style={{ borderColor: theme.colors.border, color: theme.colors.textDim }}
+                      >
+                        <ReactMarkdown
+                          components={{
+                            h1: ({ children }) => <h1 className="text-base font-bold mt-3 mb-2" style={{ color: theme.colors.textMain }}>{children}</h1>,
+                            h2: ({ children }) => <h2 className="text-sm font-bold mt-3 mb-2" style={{ color: theme.colors.textMain }}>{children}</h2>,
+                            h3: ({ children }) => <h3 className="text-xs font-bold mt-2 mb-1" style={{ color: theme.colors.textMain }}>{children}</h3>,
+                            p: ({ children }) => <p className="my-1.5" style={{ color: theme.colors.textDim }}>{children}</p>,
+                            ul: ({ children }) => <ul className="list-disc list-inside my-1.5 space-y-0.5">{children}</ul>,
+                            ol: ({ children }) => <ol className="list-decimal list-inside my-1.5 space-y-0.5">{children}</ol>,
+                            li: ({ children }) => <li style={{ color: theme.colors.textDim }}>{children}</li>,
+                            code: ({ children }) => (
+                              <code
+                                className="px-1 py-0.5 rounded font-mono text-xs"
+                                style={{ backgroundColor: theme.colors.bgMain, color: theme.colors.accent }}
+                              >
+                                {children}
+                              </code>
+                            ),
+                            a: ({ href, children }) => (
+                              <a
+                                href={href}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  if (href) window.maestro.shell.openExternal(href);
+                                }}
+                                className="hover:underline cursor-pointer"
+                                style={{ color: theme.colors.accent }}
+                              >
+                                {children}
+                              </a>
+                            ),
+                          }}
+                        >
+                          {release.body || 'No release notes available.'}
+                        </ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          ) : result?.updateAvailable ? (
-            <>
-              {/* Update Available Banner */}
+
+            {/* Download Error */}
+            {downloadError && (
               <div
-                className="p-4 rounded-lg border"
+                className="p-3 rounded border text-xs"
                 style={{
-                  backgroundColor: `${theme.colors.warning}15`,
-                  borderColor: theme.colors.warning,
+                  backgroundColor: `${theme.colors.error}15`,
+                  borderColor: theme.colors.error,
+                  color: theme.colors.error
                 }}
               >
-                <div className="flex items-start gap-3">
-                  <Download className="w-5 h-5 mt-0.5" style={{ color: theme.colors.warning }} />
-                  <div className="flex-1">
-                    <div className="text-sm font-bold mb-1" style={{ color: theme.colors.textMain }}>
-                      Update Available!
-                    </div>
-                    <div className="text-xs mb-2" style={{ color: theme.colors.textDim }}>
-                      You are <span className="font-bold" style={{ color: theme.colors.warning }}>
-                        {result.versionsBehind} version{result.versionsBehind !== 1 ? 's' : ''}
-                      </span> behind the latest release.
-                    </div>
-                    <div className="text-xs font-mono" style={{ color: theme.colors.textDim }}>
-                      Current: v{result.currentVersion} → Latest: v{result.latestVersion}
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="font-bold">Download failed</span>
                 </div>
-              </div>
-
-              {/* Release Notes */}
-              <div>
-                <div className="text-sm font-bold mb-3" style={{ color: theme.colors.textMain }}>
-                  Release Notes
-                </div>
-                <div className="space-y-2">
-                  {result.releases.map((release) => (
-                    <div
-                      key={release.tag_name}
-                      className="border rounded overflow-hidden"
-                      style={{ borderColor: theme.colors.border }}
-                    >
-                      <button
-                        onClick={() => toggleRelease(release.tag_name)}
-                        className="w-full flex items-center justify-between p-3 hover:bg-white/5 transition-colors text-left"
-                        style={{ backgroundColor: theme.colors.bgActivity }}
-                      >
-                        <div className="flex items-center gap-2">
-                          {expandedReleases.has(release.tag_name) ? (
-                            <ChevronDown className="w-4 h-4" style={{ color: theme.colors.textDim }} />
-                          ) : (
-                            <ChevronRight className="w-4 h-4" style={{ color: theme.colors.textDim }} />
-                          )}
-                          <span className="font-mono font-bold text-sm" style={{ color: theme.colors.accent }}>
-                            {release.tag_name}
-                          </span>
-                          {release.name && release.name !== release.tag_name && (
-                            <span className="text-xs" style={{ color: theme.colors.textDim }}>
-                              - {release.name}
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-xs" style={{ color: theme.colors.textDim }}>
-                          {formatDate(release.published_at)}
-                        </span>
-                      </button>
-                      {expandedReleases.has(release.tag_name) && (
-                        <div
-                          className="p-3 border-t text-xs prose prose-sm prose-invert max-w-none"
-                          style={{ borderColor: theme.colors.border, color: theme.colors.textDim }}
-                        >
-                          <ReactMarkdown
-                            components={{
-                              h1: ({ children }) => <h1 className="text-base font-bold mt-3 mb-2" style={{ color: theme.colors.textMain }}>{children}</h1>,
-                              h2: ({ children }) => <h2 className="text-sm font-bold mt-3 mb-2" style={{ color: theme.colors.textMain }}>{children}</h2>,
-                              h3: ({ children }) => <h3 className="text-xs font-bold mt-2 mb-1" style={{ color: theme.colors.textMain }}>{children}</h3>,
-                              p: ({ children }) => <p className="my-1.5" style={{ color: theme.colors.textDim }}>{children}</p>,
-                              ul: ({ children }) => <ul className="list-disc list-inside my-1.5 space-y-0.5">{children}</ul>,
-                              ol: ({ children }) => <ol className="list-decimal list-inside my-1.5 space-y-0.5">{children}</ol>,
-                              li: ({ children }) => <li style={{ color: theme.colors.textDim }}>{children}</li>,
-                              code: ({ children }) => (
-                                <code
-                                  className="px-1 py-0.5 rounded font-mono text-xs"
-                                  style={{ backgroundColor: theme.colors.bgMain, color: theme.colors.accent }}
-                                >
-                                  {children}
-                                </code>
-                              ),
-                              a: ({ href, children }) => (
-                                <a
-                                  href={href}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    if (href) window.maestro.shell.openExternal(href);
-                                  }}
-                                  className="hover:underline cursor-pointer"
-                                  style={{ color: theme.colors.accent }}
-                                >
-                                  {children}
-                                </a>
-                              ),
-                            }}
-                          >
-                            {release.body || 'No release notes available.'}
-                          </ReactMarkdown>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Download Error */}
-              {downloadError && (
-                <div
-                  className="p-3 rounded border text-xs"
-                  style={{
-                    backgroundColor: `${theme.colors.error}15`,
-                    borderColor: theme.colors.error,
-                    color: theme.colors.error
-                  }}
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <AlertCircle className="w-4 h-4" />
-                    <span className="font-bold">Download failed</span>
-                  </div>
-                  <p style={{ color: theme.colors.textDim }}>{downloadError}</p>
-                  <button
-                    onClick={() => window.maestro.shell.openExternal(result.releasesUrl)}
-                    className="flex items-center gap-1 mt-2 hover:underline"
-                    style={{ color: theme.colors.accent }}
-                  >
-                    Download manually from GitHub
-                    <ExternalLink className="w-3 h-3" />
-                  </button>
-                </div>
-              )}
-
-              {/* Download Progress */}
-              {isDownloading && downloadStatus.progress && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs" style={{ color: theme.colors.textDim }}>
-                    <span>Downloading update...</span>
-                    <span>{Math.round(downloadStatus.progress.percent)}%</span>
-                  </div>
-                  <div
-                    className="h-2 rounded-full overflow-hidden"
-                    style={{ backgroundColor: theme.colors.bgActivity }}
-                  >
-                    <div
-                      className="h-full transition-all duration-300 rounded-full"
-                      style={{
-                        width: `${downloadStatus.progress.percent}%`,
-                        backgroundColor: theme.colors.accent
-                      }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between text-xs" style={{ color: theme.colors.textDim }}>
-                    <span>{formatBytes(downloadStatus.progress.transferred)} / {formatBytes(downloadStatus.progress.total)}</span>
-                    <span>{formatBytes(downloadStatus.progress.bytesPerSecond)}/s</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="space-y-2">
-                {isDownloaded ? (
-                  <button
-                    onClick={handleInstallUpdate}
-                    className="w-full flex items-center justify-center gap-2 p-3 rounded-lg font-bold text-sm transition-colors hover:opacity-90"
-                    style={{ backgroundColor: theme.colors.success, color: theme.colors.bgMain }}
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    Restart to Update
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleDownloadUpdate}
-                    disabled={isDownloading}
-                    className="w-full flex items-center justify-center gap-2 p-3 rounded-lg font-bold text-sm transition-colors hover:opacity-90 disabled:opacity-50"
-                    style={{ backgroundColor: theme.colors.accent, color: theme.colors.bgMain }}
-                  >
-                    {isDownloading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Downloading...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-4 h-4" />
-                        Download and Install Update
-                      </>
-                    )}
-                  </button>
-                )}
-
-                {/* Fallback link */}
+                <p style={{ color: theme.colors.textDim }}>{downloadError}</p>
                 <button
                   onClick={() => window.maestro.shell.openExternal(result.releasesUrl)}
-                  className="w-full flex items-center justify-center gap-2 p-2 rounded text-xs transition-colors hover:bg-white/5"
-                  style={{ color: theme.colors.textDim }}
+                  className="flex items-center gap-1 mt-2 hover:underline"
+                  style={{ color: theme.colors.accent }}
                 >
-                  Or download manually from GitHub
+                  Download manually from GitHub
                   <ExternalLink className="w-3 h-3" />
                 </button>
               </div>
-            </>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-8 gap-3">
-              <CheckCircle2 className="w-12 h-12" style={{ color: theme.colors.success }} />
-              <div className="text-center">
-                <div className="text-sm font-bold mb-1" style={{ color: theme.colors.textMain }}>
-                  You're up to date!
+            )}
+
+            {/* Download Progress */}
+            {isDownloading && downloadStatus.progress && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs" style={{ color: theme.colors.textDim }}>
+                  <span>Downloading update...</span>
+                  <span>{Math.round(downloadStatus.progress.percent)}%</span>
                 </div>
-                <div className="text-xs font-mono" style={{ color: theme.colors.textDim }}>
-                  Maestro v{result?.currentVersion || __APP_VERSION__}
+                <div
+                  className="h-2 rounded-full overflow-hidden"
+                  style={{ backgroundColor: theme.colors.bgActivity }}
+                >
+                  <div
+                    className="h-full transition-all duration-300 rounded-full"
+                    style={{
+                      width: `${downloadStatus.progress.percent}%`,
+                      backgroundColor: theme.colors.accent
+                    }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-xs" style={{ color: theme.colors.textDim }}>
+                  <span>{formatBytes(downloadStatus.progress.transferred)} / {formatBytes(downloadStatus.progress.total)}</span>
+                  <span>{formatBytes(downloadStatus.progress.bytesPerSecond)}/s</span>
                 </div>
               </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="space-y-2">
+              {isDownloaded ? (
+                <button
+                  onClick={handleInstallUpdate}
+                  className="w-full flex items-center justify-center gap-2 p-3 rounded-lg font-bold text-sm transition-colors hover:opacity-90"
+                  style={{ backgroundColor: theme.colors.success, color: theme.colors.bgMain }}
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Restart to Update
+                </button>
+              ) : (
+                <button
+                  onClick={handleDownloadUpdate}
+                  disabled={isDownloading}
+                  className="w-full flex items-center justify-center gap-2 p-3 rounded-lg font-bold text-sm transition-colors hover:opacity-90 disabled:opacity-50"
+                  style={{ backgroundColor: theme.colors.accent, color: theme.colors.bgMain }}
+                >
+                  {isDownloading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4" />
+                      Download and Install Update
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* Fallback link */}
               <button
-                onClick={() => window.maestro.shell.openExternal(result?.releasesUrl || 'https://github.com/pedramamini/Maestro/releases')}
-                className="flex items-center gap-2 text-xs hover:underline mt-2"
-                style={{ color: theme.colors.accent }}
+                onClick={() => window.maestro.shell.openExternal(result.releasesUrl)}
+                className="w-full flex items-center justify-center gap-2 p-2 rounded text-xs transition-colors hover:bg-white/5"
+                style={{ color: theme.colors.textDim }}
               >
-                View all releases
+                Or download manually from GitHub
                 <ExternalLink className="w-3 h-3" />
               </button>
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-8 gap-3">
+            <CheckCircle2 className="w-12 h-12" style={{ color: theme.colors.success }} />
+            <div className="text-center">
+              <div className="text-sm font-bold mb-1" style={{ color: theme.colors.textMain }}>
+                You're up to date!
+              </div>
+              <div className="text-xs font-mono" style={{ color: theme.colors.textDim }}>
+                Maestro v{result?.currentVersion || __APP_VERSION__}
+              </div>
+            </div>
+            <button
+              onClick={() => window.maestro.shell.openExternal(result?.releasesUrl || 'https://github.com/pedramamini/Maestro/releases')}
+              className="flex items-center gap-2 text-xs hover:underline mt-2"
+              style={{ color: theme.colors.accent }}
+            >
+              View all releases
+              <ExternalLink className="w-3 h-3" />
+            </button>
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }

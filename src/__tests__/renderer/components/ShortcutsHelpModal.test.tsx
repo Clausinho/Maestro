@@ -347,7 +347,8 @@ describe('ShortcutsHelpModal', () => {
 
   describe('Theme Styling', () => {
     it('applies theme colors to modal container', () => {
-      render(
+      // Modal uses role="dialog" on backdrop; inner container has the themed styles
+      const { container } = render(
         <TestWrapper>
           <ShortcutsHelpModal
             theme={mockTheme}
@@ -356,9 +357,8 @@ describe('ShortcutsHelpModal', () => {
           />
         </TestWrapper>
       );
-
-      const dialog = screen.getByRole('dialog');
-      expect(dialog).toHaveStyle({
+      const modalContent = container.querySelector('[style*="width: 400px"]');
+      expect(modalContent).toHaveStyle({
         backgroundColor: mockTheme.colors.bgSidebar,
         borderColor: mockTheme.colors.border,
       });
@@ -453,8 +453,8 @@ describe('ShortcutsHelpModal', () => {
       const backdrop = container.querySelector('.fixed.inset-0');
       expect(backdrop).toBeInTheDocument();
 
-      // Check dialog width class
-      const dialogBox = container.querySelector('.w-\\[400px\\]');
+      // Check dialog width (Modal component uses inline style instead of Tailwind class)
+      const dialogBox = container.querySelector('[style*="width: 400px"]');
       expect(dialogBox).toBeInTheDocument();
     });
 

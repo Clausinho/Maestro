@@ -37,11 +37,13 @@ vi.mock('react-markdown', () => ({
 // Mock LayerStackContext
 const mockRegisterLayer = vi.fn(() => 'layer-123');
 const mockUnregisterLayer = vi.fn();
+const mockUpdateLayerHandler = vi.fn();
 
 vi.mock('../../../renderer/contexts/LayerStackContext', () => ({
   useLayerStack: () => ({
     registerLayer: mockRegisterLayer,
     unregisterLayer: mockUnregisterLayer,
+    updateLayerHandler: mockUpdateLayerHandler,
   }),
 }));
 
