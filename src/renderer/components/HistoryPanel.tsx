@@ -407,7 +407,7 @@ const ActivityGraph: React.FC<ActivityGraphProps> = ({ entries, theme, reference
 interface HistoryPanelProps {
   session: Session;
   theme: Theme;
-  onJumpToClaudeSession?: (agentSessionId: string) => void;
+  onJumpToAgentSession?: (agentSessionId: string) => void;
   onResumeSession?: (agentSessionId: string) => void;
   onOpenSessionAsTab?: (agentSessionId: string) => void;
   onOpenAboutModal?: () => void;  // For opening About/achievements panel from history entries
@@ -426,7 +426,7 @@ const LOAD_MORE_COUNT = 50;         // Entries to add when scrolling
 // Module-level storage for scroll positions (persists across session switches)
 const scrollPositionCache = new Map<string, number>();
 
-export const HistoryPanel = React.memo(forwardRef<HistoryPanelHandle, HistoryPanelProps>(function HistoryPanel({ session, theme, onJumpToClaudeSession, onResumeSession, onOpenSessionAsTab, onOpenAboutModal }, ref) {
+export const HistoryPanel = React.memo(forwardRef<HistoryPanelHandle, HistoryPanelProps>(function HistoryPanel({ session, theme, onJumpToAgentSession, onResumeSession, onOpenSessionAsTab, onOpenAboutModal }, ref) {
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
   const [activeFilters, setActiveFilters] = useState<Set<HistoryEntryType>>(new Set(['AUTO', 'USER']));
   const [isLoading, setIsLoading] = useState(true);
@@ -1106,7 +1106,7 @@ export const HistoryPanel = React.memo(forwardRef<HistoryPanelHandle, HistoryPan
           theme={theme}
           entry={detailModalEntry}
           onClose={closeDetailModal}
-          onJumpToClaudeSession={onJumpToClaudeSession}
+          onJumpToAgentSession={onJumpToAgentSession}
           onResumeSession={onResumeSession}
           onDelete={handleDeleteEntry}
           onUpdate={async (entryId, updates) => {

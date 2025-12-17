@@ -29,7 +29,7 @@ interface HistoryDetailModalProps {
   theme: Theme;
   entry: HistoryEntry;
   onClose: () => void;
-  onJumpToClaudeSession?: (agentSessionId: string) => void;
+  onJumpToAgentSession?: (agentSessionId: string) => void;
   onResumeSession?: (agentSessionId: string) => void;
   onDelete?: (entryId: string) => void;
   onUpdate?: (entryId: string, updates: { validated?: boolean }) => Promise<boolean>;
@@ -50,7 +50,7 @@ export function HistoryDetailModal({
   theme,
   entry,
   onClose,
-  onJumpToClaudeSession,
+  onJumpToAgentSession,
   onResumeSession,
   onDelete,
   onUpdate,

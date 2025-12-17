@@ -1644,8 +1644,8 @@ describe('HistoryPanel', () => {
 
   // ===== CALLBACKS =====
   describe('callbacks', () => {
-    it('should call onJumpToClaudeSession from detail modal', async () => {
-      const onJumpToClaudeSession = vi.fn();
+    it('should call onJumpToAgentSession from detail modal', async () => {
+      const onJumpToAgentSession = vi.fn();
       const entry = createMockEntry({
         agentSessionId: 'jump-session-id',
       });
@@ -1655,7 +1655,7 @@ describe('HistoryPanel', () => {
         <HistoryPanel
           session={createMockSession()}
           theme={mockTheme}
-          onJumpToClaudeSession={onJumpToClaudeSession}
+          onJumpToAgentSession={onJumpToAgentSession}
         />
       );
 

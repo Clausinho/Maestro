@@ -1979,14 +1979,14 @@ export default function MaestroConsole() {
     setSuccessFlashNotification,
   });
 
-  // --- CLAUDE SESSION MANAGEMENT ---
-  // Extracted hook for Claude-specific session operations (history, session clear, resume)
+  // --- AGENT SESSION MANAGEMENT ---
+  // Extracted hook for agent-specific session operations (history, session clear, resume)
   const {
     addHistoryEntry,
     addHistoryEntryRef,
     startNewClaudeSession,
     startNewClaudeSessionRef,
-    handleJumpToClaudeSession,
+    handleJumpToAgentSession,
     handleResumeSession,
   } = useClaudeSessionManagement({
     activeSession,
@@ -5624,7 +5624,7 @@ export default function MaestroConsole() {
             onSkipCurrentDocument={handleSkipCurrentDocument}
             onAbortBatchOnError={handleAbortBatchOnError}
             onResumeAfterError={handleResumeAfterError}
-            onJumpToClaudeSession={handleJumpToClaudeSession}
+            onJumpToAgentSession={handleJumpToAgentSession}
             onResumeSession={handleResumeSession}
             onOpenSessionAsTab={handleResumeSession}
             onOpenAboutModal={() => setAboutModalOpen(true)}

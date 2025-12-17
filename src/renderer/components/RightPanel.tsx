@@ -89,7 +89,7 @@ interface RightPanelProps {
   onSkipCurrentDocument?: () => void;
   onAbortBatchOnError?: () => void;
   onResumeAfterError?: () => void;
-  onJumpToClaudeSession?: (agentSessionId: string) => void;
+  onJumpToAgentSession?: (agentSessionId: string) => void;
   onResumeSession?: (agentSessionId: string) => void;
   onOpenSessionAsTab?: (agentSessionId: string) => void;
   onOpenAboutModal?: () => void;  // For opening About/achievements panel from history entries
@@ -111,7 +111,7 @@ export const RightPanel = forwardRef<RightPanelHandle, RightPanelProps>(function
     batchRunState, currentSessionBatchState, onOpenBatchRunner, onStopBatchRun,
     // Error handling callbacks (Phase 5.10)
     onSkipCurrentDocument, onAbortBatchOnError, onResumeAfterError,
-    onJumpToClaudeSession, onResumeSession,
+    onJumpToAgentSession, onResumeSession,
     onOpenSessionAsTab, onOpenAboutModal
   } = props;
 
@@ -421,7 +421,7 @@ export const RightPanel = forwardRef<RightPanelHandle, RightPanelProps>(function
               ref={historyPanelRef}
               session={session}
               theme={theme}
-              onJumpToClaudeSession={onJumpToClaudeSession}
+              onJumpToAgentSession={onJumpToAgentSession}
               onResumeSession={onResumeSession}
               onOpenSessionAsTab={onOpenSessionAsTab}
               onOpenAboutModal={onOpenAboutModal}
