@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { BatchRunState, BatchRunConfig, BatchDocumentEntry, Session, HistoryEntry, UsageStats, Group, AutoRunStats, AgentError } from '../types';
+import type { BatchRunState, BatchRunConfig, BatchDocumentEntry, Session, HistoryEntry, UsageStats, Group, AutoRunStats, AgentError, ToolType } from '../types';
 import { substituteTemplateVariables, TemplateContext } from '../utils/templateVariables';
 import { getBadgeForTime, getNextBadge, formatTimeRemaining } from '../constants/conductorBadges';
 import { autorunSynopsisPrompt } from '../../prompts';
@@ -71,7 +71,7 @@ interface UseBatchProcessorProps {
   groups: Group[];
   onUpdateSession: (sessionId: string, updates: Partial<Session>) => void;
   onSpawnAgent: (sessionId: string, prompt: string, cwdOverride?: string) => Promise<{ success: boolean; response?: string; agentSessionId?: string; usageStats?: UsageStats }>;
-  onSpawnSynopsis: (sessionId: string, cwd: string, agentSessionId: string, prompt: string) => Promise<{ success: boolean; response?: string }>;
+  onSpawnSynopsis: (sessionId: string, cwd: string, agentSessionId: string, prompt: string, toolType?: ToolType) => Promise<{ success: boolean; response?: string }>;
   onAddHistoryEntry: (entry: Omit<HistoryEntry, 'id'>) => void;
   onComplete?: (info: BatchCompleteInfo) => void;
   // Callback for PR creation results (success or failure)
@@ -842,7 +842,7 @@ ${docList}
               }
             }));
 
-            // Generate synopsis for successful tasks with a Claude session
+            // Generate synopsis for successful tasks with an agent session
             let shortSummary = `[${docEntry.filename}] Task completed`;
             let fullSynopsis = shortSummary;
 
@@ -854,7 +854,8 @@ ${docList}
                   sessionId,
                   effectiveCwd,
                   result.agentSessionId,
-                  BATCH_SYNOPSIS_PROMPT
+                  BATCH_SYNOPSIS_PROMPT,
+                  session.toolType // Pass the agent type for multi-provider support
                 );
 
                 if (synopsisResult.success && synopsisResult.response) {

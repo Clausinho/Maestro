@@ -1060,6 +1060,9 @@ export interface MaestroAPI {
     setCustomPath: (agentId: string, customPath: string | null) => Promise<boolean>;
     getCustomPath: (agentId: string) => Promise<string | null>;
     getAllCustomPaths: () => Promise<Record<string, string>>;
+    setCustomArgs: (agentId: string, customArgs: string | null) => Promise<boolean>;
+    getCustomArgs: (agentId: string) => Promise<string | null>;
+    getAllCustomArgs: () => Promise<Record<string, string>>;
     getModels: (agentId: string, forceRefresh?: boolean) => Promise<string[]>;
   };
   dialog: {

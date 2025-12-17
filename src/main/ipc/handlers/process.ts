@@ -162,6 +162,27 @@ export function registerProcessHandlers(deps: ProcessHandlerDependencies): void 
         }
       }
 
+      // ========================================================================
+      // Append custom CLI arguments from user configuration
+      // ========================================================================
+      const allConfigs = agentConfigsStore.get('configs', {});
+      const agentCustomArgs = allConfigs[config.toolType]?.customArgs;
+      if (agentCustomArgs && typeof agentCustomArgs === 'string') {
+        // Parse the custom args string - split on whitespace but respect quoted strings
+        const customArgsArray = agentCustomArgs.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
+        // Remove surrounding quotes from quoted args
+        const cleanedArgs = customArgsArray.map(arg => {
+          if ((arg.startsWith('"') && arg.endsWith('"')) || (arg.startsWith("'") && arg.endsWith("'"))) {
+            return arg.slice(1, -1);
+          }
+          return arg;
+        });
+        if (cleanedArgs.length > 0) {
+          logger.debug(`Appending custom args for agent ${config.toolType}`, LOG_CONTEXT, { customArgs: cleanedArgs });
+          finalArgs = [...finalArgs, ...cleanedArgs];
+        }
+      }
+
       // If no shell is specified and this is a terminal session, use the default shell from settings
       const shellToUse = config.shell || (config.toolType === 'terminal' ? settingsStore.get('defaultShell', 'zsh') : undefined);
 

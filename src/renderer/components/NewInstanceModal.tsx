@@ -54,6 +54,7 @@ export function NewInstanceModal({ isOpen, onClose, onCreate, theme, defaultAgen
   const [debugInfo, setDebugInfo] = useState<AgentDebugInfo | null>(null);
   const [homeDir, setHomeDir] = useState<string>('');
   const [customAgentPaths, setCustomAgentPaths] = useState<Record<string, string>>({});
+  const [customAgentArgs, setCustomAgentArgs] = useState<Record<string, string>>({});
 
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -87,9 +88,11 @@ export function NewInstanceModal({ isOpen, onClose, onCreate, theme, defaultAgen
       const detectedAgents = await window.maestro.agents.detect();
       setAgents(detectedAgents);
 
-      // Load custom paths for agents
+      // Load custom paths and args for agents
       const paths = await window.maestro.agents.getAllCustomPaths();
       setCustomAgentPaths(paths);
+      const args = await window.maestro.agents.getAllCustomArgs();
+      setCustomAgentArgs(args);
 
       // Set default or first available
       const defaultAvailable = detectedAgents.find((a: AgentConfig) => a.id === defaultAgent && a.available);
@@ -379,6 +382,46 @@ export function NewInstanceModal({ isOpen, onClose, onCreate, theme, defaultAgen
                             </div>
                             <p className="text-xs opacity-40 mt-1">
                               Specify a custom path if the agent is not in your PATH
+                            </p>
+                          </div>
+                          {/* Custom CLI arguments input */}
+                          <div className="pl-6 mt-3">
+                            <label className="block text-xs opacity-60 mb-1">Custom Arguments (optional)</label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={customAgentArgs[agent.id] || ''}
+                                onChange={(e) => {
+                                  const newArgs = { ...customAgentArgs, [agent.id]: e.target.value };
+                                  setCustomAgentArgs(newArgs);
+                                }}
+                                onBlur={async () => {
+                                  const args = customAgentArgs[agent.id]?.trim() || null;
+                                  await window.maestro.agents.setCustomArgs(agent.id, args);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                placeholder="--flag value --another-flag"
+                                className="flex-1 p-1.5 rounded border bg-transparent outline-none text-xs font-mono"
+                                style={{ borderColor: theme.colors.border, color: theme.colors.textMain }}
+                              />
+                              {customAgentArgs[agent.id] && (
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const newArgs = { ...customAgentArgs };
+                                    delete newArgs[agent.id];
+                                    setCustomAgentArgs(newArgs);
+                                    await window.maestro.agents.setCustomArgs(agent.id, null);
+                                  }}
+                                  className="px-2 py-1 rounded text-xs"
+                                  style={{ backgroundColor: theme.colors.bgActivity, color: theme.colors.textDim }}
+                                >
+                                  Clear
+                                </button>
+                              )}
+                            </div>
+                            <p className="text-xs opacity-40 mt-1">
+                              Additional CLI arguments appended to all calls to this agent
                             </p>
                           </div>
                         </div>

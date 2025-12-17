@@ -60,6 +60,7 @@ const AGENT_DEFINITIONS: Omit<AgentConfig, 'available' | 'path' | 'capabilities'
     command: 'claude',
     // YOLO mode (--dangerously-skip-permissions) is always enabled - Maestro requires it
     args: ['--print', '--verbose', '--output-format', 'stream-json', '--dangerously-skip-permissions'],
+    resumeArgs: (sessionId: string) => ['--resume', sessionId], // Resume with session ID
   },
   {
     id: 'codex',

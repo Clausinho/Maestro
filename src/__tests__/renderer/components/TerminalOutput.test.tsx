@@ -594,8 +594,8 @@ describe('TerminalOutput', () => {
     it('shows queued items section in AI mode', () => {
       const session = createDefaultSession({
         executionQueue: [
-          { id: 'q1', type: 'message', text: 'Queued message 1' },
-          { id: 'q2', type: 'command', command: '/history' },
+          { id: 'q1', type: 'message', text: 'Queued message 1', tabId: 'tab-1' },
+          { id: 'q2', type: 'command', command: '/history', tabId: 'tab-1' },
         ],
       });
 
@@ -610,7 +610,7 @@ describe('TerminalOutput', () => {
     it('shows tab indicator for queued items with tabName', () => {
       const session = createDefaultSession({
         executionQueue: [
-          { id: 'q1', type: 'message', text: 'Message for tab', tabName: 'Tab 1' },
+          { id: 'q1', type: 'message', text: 'Message for tab', tabId: 'tab-1', tabName: 'Tab 1' },
         ],
       });
 
@@ -623,7 +623,7 @@ describe('TerminalOutput', () => {
     it('shows remove button for queued items', () => {
       const session = createDefaultSession({
         executionQueue: [
-          { id: 'q1', type: 'message', text: 'Queued message' },
+          { id: 'q1', type: 'message', text: 'Queued message', tabId: 'tab-1' },
         ],
       });
 
@@ -636,7 +636,7 @@ describe('TerminalOutput', () => {
     it('shows confirmation modal when remove button is clicked', async () => {
       const session = createDefaultSession({
         executionQueue: [
-          { id: 'q1', type: 'message', text: 'Queued message' },
+          { id: 'q1', type: 'message', text: 'Queued message', tabId: 'tab-1' },
         ],
       });
 
@@ -655,7 +655,7 @@ describe('TerminalOutput', () => {
       const onRemoveQueuedItem = vi.fn();
       const session = createDefaultSession({
         executionQueue: [
-          { id: 'q1', type: 'message', text: 'Queued message' },
+          { id: 'q1', type: 'message', text: 'Queued message', tabId: 'tab-1' },
         ],
       });
 
@@ -681,7 +681,7 @@ describe('TerminalOutput', () => {
       const longMessage = 'A'.repeat(250);
       const session = createDefaultSession({
         executionQueue: [
-          { id: 'q1', type: 'message', text: longMessage },
+          { id: 'q1', type: 'message', text: longMessage, tabId: 'tab-1' },
         ],
       });
 
@@ -701,7 +701,7 @@ describe('TerminalOutput', () => {
       // Each line is ~35 chars, 20 lines = 700 chars (>200)
       const session = createDefaultSession({
         executionQueue: [
-          { id: 'q1', type: 'message', text: longMessage },
+          { id: 'q1', type: 'message', text: longMessage, tabId: 'tab-1' },
         ],
       });
 
@@ -733,7 +733,7 @@ describe('TerminalOutput', () => {
     it('dismisses confirmation modal when Cancel button is clicked', async () => {
       const session = createDefaultSession({
         executionQueue: [
-          { id: 'q1', type: 'message', text: 'Queued message' },
+          { id: 'q1', type: 'message', text: 'Queued message', tabId: 'tab-1' },
         ],
       });
 
@@ -762,7 +762,7 @@ describe('TerminalOutput', () => {
     it('dismisses confirmation modal when Escape key is pressed', async () => {
       const session = createDefaultSession({
         executionQueue: [
-          { id: 'q1', type: 'message', text: 'Queued message' },
+          { id: 'q1', type: 'message', text: 'Queued message', tabId: 'tab-1' },
         ],
       });
 
@@ -792,7 +792,7 @@ describe('TerminalOutput', () => {
       const onRemoveQueuedItem = vi.fn();
       const session = createDefaultSession({
         executionQueue: [
-          { id: 'q1', type: 'message', text: 'Queued message' },
+          { id: 'q1', type: 'message', text: 'Queued message', tabId: 'tab-1' },
         ],
       });
 
@@ -823,7 +823,7 @@ describe('TerminalOutput', () => {
     it('dismisses confirmation modal when clicking overlay background', async () => {
       const session = createDefaultSession({
         executionQueue: [
-          { id: 'q1', type: 'message', text: 'Queued message' },
+          { id: 'q1', type: 'message', text: 'Queued message', tabId: 'tab-1' },
         ],
       });
 

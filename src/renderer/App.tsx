@@ -3747,6 +3747,14 @@ export default function MaestroConsole() {
         };
       }
 
+      // Create canceled log entry for AI mode interrupts
+      const canceledLog: LogEntry | null = currentMode === 'ai' ? {
+        id: generateId(),
+        timestamp: Date.now(),
+        source: 'system',
+        text: 'Canceled by user'
+      } : null;
+
       // Set state to idle with full cleanup, or process next queued item
       setSessions(prev => prev.map(s => {
         if (s.id !== activeSession.id) return s;
@@ -3769,13 +3777,15 @@ export default function MaestroConsole() {
           }
 
           // Set the interrupted tab to idle, and the target tab for queued item to busy
+          // Also add the canceled log to the interrupted tab
           let updatedAiTabs = s.aiTabs.map(tab => {
             if (tab.id === targetTab.id) {
               return { ...tab, state: 'busy' as const, thinkingStartTime: Date.now() };
             }
-            // Set any other busy tabs to idle (they were interrupted)
+            // Set any other busy tabs to idle (they were interrupted) and add canceled log
             if (tab.state === 'busy') {
-              return { ...tab, state: 'idle' as const, thinkingStartTime: undefined };
+              const updatedLogs = canceledLog ? [...tab.logs, canceledLog] : tab.logs;
+              return { ...tab, state: 'idle' as const, thinkingStartTime: undefined, logs: updatedLogs };
             }
             return tab;
           });
@@ -3808,12 +3818,26 @@ export default function MaestroConsole() {
           };
         }
 
-        // No queued items, just go to idle
+        // No queued items, just go to idle and add canceled log to the active tab
+        const activeTabForCancel = getActiveTab(s);
+        const updatedAiTabsForIdle = canceledLog && activeTabForCancel
+          ? s.aiTabs.map(tab =>
+              tab.id === activeTabForCancel.id
+                ? { ...tab, logs: [...tab.logs, canceledLog], state: 'idle' as const, thinkingStartTime: undefined }
+                : tab
+            )
+          : s.aiTabs.map(tab =>
+              tab.state === 'busy'
+                ? { ...tab, state: 'idle' as const, thinkingStartTime: undefined }
+                : tab
+            );
+
         return {
           ...s,
           state: 'idle',
           busySource: undefined,
-          thinkingStartTime: undefined
+          thinkingStartTime: undefined,
+          aiTabs: updatedAiTabsForIdle
         };
       }));
 
