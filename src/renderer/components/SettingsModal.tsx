@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, memo } from 'react';
-import { X, Key, Moon, Sun, Keyboard, Check, Terminal, Bell, Cpu, Settings, Palette, Sparkles, History, Download } from 'lucide-react';
-import type { AgentConfig, Theme, ThemeColors, ThemeId, Shortcut, ShellInfo, CustomAICommand } from '../types';
+import { X, Key, Moon, Sun, Keyboard, Check, Terminal, Bell, Cpu, Settings, Palette, Sparkles, History, Download, Bug } from 'lucide-react';
+import type { Theme, ThemeColors, ThemeId, Shortcut, ShellInfo, CustomAICommand } from '../types';
 import { CustomThemeBuilder } from './CustomThemeBuilder';
 import { useLayerStack } from '../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
@@ -8,7 +8,6 @@ import { AICommandsPanel } from './AICommandsPanel';
 import { formatShortcutKeys } from '../utils/shortcutFormatter';
 import { ToggleButtonGroup, ToggleButtonOption } from './ToggleButtonGroup';
 import { SettingCheckbox } from './SettingCheckbox';
-import { AgentSelectionPanel } from './AgentSelectionPanel';
 import { FontConfigurationPanel } from './FontConfigurationPanel';
 import { NotificationsPanel } from './NotificationsPanel';
 
@@ -36,8 +35,6 @@ interface SettingsModalProps {
   setApiKey: (key: string) => void;
   shortcuts: Record<string, Shortcut>;
   setShortcuts: (shortcuts: Record<string, Shortcut>) => void;
-  defaultAgent: string;
-  setDefaultAgent: (agentId: string) => void;
   fontFamily: string;
   setFontFamily: (font: string) => void;
   fontSize: number;
@@ -70,6 +67,8 @@ interface SettingsModalProps {
   setToastDuration: (value: number) => void;
   checkForUpdatesOnStartup: boolean;
   setCheckForUpdatesOnStartup: (value: boolean) => void;
+  crashReportingEnabled: boolean;
+  setCrashReportingEnabled: (value: boolean) => void;
   customAICommands: CustomAICommand[];
   setCustomAICommands: (commands: CustomAICommand[]) => void;
   initialTab?: 'general' | 'llm' | 'shortcuts' | 'theme' | 'notifications' | 'aicommands';
@@ -85,9 +84,6 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
   const [customFonts, setCustomFonts] = useState<string[]>([]);
   const [fontLoading, setFontLoading] = useState(false);
   const [fontsLoaded, setFontsLoaded] = useState(false);
-  const [agents, setAgents] = useState<AgentConfig[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [agentConfigs, setAgentConfigs] = useState<Record<string, Record<string, any>>>({});
   const [recordingId, setRecordingId] = useState<string | null>(null);
   const [shortcutsFilter, setShortcutsFilter] = useState('');
   const [testingLLM, setTestingLLM] = useState(false);
@@ -95,7 +91,6 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
   const [shells, setShells] = useState<ShellInfo[]>([]);
   const [shellsLoading, setShellsLoading] = useState(false);
   const [shellsLoaded, setShellsLoaded] = useState(false);
-  const [customAgentPaths, setCustomAgentPaths] = useState<Record<string, string>>({});
 
   // Layer stack integration
   const { registerLayer, unregisterLayer, updateLayerHandler } = useLayerStack();
@@ -105,7 +100,6 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
 
   useEffect(() => {
     if (isOpen) {
-      loadAgents();
       // Don't load fonts immediately - only when user interacts with font selector
       // Set initial tab if provided, otherwise default to 'general'
       setActiveTab(initialTab || 'general');
@@ -200,30 +194,6 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
       setTimeout(() => shortcutsFilterRef.current?.focus(), 50);
     }
   }, [isOpen, activeTab]);
-
-  const loadAgents = async () => {
-    setLoading(true);
-    try {
-      const detectedAgents = await window.maestro.agents.detect();
-      setAgents(detectedAgents);
-
-      // Load configurations for all agents
-      const configs: Record<string, Record<string, any>> = {};
-      for (const agent of detectedAgents) {
-        const config = await window.maestro.agents.getConfig(agent.id);
-        configs[agent.id] = config;
-      }
-      setAgentConfigs(configs);
-
-      // Load custom paths for agents
-      const paths = await window.maestro.agents.getAllCustomPaths();
-      setCustomAgentPaths(paths);
-    } catch (error) {
-      console.error('Failed to load agents:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadFonts = async () => {
     if (fontsLoaded) return; // Don't reload if already loaded
@@ -578,19 +548,6 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
         <div className="flex-1 p-6 overflow-y-auto scrollbar-thin">
           {activeTab === 'general' && (
             <div className="space-y-5">
-              <AgentSelectionPanel
-                agents={agents}
-                loading={loading}
-                defaultAgent={props.defaultAgent}
-                setDefaultAgent={props.setDefaultAgent}
-                agentConfigs={agentConfigs}
-                setAgentConfigs={setAgentConfigs}
-                customAgentPaths={customAgentPaths}
-                setCustomAgentPaths={setCustomAgentPaths}
-                loadAgents={loadAgents}
-                theme={theme}
-              />
-
               {/* Font Family */}
               <FontConfigurationPanel
                 fontFamily={props.fontFamily}
@@ -869,6 +826,17 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
                 description="Automatically check for new Maestro versions when the app starts"
                 checked={props.checkForUpdatesOnStartup}
                 onChange={props.setCheckForUpdatesOnStartup}
+                theme={theme}
+              />
+
+              {/* Crash Reporting */}
+              <SettingCheckbox
+                icon={Bug}
+                sectionLabel="Privacy"
+                title="Send anonymous crash reports"
+                description="Help improve Maestro by automatically sending crash reports. No personal data is collected. Changes take effect after restart."
+                checked={props.crashReportingEnabled}
+                onChange={props.setCrashReportingEnabled}
                 theme={theme}
               />
             </div>

@@ -34,7 +34,7 @@ function hasDraft(tab: AITab): boolean {
  * const unreadTabs = getNavigableTabs(session, true);
  */
 export function getNavigableTabs(session: Session, showUnreadOnly = false): AITab[] {
-  if (!session.aiTabs || session.aiTabs.length === 0) {
+  if (!session || !session.aiTabs || session.aiTabs.length === 0) {
     return [];
   }
 
@@ -54,7 +54,7 @@ export function getNavigableTabs(session: Session, showUnreadOnly = false): AITa
  * @returns The active AITab or undefined if no tabs exist
  */
 export function getActiveTab(session: Session): AITab | undefined {
-  if (!session.aiTabs || session.aiTabs.length === 0) {
+  if (!session || !session.aiTabs || session.aiTabs.length === 0) {
     return undefined;
   }
 
@@ -106,7 +106,11 @@ export interface CreateTabResult {
  *   logs: existingLogs
  * });
  */
-export function createTab(session: Session, options: CreateTabOptions = {}): CreateTabResult {
+export function createTab(session: Session, options: CreateTabOptions = {}): CreateTabResult | null {
+  if (!session) {
+    return null;
+  }
+
   const {
     agentSessionId = null,
     logs = [],
@@ -170,7 +174,7 @@ export interface CloseTabResult {
  * }
  */
 export function closeTab(session: Session, tabId: string): CloseTabResult | null {
-  if (!session.aiTabs || session.aiTabs.length === 0) {
+  if (!session || !session.aiTabs || session.aiTabs.length === 0) {
     return null;
   }
 
@@ -345,8 +349,8 @@ export interface SetActiveTabResult {
  * }
  */
 export function setActiveTab(session: Session, tabId: string): SetActiveTabResult | null {
-  // Validate that the tab exists
-  if (!session.aiTabs || session.aiTabs.length === 0) {
+  // Validate that the session and tab exists
+  if (!session || !session.aiTabs || session.aiTabs.length === 0) {
     return null;
   }
 
@@ -388,7 +392,7 @@ export function setActiveTab(session: Session, tabId: string): SetActiveTabResul
  * }
  */
 export function getWriteModeTab(session: Session): AITab | undefined {
-  if (!session.aiTabs || session.aiTabs.length === 0) {
+  if (!session || !session.aiTabs || session.aiTabs.length === 0) {
     return undefined;
   }
 
@@ -416,7 +420,7 @@ export function getWriteModeTab(session: Session): AITab | undefined {
  * }
  */
 export function getBusyTabs(session: Session): AITab[] {
-  if (!session.aiTabs || session.aiTabs.length === 0) {
+  if (!session || !session.aiTabs || session.aiTabs.length === 0) {
     return [];
   }
 
@@ -439,7 +443,7 @@ export function getBusyTabs(session: Session): AITab[] {
  * }
  */
 export function navigateToNextTab(session: Session, showUnreadOnly = false): SetActiveTabResult | null {
-  if (!session.aiTabs || session.aiTabs.length < 2) {
+  if (!session || !session.aiTabs || session.aiTabs.length < 2) {
     return null;
   }
 
@@ -498,7 +502,7 @@ export function navigateToNextTab(session: Session, showUnreadOnly = false): Set
  * }
  */
 export function navigateToPrevTab(session: Session, showUnreadOnly = false): SetActiveTabResult | null {
-  if (!session.aiTabs || session.aiTabs.length < 2) {
+  if (!session || !session.aiTabs || session.aiTabs.length < 2) {
     return null;
   }
 
@@ -559,7 +563,7 @@ export function navigateToPrevTab(session: Session, showUnreadOnly = false): Set
  * }
  */
 export function navigateToTabByIndex(session: Session, index: number, showUnreadOnly = false): SetActiveTabResult | null {
-  if (!session.aiTabs || session.aiTabs.length === 0) {
+  if (!session || !session.aiTabs || session.aiTabs.length === 0) {
     return null;
   }
 

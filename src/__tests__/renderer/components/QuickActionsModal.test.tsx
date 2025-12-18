@@ -785,10 +785,12 @@ describe('QuickActionsModal', () => {
       });
       render(<QuickActionsModal {...props} />);
 
+      // Filter to just sessions so we can reliably test Cmd+0
       const input = screen.getByPlaceholderText('Type a command or jump to agent...');
+      fireEvent.change(input, { target: { value: 'Session' } });
       fireEvent.keyDown(input, { key: '0', metaKey: true });
 
-      // Should trigger the 10th item
+      // Should trigger the 10th session (Session 9 due to alphabetical sorting)
       expect(props.setActiveSessionId).toHaveBeenCalled();
     });
   });

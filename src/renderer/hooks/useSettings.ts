@@ -82,10 +82,6 @@ export interface UseSettingsReturn {
   setModelSlug: (value: string) => void;
   setApiKey: (value: string) => void;
 
-  // Agent settings
-  defaultAgent: string;
-  setDefaultAgent: (value: string) => void;
-
   // Shell settings
   defaultShell: string;
   setDefaultShell: (value: string) => void;
@@ -151,6 +147,10 @@ export interface UseSettingsReturn {
   // Update settings
   checkForUpdatesOnStartup: boolean;
   setCheckForUpdatesOnStartup: (value: boolean) => void;
+
+  // Crash reporting settings
+  crashReportingEnabled: boolean;
+  setCrashReportingEnabled: (value: boolean) => void;
 
   // Log Viewer settings
   logViewerSelectedLevels: string[];
@@ -227,9 +227,6 @@ export function useSettings(): UseSettingsReturn {
   const [modelSlug, setModelSlugState] = useState('anthropic/claude-3.5-sonnet');
   const [apiKey, setApiKeyState] = useState('');
 
-  // Agent Config
-  const [defaultAgent, setDefaultAgentState] = useState('claude-code');
-
   // Shell Config
   const [defaultShell, setDefaultShellState] = useState('zsh');
 
@@ -271,6 +268,9 @@ export function useSettings(): UseSettingsReturn {
 
   // Update Config
   const [checkForUpdatesOnStartup, setCheckForUpdatesOnStartupState] = useState(true); // Default: on
+
+  // Crash Reporting Config
+  const [crashReportingEnabled, setCrashReportingEnabledState] = useState(true); // Default: on (opt-out)
 
   // Log Viewer Config
   const [logViewerSelectedLevels, setLogViewerSelectedLevelsState] = useState<string[]>(['debug', 'info', 'warn', 'error', 'toast']);
@@ -320,11 +320,6 @@ export function useSettings(): UseSettingsReturn {
   const setApiKey = useCallback((value: string) => {
     setApiKeyState(value);
     window.maestro.settings.set('apiKey', value);
-  }, []);
-
-  const setDefaultAgent = useCallback((value: string) => {
-    setDefaultAgentState(value);
-    window.maestro.settings.set('defaultAgent', value);
   }, []);
 
   const setDefaultShell = useCallback((value: string) => {
@@ -451,6 +446,11 @@ export function useSettings(): UseSettingsReturn {
   const setCheckForUpdatesOnStartup = useCallback((value: boolean) => {
     setCheckForUpdatesOnStartupState(value);
     window.maestro.settings.set('checkForUpdatesOnStartup', value);
+  }, []);
+
+  const setCrashReportingEnabled = useCallback((value: boolean) => {
+    setCrashReportingEnabledState(value);
+    window.maestro.settings.set('crashReportingEnabled', value);
   }, []);
 
   const setLogViewerSelectedLevels = useCallback((value: string[]) => {
@@ -864,7 +864,6 @@ export function useSettings(): UseSettingsReturn {
       const savedLlmProvider = await window.maestro.settings.get('llmProvider');
       const savedModelSlug = await window.maestro.settings.get('modelSlug');
       const savedApiKey = await window.maestro.settings.get('apiKey');
-      const savedDefaultAgent = await window.maestro.settings.get('defaultAgent');
       const savedDefaultShell = await window.maestro.settings.get('defaultShell');
       const savedGhPath = await window.maestro.settings.get('ghPath');
       const savedFontSize = await window.maestro.settings.get('fontSize');
@@ -887,6 +886,7 @@ export function useSettings(): UseSettingsReturn {
       const savedAudioFeedbackCommand = await window.maestro.settings.get('audioFeedbackCommand');
       const savedToastDuration = await window.maestro.settings.get('toastDuration');
       const savedCheckForUpdatesOnStartup = await window.maestro.settings.get('checkForUpdatesOnStartup');
+      const savedCrashReportingEnabled = await window.maestro.settings.get('crashReportingEnabled');
       const savedLogViewerSelectedLevels = await window.maestro.settings.get('logViewerSelectedLevels');
       const savedCustomAICommands = await window.maestro.settings.get('customAICommands');
       const savedGlobalStats = await window.maestro.settings.get('globalStats');
@@ -907,7 +907,6 @@ export function useSettings(): UseSettingsReturn {
       if (savedLlmProvider !== undefined) setLlmProviderState(savedLlmProvider);
       if (savedModelSlug !== undefined) setModelSlugState(savedModelSlug);
       if (savedApiKey !== undefined) setApiKeyState(savedApiKey);
-      if (savedDefaultAgent !== undefined) setDefaultAgentState(savedDefaultAgent);
       if (savedDefaultShell !== undefined) setDefaultShellState(savedDefaultShell);
       if (savedGhPath !== undefined) setGhPathState(savedGhPath);
       if (savedFontSize !== undefined) setFontSizeState(savedFontSize);
@@ -929,6 +928,7 @@ export function useSettings(): UseSettingsReturn {
       if (savedAudioFeedbackCommand !== undefined) setAudioFeedbackCommandState(savedAudioFeedbackCommand);
       if (savedToastDuration !== undefined) setToastDurationState(savedToastDuration);
       if (savedCheckForUpdatesOnStartup !== undefined) setCheckForUpdatesOnStartupState(savedCheckForUpdatesOnStartup);
+      if (savedCrashReportingEnabled !== undefined) setCrashReportingEnabledState(savedCrashReportingEnabled);
       if (savedLogViewerSelectedLevels !== undefined) setLogViewerSelectedLevelsState(savedLogViewerSelectedLevels);
 
       // Merge saved shortcuts with defaults (in case new shortcuts were added)
@@ -1063,8 +1063,6 @@ export function useSettings(): UseSettingsReturn {
     setLlmProvider,
     setModelSlug,
     setApiKey,
-    defaultAgent,
-    setDefaultAgent,
     defaultShell,
     setDefaultShell,
     ghPath,
@@ -1113,6 +1111,8 @@ export function useSettings(): UseSettingsReturn {
     setToastDuration,
     checkForUpdatesOnStartup,
     setCheckForUpdatesOnStartup,
+    crashReportingEnabled,
+    setCrashReportingEnabled,
     logViewerSelectedLevels,
     setLogViewerSelectedLevels,
     shortcuts,
@@ -1159,7 +1159,6 @@ export function useSettings(): UseSettingsReturn {
     llmProvider,
     modelSlug,
     apiKey,
-    defaultAgent,
     defaultShell,
     ghPath,
     fontFamily,
@@ -1184,6 +1183,7 @@ export function useSettings(): UseSettingsReturn {
     audioFeedbackCommand,
     toastDuration,
     checkForUpdatesOnStartup,
+    crashReportingEnabled,
     logViewerSelectedLevels,
     shortcuts,
     customAICommands,
@@ -1198,7 +1198,6 @@ export function useSettings(): UseSettingsReturn {
     setLlmProvider,
     setModelSlug,
     setApiKey,
-    setDefaultAgent,
     setDefaultShell,
     setGhPath,
     setFontFamily,
@@ -1223,6 +1222,7 @@ export function useSettings(): UseSettingsReturn {
     setAudioFeedbackCommand,
     setToastDuration,
     setCheckForUpdatesOnStartup,
+    setCrashReportingEnabled,
     setLogViewerSelectedLevels,
     setShortcuts,
     setCustomAICommands,

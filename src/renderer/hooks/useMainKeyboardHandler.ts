@@ -308,12 +308,14 @@ export function useMainKeyboardHandler(): UseMainKeyboardHandlerReturn {
         if (ctx.isTabShortcut(e, 'newTab')) {
           e.preventDefault();
           const result = ctx.createTab(ctx.activeSession, { saveToHistory: ctx.defaultSaveToHistory });
-          ctx.setSessions((prev: Session[]) => prev.map((s: Session) =>
-            s.id === ctx.activeSession!.id ? result.session : s
-          ));
-          // Auto-focus the input so user can start typing immediately
-          ctx.setActiveFocus('main');
-          setTimeout(() => ctx.inputRef.current?.focus(), 50);
+          if (result) {
+            ctx.setSessions((prev: Session[]) => prev.map((s: Session) =>
+              s.id === ctx.activeSession!.id ? result.session : s
+            ));
+            // Auto-focus the input so user can start typing immediately
+            ctx.setActiveFocus('main');
+            setTimeout(() => ctx.inputRef.current?.focus(), 50);
+          }
         }
         if (ctx.isTabShortcut(e, 'closeTab')) {
           e.preventDefault();

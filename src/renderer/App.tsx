@@ -154,7 +154,6 @@ export default function MaestroConsole() {
     llmProvider, setLlmProvider,
     modelSlug, setModelSlug,
     apiKey, setApiKey,
-    defaultAgent, setDefaultAgent,
     defaultShell, setDefaultShell,
     ghPath, setGhPath,
     fontFamily, setFontFamily,
@@ -179,6 +178,7 @@ export default function MaestroConsole() {
     audioFeedbackCommand, setAudioFeedbackCommand,
     toastDuration, setToastDuration,
     checkForUpdatesOnStartup, setCheckForUpdatesOnStartup,
+    crashReportingEnabled, setCrashReportingEnabled,
     shortcuts, setShortcuts,
     customAICommands, setCustomAICommands,
     globalStats, updateGlobalStats,
@@ -463,10 +463,10 @@ export default function MaestroConsole() {
       let correctedSession = { ...session };
       let aiAgentType = correctedSession.toolType;
 
-      // If toolType is 'terminal', use the default agent instead for AI process
+      // If toolType is 'terminal', use claude-code instead for AI process
       if (aiAgentType === 'terminal') {
-        console.warn(`[restoreSession] Session has toolType='terminal', using default agent for AI process`);
-        aiAgentType = defaultAgent as ToolType;
+        console.warn(`[restoreSession] Session has toolType='terminal', using claude-code for AI process`);
+        aiAgentType = 'claude-code' as ToolType;
 
         // Add warning to the active tab's logs
         const warningLog: LogEntry = {
@@ -1671,12 +1671,9 @@ export default function MaestroConsole() {
     // Create a new tab in the session to start fresh
     setSessions(prev => prev.map(s => {
       if (s.id !== sessionId) return s;
-      const newTab = createTab();
-      return {
-        ...s,
-        aiTabs: [...s.aiTabs, newTab],
-        activeTabId: newTab.id,
-      };
+      const result = createTab(s);
+      if (!result) return s;
+      return result.session;
     }));
 
     // Focus the input after creating new tab
@@ -3434,8 +3431,8 @@ export default function MaestroConsole() {
           return;
         }
 
-        // Build spawn args with resume if we have an agent session ID
-        // Use the ACTIVE TAB's agentSessionId (not the deprecated session-level one)
+        // Get the ACTIVE TAB's agentSessionId for session continuity
+        // (not the deprecated session-level one)
         const activeTab = getActiveTab(session);
         const tabAgentSessionId = activeTab?.agentSessionId;
         const isReadOnly = activeTab?.readOnlyMode;
@@ -3451,14 +3448,9 @@ export default function MaestroConsole() {
             )
           : [...agent.args];
 
-        if (tabAgentSessionId) {
-          spawnArgs.push('--resume', tabAgentSessionId);
-        }
-
-        // Add read-only/plan mode if the active tab has readOnlyMode enabled
-        if (isReadOnly) {
-          spawnArgs.push('--permission-mode', 'plan');
-        }
+        // Note: agentSessionId and readOnlyMode are passed to spawn() config below.
+        // The main process uses agent-specific argument builders (resumeArgs, readOnlyArgs)
+        // to construct the correct CLI args for each agent type.
 
         // Include tab ID in targetSessionId for proper output routing
         const targetSessionId = `${sessionId}-ai-${activeTab?.id || 'default'}`;
@@ -3526,7 +3518,10 @@ export default function MaestroConsole() {
           cwd: session.cwd,
           command: commandToUse,
           args: spawnArgs,
-          prompt: promptToSend
+          prompt: promptToSend,
+          // Generic spawn options - main process builds agent-specific args
+          agentSessionId: tabAgentSessionId,
+          readOnlyMode: isReadOnly,
         });
 
         console.log(`[Remote] ${session.toolType} spawn initiated successfully`);
@@ -3618,8 +3613,8 @@ export default function MaestroConsole() {
       const agent = await window.maestro.agents.get(session.toolType);
       if (!agent) throw new Error(`Agent not found for toolType: ${session.toolType}`);
 
-      // Build spawn args with resume if we have a session ID
-      // Use the TARGET TAB's agentSessionId (not the active tab or deprecated session-level one)
+      // Get the TARGET TAB's agentSessionId for session continuity
+      // (not the active tab or deprecated session-level one)
       const tabAgentSessionId = targetTab?.agentSessionId;
       const isReadOnly = item.readOnlyMode || targetTab?.readOnlyMode;
 
@@ -3634,15 +3629,9 @@ export default function MaestroConsole() {
           )
         : [...(agent.args || [])];
 
-      if (tabAgentSessionId) {
-        spawnArgs.push('--resume', tabAgentSessionId);
-      }
-
-      // Add read-only/plan mode if the queued item was from a read-only tab
-      // or if the target tab currently has readOnlyMode enabled
-      if (isReadOnly) {
-        spawnArgs.push('--permission-mode', 'plan');
-      }
+      // Note: agentSessionId and readOnlyMode are passed to spawn() config below.
+      // The main process uses agent-specific argument builders (resumeArgs, readOnlyArgs)
+      // to construct the correct CLI args for each agent type.
 
       const commandToUse = agent.path || agent.command;
 
@@ -3656,6 +3645,18 @@ export default function MaestroConsole() {
         // If user sends only an image without text, inject the default image-only prompt
         const effectivePrompt = isImageOnlyMessage ? DEFAULT_IMAGE_ONLY_PROMPT : item.text!;
 
+        console.log('[processQueuedItem] Spawning agent with queued message:', {
+          sessionId: targetSessionId,
+          toolType: session.toolType,
+          prompt: effectivePrompt,
+          promptLength: effectivePrompt?.length,
+          hasAgentSessionId: !!tabAgentSessionId,
+          agentSessionId: tabAgentSessionId,
+          isReadOnly,
+          argsLength: spawnArgs.length,
+          args: spawnArgs,
+        });
+
         await window.maestro.process.spawn({
           sessionId: targetSessionId,
           toolType: session.toolType,
@@ -3663,7 +3664,10 @@ export default function MaestroConsole() {
           command: commandToUse,
           args: spawnArgs,
           prompt: effectivePrompt,
-          images: hasImages ? item.images : undefined
+          images: hasImages ? item.images : undefined,
+          // Generic spawn options - main process builds agent-specific args
+          agentSessionId: tabAgentSessionId,
+          readOnlyMode: isReadOnly,
         });
       } else if (item.type === 'command' && item.command) {
         // Process a slash command - find the matching custom AI command
@@ -3711,7 +3715,10 @@ export default function MaestroConsole() {
             cwd: session.cwd,
             command: commandToUse,
             args: spawnArgs,
-            prompt: substitutedPrompt
+            prompt: substitutedPrompt,
+            // Generic spawn options - main process builds agent-specific args
+            agentSessionId: tabAgentSessionId,
+            readOnlyMode: isReadOnly,
           });
         } else {
           // Unknown command - add error log
@@ -4775,6 +4782,10 @@ export default function MaestroConsole() {
             setTourOpen(true);
           }}
           setFuzzyFileSearchOpen={setFuzzyFileSearchOpen}
+          onEditAgent={(session) => {
+            setEditAgentSession(session);
+            setEditAgentModalOpen(true);
+          }}
         />
       )}
       {lightboxImage && (
@@ -5179,6 +5190,7 @@ export default function MaestroConsole() {
             setSessions(prev => prev.map(s => {
               if (s.id !== activeSession.id) return s;
               const result = createTab(s, { saveToHistory: defaultSaveToHistory });
+              if (!result) return s;
               return result.session;
             }));
             setActiveAgentSessionId(null);
@@ -5377,6 +5389,7 @@ export default function MaestroConsole() {
           setSessions(prev => prev.map(s => {
             if (s.id !== activeSession.id) return s;
             const result = createTab(s, { saveToHistory: defaultSaveToHistory });
+            if (!result) return s;
             return result.session;
           }));
         }}
@@ -5887,7 +5900,6 @@ export default function MaestroConsole() {
         onClose={() => setNewInstanceModalOpen(false)}
         onCreate={createNewSession}
         theme={theme}
-        defaultAgent={defaultAgent}
         existingSessions={sessionsForValidation}
       />
 
@@ -5929,8 +5941,6 @@ export default function MaestroConsole() {
         setApiKey={setApiKey}
         shortcuts={shortcuts}
         setShortcuts={setShortcuts}
-        defaultAgent={defaultAgent}
-        setDefaultAgent={setDefaultAgent}
         defaultShell={defaultShell}
         setDefaultShell={setDefaultShell}
         ghPath={ghPath}
@@ -5963,6 +5973,8 @@ export default function MaestroConsole() {
         setToastDuration={setToastDuration}
         checkForUpdatesOnStartup={checkForUpdatesOnStartup}
         setCheckForUpdatesOnStartup={setCheckForUpdatesOnStartup}
+        crashReportingEnabled={crashReportingEnabled}
+        setCrashReportingEnabled={setCrashReportingEnabled}
         customAICommands={customAICommands}
         setCustomAICommands={setCustomAICommands}
         initialTab={settingsTab}

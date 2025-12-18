@@ -299,17 +299,16 @@ export function useAgentExecution(
         // Spawn the agent for batch processing
         // Use effectiveCwd which may be a worktree path for parallel execution
         const commandToUse = agent.path || agent.command;
-        // Only add Claude-specific permission-mode flag for Claude Code
-        const spawnArgs = session.toolType === 'claude-code'
-          ? [...(agent.args || []), '--permission-mode', 'plan']
-          : [...(agent.args || [])];
+        // Batch processing runs in read-only mode (plan mode) to prevent unintended writes
+        // The main process uses agent-specific readOnlyArgs builders for correct CLI args
         window.maestro.process.spawn({
           sessionId: targetSessionId,
           toolType: session.toolType,
           cwd: effectiveCwd,
           command: commandToUse,
-          args: spawnArgs,
-          prompt
+          args: agent.args || [],
+          prompt,
+          readOnlyMode: true, // Batch operations run in read-only/plan mode
         }).catch(() => {
           cleanup();
           resolve({ success: false });

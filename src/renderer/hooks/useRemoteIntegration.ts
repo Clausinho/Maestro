@@ -265,6 +265,7 @@ export function useRemoteIntegration(deps: UseRemoteIntegrationDeps): UseRemoteI
 
         // Use createTab helper
         const result = createTab(s, { saveToHistory: defaultSaveToHistory });
+        if (!result) return s;
         newTabId = result.tab.id;
         return result.session;
       }));

@@ -3,6 +3,7 @@ import path from 'path';
 import os from 'os';
 import fs from 'fs/promises';
 import fsSync from 'fs';
+import * as Sentry from '@sentry/electron/main';
 import { ProcessManager } from './process-manager';
 import { WebServer } from './web-server';
 import { AgentDetector } from './agent-detector';
@@ -17,6 +18,32 @@ import { initializeOutputParsers } from './parsers';
 import { DEMO_MODE, DEMO_DATA_PATH } from './constants';
 import { initAutoUpdater } from './auto-updater';
 
+// Initialize Sentry for crash reporting (before app.ready)
+// Check if crash reporting is enabled (default: true for opt-out behavior)
+const crashReportingStore = new Store<{ crashReportingEnabled: boolean }>({
+  name: 'maestro-settings',
+});
+const crashReportingEnabled = crashReportingStore.get('crashReportingEnabled', true);
+
+if (crashReportingEnabled) {
+  Sentry.init({
+    dsn: 'https://2303c5f787f910863d83ed5d27ce8ed2@o4510554134740992.ingest.us.sentry.io/4510554135789568',
+    // Set release version for better debugging
+    release: app.getVersion(),
+    // Only send errors, not performance data
+    tracesSampleRate: 0,
+    // Filter out sensitive data
+    beforeSend(event) {
+      // Remove any potential sensitive data from the event
+      if (event.user) {
+        delete event.user.ip_address;
+        delete event.user.email;
+      }
+      return event;
+    },
+  });
+}
+
 // Demo mode: use a separate data directory for fresh demos
 if (DEMO_MODE) {
   app.setPath('userData', DEMO_DATA_PATH);
@@ -30,7 +57,6 @@ interface MaestroSettings {
   modelSlug: string;
   apiKey: string;
   shortcuts: Record<string, any>;
-  defaultAgent: string;
   fontSize: number;
   fontFamily: string;
   customFonts: string[];
@@ -52,7 +78,6 @@ const store = new Store<MaestroSettings>({
     modelSlug: 'anthropic/claude-3.5-sonnet',
     apiKey: '',
     shortcuts: {},
-    defaultAgent: 'claude-code',
     fontSize: 14,
     fontFamily: 'Roboto Mono, Menlo, "Courier New", monospace',
     customFonts: [],
@@ -857,6 +882,15 @@ function setupIpcHandlers() {
       };
     } catch (error) {
       throw new Error(`Failed to get file stats: ${error}`);
+    }
+  });
+
+  ipcMain.handle('fs:writeFile', async (_, filePath: string, content: string) => {
+    try {
+      await fs.writeFile(filePath, content, 'utf-8');
+      return { success: true };
+    } catch (error) {
+      throw new Error(`Failed to write file: ${error}`);
     }
   });
 

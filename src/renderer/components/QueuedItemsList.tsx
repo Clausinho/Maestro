@@ -16,7 +16,7 @@ interface QueuedItemsListProps {
 /**
  * QueuedItemsList displays the execution queue with:
  * - Queued message separator with count
- * - Individual queued items (commands/messages) with tab indicators
+ * - Individual queued items (commands/messages)
  * - Long message expand/collapse functionality
  * - Image attachment indicators
  * - Remove button with confirmation modal
@@ -116,16 +116,6 @@ export const QueuedItemsList = memo(({
             >
               <X className="w-4 h-4" />
             </button>
-
-            {/* Tab indicator */}
-            {item.tabName && (
-              <div
-                className="text-xs mb-1 font-mono"
-                style={{ color: theme.colors.textDim }}
-              >
-                → {item.tabName}
-              </div>
-            )}
 
             {/* Item content */}
             <div

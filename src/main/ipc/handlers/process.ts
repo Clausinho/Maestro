@@ -94,7 +94,10 @@ export function registerProcessHandlers(deps: ProcessHandlerDependencies): void 
         agentId: agent?.id,
         agentCommand: agent?.command,
         agentPath: agent?.path,
-        hasAgentSessionId: !!config.agentSessionId
+        hasAgentSessionId: !!config.agentSessionId,
+        hasPrompt: !!config.prompt,
+        promptLength: config.prompt?.length,
+        promptValue: config.prompt,
       });
       let finalArgs = [...config.args];
 

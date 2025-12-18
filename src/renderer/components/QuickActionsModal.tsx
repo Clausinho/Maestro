@@ -68,6 +68,7 @@ interface QuickActionsModalProps {
   setDebugWizardModalOpen?: (open: boolean) => void;
   startTour?: () => void;
   setFuzzyFileSearchOpen?: (open: boolean) => void;
+  onEditAgent?: (session: Session) => void;
 }
 
 export function QuickActionsModal(props: QuickActionsModalProps) {
@@ -82,7 +83,7 @@ export function QuickActionsModal(props: QuickActionsModalProps) {
     setShortcutsHelpOpen, setAboutModalOpen, setLogViewerOpen, setProcessMonitorOpen,
     setAgentSessionsOpen, setActiveAgentSessionId, setGitDiffPreview, setGitLogOpen,
     onRenameTab, onToggleReadOnlyMode, onOpenTabSwitcher, tabShortcuts, isAiMode, setPlaygroundOpen, onRefreshGitFileState,
-    onDebugReleaseQueuedItem, markdownEditMode, onToggleMarkdownEditMode, setUpdateCheckModalOpen, openWizard, wizardGoToStep, setDebugWizardModalOpen, startTour, setFuzzyFileSearchOpen
+    onDebugReleaseQueuedItem, markdownEditMode, onToggleMarkdownEditMode, setUpdateCheckModalOpen, openWizard, wizardGoToStep, setDebugWizardModalOpen, startTour, setFuzzyFileSearchOpen, onEditAgent
   } = props;
 
   const [search, setSearch] = useState('');
@@ -202,6 +203,16 @@ export function QuickActionsModal(props: QuickActionsModalProps) {
     ...(activeSession ? [{ id: 'rename', label: `Rename Agent: ${activeSession.name}`, action: () => {
       setRenameInstanceValue(activeSession.name);
       setRenameInstanceModalOpen(true);
+      setQuickActionOpen(false);
+    } }] : []),
+    ...(activeSession && onEditAgent ? [{ id: 'editAgent', label: `Edit Agent: ${activeSession.name}`, action: () => {
+      onEditAgent(activeSession);
+      setQuickActionOpen(false);
+    } }] : []),
+    ...(activeSession ? [{ id: 'toggleBookmark', label: activeSession.bookmarked ? `Unbookmark: ${activeSession.name}` : `Bookmark: ${activeSession.name}`, action: () => {
+      setSessions(prev => prev.map(s =>
+        s.id === activeSessionId ? { ...s, bookmarked: !s.bookmarked } : s
+      ));
       setQuickActionOpen(false);
     } }] : []),
     ...(activeSession?.groupId ? [{

@@ -261,15 +261,16 @@ export function useAgentSessionManagement(
         if (s.id !== activeSession.id) return s;
 
         // Create tab from the CURRENT session state (not stale closure value)
-        const { session: updatedSession } = createTab(s, {
+        const result = createTab(s, {
           agentSessionId,
           logs: messages,
           name,
           starred: isStarred,
           saveToHistory: defaultSaveToHistory
         });
+        if (!result) return s;
 
-        return { ...updatedSession, inputMode: 'ai' };
+        return { ...result.session, inputMode: 'ai' };
       }));
       setActiveAgentSessionId(agentSessionId);
     } catch (error) {
