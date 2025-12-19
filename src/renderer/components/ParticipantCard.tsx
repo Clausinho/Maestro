@@ -2,10 +2,10 @@
  * ParticipantCard.tsx
  *
  * Displays a single group chat participant with their status,
- * agent type, context usage, stats, and last activity summary.
+ * session ID, context usage, stats, and cost.
  */
 
-import { Clock, MessageSquare, Zap, Copy, Check } from 'lucide-react';
+import { MessageSquare, Copy, Check, DollarSign } from 'lucide-react';
 import { useState, useCallback } from 'react';
 import type { Theme, GroupChatParticipant, SessionState } from '../types';
 
@@ -17,23 +17,23 @@ interface ParticipantCardProps {
 }
 
 /**
- * Format milliseconds as a human-readable duration.
+ * Format cost as a dollar amount.
  */
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-  const minutes = Math.floor(ms / 60000);
-  const seconds = Math.round((ms % 60000) / 1000);
-  return `${minutes}m ${seconds}s`;
+function formatCost(cost: number): string {
+  if (cost < 0.01) return `$${cost.toFixed(4)}`;
+  if (cost < 1) return `$${cost.toFixed(3)}`;
+  return `$${cost.toFixed(2)}`;
 }
 
 /**
- * Format token count with K/M suffix for large numbers.
+ * Format time as relative or absolute.
  */
-function formatTokens(tokens: number): string {
-  if (tokens < 1000) return tokens.toString();
-  if (tokens < 1000000) return `${(tokens / 1000).toFixed(1)}K`;
-  return `${(tokens / 1000000).toFixed(1)}M`;
+function formatTime(timestamp: number): string {
+  const now = Date.now();
+  const diff = now - timestamp;
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 export function ParticipantCard({
@@ -44,13 +44,16 @@ export function ParticipantCard({
 }: ParticipantCardProps): JSX.Element {
   const [copied, setCopied] = useState(false);
 
+  // Prefer agent's session ID (clean GUID) over internal process session ID
+  const displaySessionId = participant.agentSessionId || participant.sessionId;
+
   const copySessionId = useCallback(() => {
-    if (participant.sessionId) {
-      navigator.clipboard.writeText(participant.sessionId);
+    if (displaySessionId) {
+      navigator.clipboard.writeText(displaySessionId);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
-  }, [participant.sessionId]);
+  }, [displaySessionId]);
 
   const getStatusColor = (): string => {
     switch (state) {
@@ -112,7 +115,7 @@ export function ParticipantCard({
       </div>
 
       {/* Session ID pill */}
-      {participant.sessionId && (
+      {displaySessionId && (
         <div className="mt-2 flex items-center gap-1">
           <button
             onClick={copySessionId}
@@ -122,10 +125,10 @@ export function ParticipantCard({
               color: theme.colors.accent,
               border: `1px solid ${theme.colors.accent}40`,
             }}
-            title={`Session: ${participant.sessionId}\nClick to copy`}
+            title={`Session: ${displaySessionId}\nClick to copy`}
           >
             <span className="font-mono">
-              {participant.sessionId.slice(0, 8)}...
+              {displaySessionId.slice(0, 8)}...
             </span>
             {copied ? (
               <Check className="w-2.5 h-2.5" />

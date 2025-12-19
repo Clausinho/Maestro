@@ -28,7 +28,10 @@ const VALID_MODERATOR_AGENT_IDS: ToolType[] = ['claude-code', 'codex', 'opencode
 export interface GroupChatParticipant {
   name: string;
   agentId: string;
+  /** Internal process session ID (used for routing) */
   sessionId: string;
+  /** Agent's session ID (e.g., Claude Code's session GUID for continuity) */
+  agentSessionId?: string;
   addedAt: number;
   lastActivity?: number;
   lastSummary?: string;
@@ -352,7 +355,7 @@ export async function getParticipant(
  */
 export type ParticipantUpdate = Partial<Pick<
   GroupChatParticipant,
-  'lastActivity' | 'lastSummary' | 'contextUsage' | 'tokenCount' | 'messageCount' | 'processingTimeMs'
+  'lastActivity' | 'lastSummary' | 'contextUsage' | 'tokenCount' | 'messageCount' | 'processingTimeMs' | 'agentSessionId'
 >>;
 
 /**

@@ -15,6 +15,7 @@ import { getHistoryManager } from './history-manager';
 import { registerGitHandlers, registerAutorunHandlers, registerPlaybooksHandlers, registerHistoryHandlers, registerAgentsHandlers, registerProcessHandlers, registerPersistenceHandlers, registerSystemHandlers, registerClaudeHandlers, registerAgentSessionsHandlers, registerGroupChatHandlers, setupLoggerEventForwarding } from './ipc/handlers';
 import { groupChatEmitters } from './ipc/handlers/groupChat';
 import { routeModeratorResponse, routeAgentResponse, setGetSessionsCallback, setGetCustomEnvVarsCallback } from './group-chat/group-chat-router';
+import { updateParticipant, loadGroupChat } from './group-chat/group-chat-storage';
 import { initializeSessionStorages } from './storage';
 import { initializeOutputParsers } from './parsers';
 import { DEMO_MODE, DEMO_DATA_PATH } from './constants';
@@ -1729,39 +1730,31 @@ function setupIpcHandlers() {
   );
 }
 
+// Buffer for group chat output (keyed by sessionId)
+// We buffer output and only route it on process exit to avoid duplicate messages from streaming chunks
+const groupChatOutputBuffers = new Map<string, string>();
+
 // Handle process output streaming (set up after initialization)
 function setupProcessListeners() {
   if (processManager) {
     processManager.on('data', (sessionId: string, data: string) => {
-      // Handle group chat moderator output
+      // Handle group chat moderator output - buffer it
       // Session ID format: group-chat-{groupChatId}-moderator-{uuid}
       const moderatorMatch = sessionId.match(/^group-chat-(.+)-moderator-/);
       if (moderatorMatch) {
-        const groupChatId = moderatorMatch[1];
-        // Emit the moderator's response as a group chat message
-        const moderatorMessage = {
-          timestamp: new Date().toISOString(),
-          from: 'moderator',
-          content: data,
-        };
-        groupChatEmitters.emitMessage?.(groupChatId, moderatorMessage);
-        // Route the response (handles @mentions and logging)
-        routeModeratorResponse(groupChatId, data, processManager ?? undefined, agentDetector ?? undefined).catch(err => {
-          logger.error('[GroupChat] Failed to route moderator response', 'ProcessListener', { error: String(err) });
-        });
+        // Buffer the output - will be routed on process exit
+        const existing = groupChatOutputBuffers.get(sessionId) || '';
+        groupChatOutputBuffers.set(sessionId, existing + data);
         return; // Don't send to regular process:data handler
       }
 
-      // Handle group chat participant output
+      // Handle group chat participant output - buffer it
       // Session ID format: group-chat-{groupChatId}-participant-{name}-{uuid}
       const participantMatch = sessionId.match(/^group-chat-(.+)-participant-([^-]+)-/);
       if (participantMatch) {
-        const groupChatId = participantMatch[1];
-        const participantName = participantMatch[2];
-        // Route the agent's response (handles logging, stats update, and moderator notification)
-        routeAgentResponse(groupChatId, participantName, data, processManager ?? undefined).catch(err => {
-          logger.error('[GroupChat] Failed to route agent response', 'ProcessListener', { error: String(err), participant: participantName });
-        });
+        // Buffer the output - will be routed on process exit
+        const existing = groupChatOutputBuffers.get(sessionId) || '';
+        groupChatOutputBuffers.set(sessionId, existing + data);
         return; // Don't send to regular process:data handler
       }
 
@@ -1800,21 +1793,38 @@ function setupProcessListeners() {
     });
 
     processManager.on('exit', (sessionId: string, code: number) => {
-      // Handle group chat moderator exit - set state back to idle
+      // Handle group chat moderator exit - route buffered output and set state back to idle
       // Session ID format: group-chat-{groupChatId}-moderator-{uuid}
       const moderatorMatch = sessionId.match(/^group-chat-(.+)-moderator-/);
       if (moderatorMatch) {
         const groupChatId = moderatorMatch[1];
+        // Route the buffered output now that process is complete
+        const bufferedOutput = groupChatOutputBuffers.get(sessionId);
+        if (bufferedOutput) {
+          routeModeratorResponse(groupChatId, bufferedOutput, processManager ?? undefined, agentDetector ?? undefined).catch(err => {
+            logger.error('[GroupChat] Failed to route moderator response', 'ProcessListener', { error: String(err) });
+          });
+          groupChatOutputBuffers.delete(sessionId);
+        }
         groupChatEmitters.emitStateChange?.(groupChatId, 'idle');
         // Don't send to regular exit handler
         return;
       }
 
-      // Handle group chat participant exit - update participant state
+      // Handle group chat participant exit - route buffered output and update participant state
       // Session ID format: group-chat-{groupChatId}-participant-{name}-{uuid}
       const participantMatch = sessionId.match(/^group-chat-(.+)-participant-([^-]+)-/);
       if (participantMatch) {
         const groupChatId = participantMatch[1];
+        const participantName = participantMatch[2];
+        // Route the buffered output now that process is complete
+        const bufferedOutput = groupChatOutputBuffers.get(sessionId);
+        if (bufferedOutput) {
+          routeAgentResponse(groupChatId, participantName, bufferedOutput, processManager ?? undefined).catch(err => {
+            logger.error('[GroupChat] Failed to route agent response', 'ProcessListener', { error: String(err), participant: participantName });
+          });
+          groupChatOutputBuffers.delete(sessionId);
+        }
         // Emit state change back to idle for the group chat
         groupChatEmitters.emitStateChange?.(groupChatId, 'idle');
         // Don't send to regular exit handler
@@ -1837,6 +1847,25 @@ function setupProcessListeners() {
     });
 
     processManager.on('session-id', (sessionId: string, agentSessionId: string) => {
+      // Handle group chat participant session ID - store the agent's session ID
+      // Session ID format: group-chat-{groupChatId}-participant-{name}-{uuid}
+      const participantMatch = sessionId.match(/^group-chat-(.+)-participant-([^-]+)-/);
+      if (participantMatch) {
+        const groupChatId = participantMatch[1];
+        const participantName = participantMatch[2];
+        // Update the participant with the agent's session ID
+        updateParticipant(groupChatId, participantName, { agentSessionId }).then(async () => {
+          // Emit participants changed so UI updates with the new session ID
+          const chat = await loadGroupChat(groupChatId);
+          if (chat) {
+            groupChatEmitters.emitParticipantsChanged?.(groupChatId, chat.participants);
+          }
+        }).catch(err => {
+          logger.error('[GroupChat] Failed to update participant agentSessionId', 'ProcessListener', { error: String(err), participant: participantName });
+        });
+        // Don't return - still send to renderer for logging purposes
+      }
+
       mainWindow?.webContents.send('process:session-id', sessionId, agentSessionId);
     });
 

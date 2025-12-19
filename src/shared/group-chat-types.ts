@@ -10,7 +10,10 @@
 export interface GroupChatParticipant {
   name: string;
   agentId: string;
+  /** Internal process session ID (used for routing) */
   sessionId: string;
+  /** Agent's session ID (e.g., Claude Code's session GUID for continuity) */
+  agentSessionId?: string;
   addedAt: number;
   lastActivity?: number;
   lastSummary?: string;

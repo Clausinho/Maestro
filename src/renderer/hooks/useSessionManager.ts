@@ -14,14 +14,17 @@ const prepareSessionForLoad = (session: Session): Session => {
     ...session,
     // closedTabHistory is runtime-only and should not be persisted
     // Always reset to empty array on load
-    closedTabHistory: []
+    closedTabHistory: [],
+    // Clear error state on load - no agent is running yet so there can't be an error
+    agentError: undefined,
+    agentErrorPaused: false,
   };
 };
 
 /**
  * Prepare a session for persistence by:
  * 1. Truncating logs in each AI tab to MAX_PERSISTED_LOGS_PER_TAB entries
- * 2. Excluding closedTabHistory (runtime-only, not persisted)
+ * 2. Excluding runtime-only fields (closedTabHistory, agentError, etc.)
  */
 const prepareSessionForPersistence = (session: Session): Session => {
   // If no aiTabs, return as-is (shouldn't happen after migration)
@@ -49,7 +52,10 @@ const prepareSessionForPersistence = (session: Session): Session => {
     thinkingStartTime: undefined,
     currentCycleTokens: undefined,
     // Explicitly exclude closedTabHistory - it's runtime-only
-    closedTabHistory: []
+    closedTabHistory: [],
+    // Don't persist error state - no agent is running on next launch
+    agentError: undefined,
+    agentErrorPaused: false,
   };
 };
 

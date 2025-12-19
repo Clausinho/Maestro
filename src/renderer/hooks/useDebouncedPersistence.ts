@@ -21,7 +21,7 @@ const MAX_PERSISTED_LOGS_PER_TAB = 100;
 /**
  * Prepare a session for persistence by:
  * 1. Truncating logs in each AI tab to MAX_PERSISTED_LOGS_PER_TAB entries
- * 2. Excluding closedTabHistory (runtime-only, not persisted)
+ * 2. Excluding runtime-only fields (closedTabHistory, agentError, etc.)
  *
  * This is a copy of the function from useSessionManager.ts to avoid circular imports.
  */
@@ -42,12 +42,12 @@ const prepareSessionForPersistence = (session: Session): Session => {
     return tab;
   });
 
-  // Return session without closedTabHistory (runtime-only field)
+  // Return session without runtime-only fields
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { closedTabHistory, ...sessionWithoutClosedHistory } = session;
+  const { closedTabHistory, agentError, agentErrorPaused, ...sessionWithoutRuntimeFields } = session;
 
   return {
-    ...sessionWithoutClosedHistory,
+    ...sessionWithoutRuntimeFields,
     aiTabs: truncatedTabs,
   } as Session;
 };
