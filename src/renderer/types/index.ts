@@ -436,6 +436,23 @@ export interface AgentConfigOption {
   argBuilder?: (value: any) => string[];
 }
 
+export interface AgentCapabilities {
+  supportsResume: boolean;
+  supportsReadOnlyMode: boolean;
+  supportsJsonOutput: boolean;
+  supportsSessionId: boolean;
+  supportsImageInput: boolean;
+  supportsImageInputOnResume: boolean;
+  supportsSlashCommands: boolean;
+  supportsSessionStorage: boolean;
+  supportsCostTracking: boolean;
+  supportsUsageStats: boolean;
+  supportsBatchMode: boolean;
+  supportsStreaming: boolean;
+  supportsResultMessages: boolean;
+  supportsModelSelection?: boolean;
+}
+
 export interface AgentConfig {
   id: string;
   name: string;
@@ -448,6 +465,7 @@ export interface AgentConfig {
   hidden?: boolean; // If true, agent is hidden from UI (internal use only)
   configOptions?: AgentConfigOption[]; // Agent-specific configuration options
   yoloModeArgs?: string[]; // Args for YOLO/full-access mode (e.g., ['--dangerously-skip-permissions'])
+  capabilities?: AgentCapabilities; // Agent capabilities (added at runtime)
 }
 
 // Process spawning configuration
