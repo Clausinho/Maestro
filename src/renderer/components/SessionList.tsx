@@ -352,6 +352,7 @@ interface SessionListProps {
   activeGroupChatId?: string | null;
   onOpenGroupChat?: (id: string) => void;
   onNewGroupChat?: () => void;
+  onEditGroupChat?: (id: string) => void;
   onRenameGroupChat?: (id: string) => void;
   onDeleteGroupChat?: (id: string) => void;
   /** Controlled expanded state for group chats (lifted to parent for keyboard navigation) */
@@ -398,6 +399,7 @@ export function SessionList(props: SessionListProps) {
     activeGroupChatId = null,
     onOpenGroupChat,
     onNewGroupChat,
+    onEditGroupChat,
     onRenameGroupChat,
     onDeleteGroupChat,
     groupChatsExpanded,
@@ -2004,7 +2006,7 @@ export function SessionList(props: SessionListProps) {
           <div className="flex-grow min-h-4" />
 
           {/* GROUP CHATS SECTION - Only show when at least 2 AI agents exist */}
-          {onNewGroupChat && onOpenGroupChat && onRenameGroupChat && onDeleteGroupChat &&
+          {onNewGroupChat && onOpenGroupChat && onEditGroupChat && onRenameGroupChat && onDeleteGroupChat &&
            sessions.filter(s => s.toolType !== 'terminal').length >= 2 && (
             <GroupChatList
               theme={theme}
@@ -2012,6 +2014,7 @@ export function SessionList(props: SessionListProps) {
               activeGroupChatId={activeGroupChatId}
               onOpenGroupChat={onOpenGroupChat}
               onNewGroupChat={onNewGroupChat}
+              onEditGroupChat={onEditGroupChat}
               onRenameGroupChat={onRenameGroupChat}
               onDeleteGroupChat={onDeleteGroupChat}
               isExpanded={groupChatsExpanded}

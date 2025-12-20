@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { MessageSquare, ChevronDown, ChevronRight, Edit3, Trash2 } from 'lucide-react';
+import { MessageSquare, ChevronDown, ChevronRight, Edit3, Trash2, Settings } from 'lucide-react';
 import type { Theme, GroupChat, GroupChatState } from '../types';
 import { useClickOutside } from '../hooks';
 import { getStatusColor } from '../utils/theme';
@@ -18,6 +18,7 @@ interface GroupChatContextMenuProps {
   x: number;
   y: number;
   theme: Theme;
+  onEdit: () => void;
   onRename: () => void;
   onDelete: () => void;
   onClose: () => void;
@@ -27,6 +28,7 @@ function GroupChatContextMenu({
   x,
   y,
   theme,
+  onEdit,
   onRename,
   onDelete,
   onClose,
@@ -67,6 +69,17 @@ function GroupChatContextMenu({
     >
       <button
         onClick={() => {
+          onEdit();
+          onClose();
+        }}
+        className="w-full text-left px-3 py-1.5 text-xs hover:bg-white/5 transition-colors flex items-center gap-2"
+        style={{ color: theme.colors.textMain }}
+      >
+        <Settings className="w-3.5 h-3.5" />
+        Edit
+      </button>
+      <button
+        onClick={() => {
           onRename();
           onClose();
         }}
@@ -101,6 +114,7 @@ interface GroupChatListProps {
   activeGroupChatId: string | null;
   onOpenGroupChat: (id: string) => void;
   onNewGroupChat: () => void;
+  onEditGroupChat: (id: string) => void;
   onRenameGroupChat: (id: string) => void;
   onDeleteGroupChat: (id: string) => void;
   /** Controlled expanded state (lifted to parent for keyboard navigation) */
@@ -123,6 +137,7 @@ export function GroupChatList({
   activeGroupChatId,
   onOpenGroupChat,
   onNewGroupChat,
+  onEditGroupChat,
   onRenameGroupChat,
   onDeleteGroupChat,
   isExpanded: controlledIsExpanded,
@@ -307,6 +322,7 @@ export function GroupChatList({
           x={contextMenu.x}
           y={contextMenu.y}
           theme={theme}
+          onEdit={() => onEditGroupChat(contextMenu.chatId)}
           onRename={() => onRenameGroupChat(contextMenu.chatId)}
           onDelete={() => onDeleteGroupChat(contextMenu.chatId)}
           onClose={() => setContextMenu(null)}

@@ -920,6 +920,15 @@ contextBridge.exposeInMainWorld('maestro', {
       ipcRenderer.invoke('groupChat:delete', id),
     rename: (id: string, name: string) =>
       ipcRenderer.invoke('groupChat:rename', id, name),
+    update: (
+      id: string,
+      updates: {
+        name?: string;
+        moderatorAgentId?: string;
+        moderatorConfig?: { customPath?: string; customArgs?: string; customEnvVars?: Record<string, string> };
+      }
+    ) =>
+      ipcRenderer.invoke('groupChat:update', id, updates),
 
     // Chat log
     appendMessage: (id: string, from: string, content: string) =>

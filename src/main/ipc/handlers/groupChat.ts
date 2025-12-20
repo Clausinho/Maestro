@@ -230,6 +230,58 @@ export function registerGroupChatHandlers(deps: GroupChatHandlerDependencies): v
     })
   );
 
+  // Update a group chat (name, moderator agent, moderator config)
+  ipcMain.handle(
+    'groupChat:update',
+    withIpcErrorLogging(handlerOpts('update'), async (
+      id: string,
+      updates: {
+        name?: string;
+        moderatorAgentId?: string;
+        moderatorConfig?: { customPath?: string; customArgs?: string; customEnvVars?: Record<string, string> };
+      }
+    ): Promise<GroupChat> => {
+      logger.info(`Updating group chat ${id}`, LOG_CONTEXT, updates);
+
+      const chat = await loadGroupChat(id);
+      if (!chat) {
+        throw new Error(`Group chat not found: ${id}`);
+      }
+
+      // Check if moderator agent changed - if so, we need to restart it
+      const moderatorChanged = updates.moderatorAgentId && updates.moderatorAgentId !== chat.moderatorAgentId;
+
+      // Kill existing moderator if agent is changing
+      if (moderatorChanged) {
+        const processManager = getProcessManager();
+        await killModerator(id, processManager ?? undefined);
+      }
+
+      // Update the group chat
+      const updated = await updateGroupChat(id, {
+        name: updates.name,
+        moderatorAgentId: updates.moderatorAgentId,
+        moderatorConfig: updates.moderatorConfig,
+      });
+
+      // Restart moderator if agent changed
+      if (moderatorChanged) {
+        const processManager = getProcessManager();
+        if (processManager) {
+          logger.info(`Restarting moderator for group chat: ${id} with new agent: ${updates.moderatorAgentId}`, LOG_CONTEXT);
+          await spawnModerator(updated, processManager);
+          // Reload to get updated moderatorSessionId
+          const reloaded = await loadGroupChat(id);
+          if (reloaded) {
+            return reloaded;
+          }
+        }
+      }
+
+      return updated;
+    })
+  );
+
   // ========== Chat Log Handlers ==========
 
   // Append a message to the chat log

@@ -44,6 +44,7 @@ import { GroupChatRightPanel, type GroupChatRightTab } from './components/GroupC
 import { NewGroupChatModal } from './components/NewGroupChatModal';
 import { DeleteGroupChatModal } from './components/DeleteGroupChatModal';
 import { RenameGroupChatModal } from './components/RenameGroupChatModal';
+import { EditGroupChatModal } from './components/EditGroupChatModal';
 import { GroupChatInfoOverlay } from './components/GroupChatInfoOverlay';
 
 // Import custom hooks
@@ -393,6 +394,7 @@ export default function MaestroConsole() {
   const [showNewGroupChatModal, setShowNewGroupChatModal] = useState(false);
   const [showDeleteGroupChatModal, setShowDeleteGroupChatModal] = useState<string | null>(null);
   const [showRenameGroupChatModal, setShowRenameGroupChatModal] = useState<string | null>(null);
+  const [showEditGroupChatModal, setShowEditGroupChatModal] = useState<string | null>(null);
   const [showGroupChatInfo, setShowGroupChatInfo] = useState(false);
 
   const [renameGroupId, setRenameGroupId] = useState<string | null>(null);
@@ -2869,8 +2871,14 @@ export default function MaestroConsole() {
         setGroupChatRightTab('participants'); // Default
       }
 
-      // Start moderator if not running
-      await window.maestro.groupChat.startModerator(id);
+      // Start moderator if not running - this initializes the session ID prefix
+      const moderatorSessionId = await window.maestro.groupChat.startModerator(id);
+      // Update the group chat state with the moderator session ID
+      if (moderatorSessionId) {
+        setGroupChats(prev => prev.map(c =>
+          c.id === id ? { ...c, moderatorSessionId } : c
+        ));
+      }
 
       // Focus the input after the component renders
       setTimeout(() => {
@@ -2978,6 +2986,21 @@ export default function MaestroConsole() {
     await window.maestro.groupChat.rename(id, newName);
     setGroupChats(prev => prev.map(c => c.id === id ? { ...c, name: newName } : c));
     setShowRenameGroupChatModal(null);
+  }, []);
+
+  const handleUpdateGroupChat = useCallback(async (
+    id: string,
+    name: string,
+    moderatorAgentId: string,
+    moderatorConfig?: { customPath?: string; customArgs?: string; customEnvVars?: Record<string, string> }
+  ) => {
+    const updated = await window.maestro.groupChat.update(id, {
+      name,
+      moderatorAgentId,
+      moderatorConfig,
+    });
+    setGroupChats(prev => prev.map(c => c.id === id ? updated : c));
+    setShowEditGroupChatModal(null);
   }, []);
 
   const handleSendGroupChatMessage = useCallback(async (content: string, images?: string[], readOnly?: boolean) => {
@@ -5880,6 +5903,16 @@ export default function MaestroConsole() {
         />
       )}
 
+      {showEditGroupChatModal && (
+        <EditGroupChatModal
+          theme={theme}
+          isOpen={!!showEditGroupChatModal}
+          groupChat={groupChats.find(c => c.id === showEditGroupChatModal) || null}
+          onClose={() => setShowEditGroupChatModal(null)}
+          onSave={handleUpdateGroupChat}
+        />
+      )}
+
       {showGroupChatInfo && activeGroupChatId && groupChats.find(c => c.id === activeGroupChatId) && (
         <GroupChatInfoOverlay
           theme={theme}
@@ -6083,6 +6116,7 @@ export default function MaestroConsole() {
             activeGroupChatId={activeGroupChatId}
             onOpenGroupChat={handleOpenGroupChat}
             onNewGroupChat={() => setShowNewGroupChatModal(true)}
+            onEditGroupChat={(id) => setShowEditGroupChatModal(id)}
             onRenameGroupChat={(id) => setShowRenameGroupChatModal(id)}
             onDeleteGroupChat={(id) => setShowDeleteGroupChatModal(id)}
             groupChatsExpanded={groupChatsExpanded}

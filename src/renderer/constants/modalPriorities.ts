@@ -50,6 +50,9 @@ export const MODAL_PRIORITIES = {
   /** New group chat creation modal */
   NEW_GROUP_CHAT: 650,
 
+  /** Edit group chat modal */
+  EDIT_GROUP_CHAT: 645,
+
   /** Rename group chat modal */
   RENAME_GROUP_CHAT: 640,
 

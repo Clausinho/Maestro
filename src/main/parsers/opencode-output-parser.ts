@@ -24,6 +24,7 @@
 import type { ToolType, AgentError } from '../../shared/types';
 import type { AgentOutputParser, ParsedEvent } from './agent-output-parser';
 import { getErrorPatterns, matchErrorPattern } from './error-patterns';
+import { stripAllAnsiCodes } from '../utils/terminalFilter';
 
 /**
  * Error object structure from OpenCode
@@ -400,9 +401,10 @@ export class OpenCodeOutputParser implements AgentOutputParser {
     const hasStdout = stdout?.trim().length > 0;
 
     if (exitCode === 0 && hasStderr && !hasStdout) {
-      // Check stderr for known error patterns
+      // Check stderr for known error patterns (strip ANSI codes first)
+      const cleanedStderrForPatterns = stripAllAnsiCodes(stderr);
       const patterns = getErrorPatterns(this.agentId);
-      const match = matchErrorPattern(patterns, stderr);
+      const match = matchErrorPattern(patterns, cleanedStderrForPatterns);
 
       if (match) {
         return {
@@ -420,16 +422,36 @@ export class OpenCodeOutputParser implements AgentOutputParser {
       }
 
       // No pattern matched but stderr with no stdout is suspicious
-      // Extract first meaningful line from stderr for the error message
-      const stderrLines = stderr.trim().split('\n');
-      const meaningfulLine = stderrLines.find(line =>
-        !line.match(/^\s*\d+\s*\|/) && // Skip source code lines (e.g., "847 |     const...")
-        line.trim().length > 10
-      ) || stderrLines[0];
+      // Strip ANSI codes and extract the actual error message from stderr
+      const cleanedStderr = stripAllAnsiCodes(stderr);
+      const stderrLines = cleanedStderr.trim().split('\n');
+
+      // Look for actual error messages, skipping:
+      // - Source code lines (e.g., "847 |     const provider = ...")
+      // - Empty lines
+      // - Lines that are just variable assignments or code
+      const meaningfulLine = stderrLines.find(line => {
+        const trimmed = line.trim();
+        // Skip empty or very short lines
+        if (trimmed.length < 10) return false;
+        // Skip source code context lines (numbered lines like "847 |")
+        if (trimmed.match(/^\d+\s*\|/)) return false;
+        // Skip lines that look like code (assignments, function calls without error keywords)
+        if (trimmed.match(/^(const|let|var|if|for|while|return|function)\s+/)) return false;
+        // Skip lines that are just variable references
+        if (trimmed.match(/^[a-zA-Z_][a-zA-Z0-9_]*\s*(=|\.)/)) return false;
+        // Prefer lines with error-like keywords
+        if (trimmed.match(/error|fail|invalid|not found|unknown|cannot|unable/i)) return true;
+        // Accept other non-code looking lines
+        return !trimmed.match(/^\s*[{}\[\]();,]\s*$/);
+      }) || stderrLines.find(line =>
+        // Fallback: find any line that's not obviously code
+        line.trim().length > 10 && !line.match(/^\s*\d+\s*\|/)
+      ) || 'Unknown error (check stderr)';
 
       return {
         type: 'agent_crashed',
-        message: `OpenCode failed: ${meaningfulLine?.substring(0, 200) || 'Unknown error (check stderr)'}`,
+        message: `OpenCode failed: ${meaningfulLine.trim().substring(0, 200)}`,
         recoverable: true,
         agentId: this.agentId,
         timestamp: Date.now(),

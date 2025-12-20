@@ -81,7 +81,7 @@ export interface GroupChat {
 /**
  * Partial update for group chat metadata
  */
-export type GroupChatUpdate = Partial<Pick<GroupChat, 'name' | 'moderatorSessionId' | 'participants' | 'updatedAt'>>;
+export type GroupChatUpdate = Partial<Pick<GroupChat, 'name' | 'moderatorSessionId' | 'moderatorAgentId' | 'moderatorConfig' | 'participants' | 'updatedAt'>>;
 
 /**
  * Get the Maestro config directory path.
