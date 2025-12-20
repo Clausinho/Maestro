@@ -148,6 +148,10 @@ export function useMainKeyboardHandler(): UseMainKeyboardHandlerReturn {
       }
       else if (ctx.isShortcut(e, 'toggleRightPanel')) ctx.setRightPanelOpen((p: boolean) => !p);
       else if (ctx.isShortcut(e, 'newInstance')) ctx.addNewSession();
+      else if (ctx.isShortcut(e, 'newGroupChat')) {
+        e.preventDefault();
+        ctx.setShowNewGroupChatModal(true);
+      }
       else if (ctx.isShortcut(e, 'killInstance')) {
         // Delete whichever is currently active: group chat or agent session
         if (ctx.activeGroupChatId) {
@@ -190,8 +194,28 @@ export function useMainKeyboardHandler(): UseMainKeyboardHandlerReturn {
       }
       else if (ctx.isShortcut(e, 'help')) ctx.setShortcutsHelpOpen(true);
       else if (ctx.isShortcut(e, 'settings')) { ctx.setSettingsModalOpen(true); ctx.setSettingsTab('general'); }
-      else if (ctx.isShortcut(e, 'goToFiles')) { e.preventDefault(); ctx.setRightPanelOpen(true); ctx.handleSetActiveRightTab('files'); ctx.setActiveFocus('right'); }
-      else if (ctx.isShortcut(e, 'goToHistory')) { e.preventDefault(); ctx.setRightPanelOpen(true); ctx.handleSetActiveRightTab('history'); ctx.setActiveFocus('right'); }
+      else if (ctx.isShortcut(e, 'goToFiles')) {
+        e.preventDefault();
+        ctx.setRightPanelOpen(true);
+        // In group chat, Cmd+Shift+F goes to Participants tab (no Files tab in group chat)
+        if (ctx.activeGroupChatId) {
+          ctx.setGroupChatRightTab('participants');
+        } else {
+          ctx.handleSetActiveRightTab('files');
+        }
+        ctx.setActiveFocus('right');
+      }
+      else if (ctx.isShortcut(e, 'goToHistory')) {
+        e.preventDefault();
+        ctx.setRightPanelOpen(true);
+        // In group chat, Cmd+Shift+H goes to History tab (same concept)
+        if (ctx.activeGroupChatId) {
+          ctx.setGroupChatRightTab('history');
+        } else {
+          ctx.handleSetActiveRightTab('history');
+        }
+        ctx.setActiveFocus('right');
+      }
       else if (ctx.isShortcut(e, 'goToAutoRun')) { e.preventDefault(); ctx.setRightPanelOpen(true); ctx.handleSetActiveRightTab('autorun'); ctx.setActiveFocus('right'); }
       else if (ctx.isShortcut(e, 'fuzzyFileSearch')) { e.preventDefault(); if (ctx.activeSession) ctx.setFuzzyFileSearchOpen(true); }
       else if (ctx.isShortcut(e, 'openImageCarousel')) {

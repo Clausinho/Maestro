@@ -1063,14 +1063,16 @@ export function FilePreview({ file, onClose, theme, markdownEditMode, setMarkdow
         container.scrollTop += 40;
       }
     } else if (e.key === 'ArrowLeft' && (e.metaKey || e.ctrlKey)) {
-      // Cmd+Left: Navigate back in history
+      // Cmd+Left: Navigate back in history (disabled in edit mode)
+      if (isMarkdown && markdownEditMode) return;
       e.preventDefault();
       e.stopPropagation();
       if (canGoBack && onNavigateBack) {
         onNavigateBack();
       }
     } else if (e.key === 'ArrowRight' && (e.metaKey || e.ctrlKey)) {
-      // Cmd+Right: Navigate forward in history
+      // Cmd+Right: Navigate forward in history (disabled in edit mode)
+      if (isMarkdown && markdownEditMode) return;
       e.preventDefault();
       e.stopPropagation();
       if (canGoForward && onNavigateForward) {
@@ -1217,8 +1219,8 @@ export function FilePreview({ file, onClose, theme, markdownEditMode, setMarkdow
                 </div>
               )}
             </div>
-            {/* Navigation buttons - show when either direction is available */}
-            {(canGoBack || canGoForward) && (
+            {/* Navigation buttons - show when either direction is available, disabled in edit mode */}
+            {(canGoBack || canGoForward) && !markdownEditMode && (
               <div className="flex items-center gap-1">
                 {/* Back button with popup */}
                 <div

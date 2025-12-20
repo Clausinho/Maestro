@@ -5246,7 +5246,7 @@ export default function MaestroConsole() {
     toggleTabStar, toggleTabUnread, setPromptComposerOpen, openWizardModal, rightPanelRef, setFuzzyFileSearchOpen,
     setShowNewGroupChatModal, deleteGroupChatWithConfirmation,
     // Group chat context
-    activeGroupChatId, groupChatInputRef, groupChatStagedImages,
+    activeGroupChatId, groupChatInputRef, groupChatStagedImages, setGroupChatRightTab,
     // Navigation handlers from useKeyboardNavigation hook
     handleSidebarNavigation, handleTabNavigation, handleEnterToActivate, handleEscapeInMain,
     // Agent capabilities
