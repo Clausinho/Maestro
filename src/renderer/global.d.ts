@@ -372,6 +372,9 @@ interface MaestroAPI {
         cacheReadTokens: number;
         cacheCreationTokens: number;
         durationSeconds: number;
+        origin?: 'user' | 'auto';
+        sessionName?: string;
+        starred?: boolean;
       }>;
       hasMore: boolean;
       totalCount: number;

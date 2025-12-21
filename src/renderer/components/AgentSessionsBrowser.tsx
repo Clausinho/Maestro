@@ -186,7 +186,7 @@ export function AgentSessionsBrowser({
     // Use projectRoot for consistent session storage access (same as useSessionPagination)
     if (!activeSession?.projectRoot) return;
     // Only subscribe for Claude Code sessions
-    if (activeSession.toolType !== 'claude-code') return;
+    if (agentId !== 'claude-code') return;
 
     const unsubscribe = window.maestro.claude.onProjectStatsUpdate((stats) => {
       // Only update if this is for our project (use projectRoot, not cwd)
@@ -204,7 +204,43 @@ export function AgentSessionsBrowser({
     });
 
     return unsubscribe;
-  }, [activeSession?.projectRoot, activeSession?.toolType]);
+  }, [activeSession?.projectRoot, agentId]);
+
+  // Compute stats from loaded sessions for non-Claude agents
+  useEffect(() => {
+    // Only for non-Claude agents (Claude uses progressive stats from backend)
+    if (agentId === 'claude-code') return;
+    if (loading) return;
+
+    // Compute aggregate stats from the sessions array
+    let totalMessages = 0;
+    let totalCostUsd = 0;
+    let totalSizeBytes = 0;
+    let totalTokens = 0;
+    let oldestTimestamp: string | null = null;
+
+    for (const session of sessions) {
+      totalMessages += session.messageCount || 0;
+      totalCostUsd += session.costUsd || 0;
+      totalSizeBytes += session.sizeBytes || 0;
+      totalTokens += (session.inputTokens || 0) + (session.outputTokens || 0);
+      if (session.timestamp) {
+        if (!oldestTimestamp || session.timestamp < oldestTimestamp) {
+          oldestTimestamp = session.timestamp;
+        }
+      }
+    }
+
+    setAggregateStats({
+      totalSessions: sessions.length,
+      totalMessages,
+      totalCostUsd,
+      totalSizeBytes,
+      totalTokens,
+      oldestTimestamp,
+      isComplete: !hasMoreSessions, // Complete when all sessions are loaded
+    });
+  }, [agentId, sessions, loading, hasMoreSessions]);
 
   // Toggle star status for a session
   const toggleStar = useCallback(async (sessionId: string, e: React.MouseEvent) => {
@@ -763,7 +799,12 @@ export function AgentSessionsBrowser({
                     {formatNumber(viewingSession.inputTokens + viewingSession.outputTokens)}
                   </span>
                   <span className="text-[10px]" style={{ color: theme.colors.textDim }}>
-                    of 200k context <span className="font-mono font-medium" style={{ color: theme.colors.accent }}>{Math.min(100, ((viewingSession.inputTokens + viewingSession.outputTokens) / 200000) * 100).toFixed(1)}%</span>
+                    of 200k context <span className="font-mono font-medium" style={{ color: (() => {
+                    const usagePercent = ((viewingSession.inputTokens + viewingSession.outputTokens) / 200000) * 100;
+                    if (usagePercent >= 90) return theme.colors.error;
+                    if (usagePercent >= 70) return theme.colors.warning;
+                    return theme.colors.accent;
+                  })() }}>{Math.min(100, ((viewingSession.inputTokens + viewingSession.outputTokens) / 200000) * 100).toFixed(1)}%</span>
                   </span>
                 </div>
               </div>

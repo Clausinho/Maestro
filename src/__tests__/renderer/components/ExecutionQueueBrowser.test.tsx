@@ -1082,7 +1082,7 @@ describe('ExecutionQueueBrowser', () => {
         />
       );
 
-      expect(screen.getByText('Items are processed sequentially per project to prevent file conflicts.')).toBeInTheDocument();
+      expect(screen.getByText('Drag and drop to reorder. Items are processed sequentially per project to prevent file conflicts.')).toBeInTheDocument();
     });
   });
 

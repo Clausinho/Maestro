@@ -52,7 +52,7 @@ function getCodexSessionsDir(): string {
 
 const CODEX_SESSIONS_DIR = getCodexSessionsDir();
 
-const CODEX_SESSION_CACHE_VERSION = 2; // Bumped: skip system context in firstMessage preview
+const CODEX_SESSION_CACHE_VERSION = 3; // Bumped: skip markdown-style system context in firstMessage preview
 const CODEX_SESSION_CACHE_FILENAME = 'codex-sessions-cache.json';
 
 /**
@@ -142,10 +142,19 @@ function isSystemContextMessage(text: string): boolean {
   if (!text) return false;
   const trimmed = text.trim();
   // Skip messages that start with environment/system context XML tags
-  return trimmed.startsWith('<environment_context>') ||
-         trimmed.startsWith('<cwd>') ||
-         trimmed.startsWith('<system>') ||
-         trimmed.startsWith('<approval_policy>');
+  if (trimmed.startsWith('<environment_context>') ||
+      trimmed.startsWith('<cwd>') ||
+      trimmed.startsWith('<system>') ||
+      trimmed.startsWith('<approval_policy>')) {
+    return true;
+  }
+  // Skip markdown-formatted system context (e.g., "# Context Your name is **Maestro Codex**...")
+  if (trimmed.startsWith('# Context') ||
+      trimmed.startsWith('# Maestro System Context') ||
+      trimmed.startsWith('# System Context')) {
+    return true;
+  }
+  return false;
 }
 
 function extractCwdFromText(text: string): string | null {

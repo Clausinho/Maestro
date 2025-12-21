@@ -69,8 +69,9 @@ function getParticipantColor(
 
 /**
  * Convert markdown-style formatting to HTML
+ * Accepts an images map to embed base64 images
  */
-function formatContent(content: string): string {
+function formatContent(content: string, images: Record<string, string> = {}): string {
   let html = escapeHtml(content);
 
   // Code blocks (```)
@@ -98,6 +99,26 @@ function formatContent(content: string): string {
 
   // Numbered lists
   html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+
+  // Markdown images ![alt](url) - must come before links
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, alt, url) => {
+    // Check if this image filename has a base64 version
+    const filename = url.split('/').pop() || url;
+    const dataUrl = images[filename];
+    if (dataUrl) {
+      return `<img src="${dataUrl}" alt="${alt}" class="embedded-image" />`;
+    }
+    return `<img src="${url}" alt="${alt}" class="embedded-image" />`;
+  });
+
+  // [Image: filename] pattern
+  html = html.replace(/\[Image: ([^\]]+)\]/gi, (_match, filename) => {
+    const dataUrl = images[filename.trim()];
+    if (dataUrl) {
+      return `<img src="${dataUrl}" alt="${filename.trim()}" class="embedded-image" />`;
+    }
+    return _match; // Leave as-is if no image data
+  });
 
   // Links [text](url)
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
@@ -138,21 +159,8 @@ export function generateGroupChatExportHtml(
       const color = getParticipantColor(groupChat, msg.from, theme);
       const isUser = msg.from === 'user';
 
-      // Replace image references with actual base64 data
-      let content = msg.content;
-      for (const [filename, dataUrl] of Object.entries(images)) {
-        // Replace various image reference patterns
-        content = content.replace(
-          new RegExp(`!\\[([^\\]]*)\\]\\([^)]*${escapeRegExp(filename)}[^)]*\\)`, 'g'),
-          `<img src="${dataUrl}" alt="$1" class="embedded-image" />`
-        );
-        content = content.replace(
-          new RegExp(`\\[Image: [^\\]]*${escapeRegExp(filename)}[^\\]]*\\]`, 'gi'),
-          `<img src="${dataUrl}" alt="${filename}" class="embedded-image" />`
-        );
-      }
-
-      const formattedContent = formatContent(content);
+      // Format content with images map for embedding
+      const formattedContent = formatContent(msg.content, images);
 
       return `
       <div class="message ${isUser ? 'message-user' : 'message-agent'}">
