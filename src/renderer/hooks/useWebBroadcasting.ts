@@ -1,18 +1,12 @@
 import { useEffect } from 'react';
-
-/**
- * Ref type for RightPanel to allow refreshing the history panel.
- */
-export interface RightPanelHistoryHandle {
-  refreshHistoryPanel: () => void;
-}
+import type { RightPanelHandle } from '../components/RightPanel';
 
 /**
  * Dependencies for the useWebBroadcasting hook.
  */
 export interface UseWebBroadcastingDeps {
   /** Ref to RightPanel for refreshing history panel */
-  rightPanelRef: React.RefObject<RightPanelHistoryHandle | null>;
+  rightPanelRef: React.RefObject<RightPanelHandle | null>;
 }
 
 /**
@@ -42,7 +36,6 @@ export function useWebBroadcasting(deps: UseWebBroadcastingDeps): UseWebBroadcas
   // Listen for external history changes (e.g., from CLI) and refresh history panel
   useEffect(() => {
     const unsubscribe = window.maestro.history.onExternalChange(async () => {
-      console.log('[History] External change detected, reloading from disk and refreshing history panel');
       // Reload from disk before refreshing (to bypass electron-store cache)
       await window.maestro.history.reload();
       rightPanelRef.current?.refreshHistoryPanel();

@@ -98,7 +98,6 @@ export type {
 export type {
   UseWebBroadcastingDeps,
   UseWebBroadcastingReturn,
-  RightPanelHistoryHandle,
 } from './useWebBroadcasting';
 export type {
   UseCliActivityMonitoringDeps,
