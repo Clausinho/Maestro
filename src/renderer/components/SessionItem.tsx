@@ -231,33 +231,35 @@ export function SessionItem({
           </div>
         )}
 
-        {/* Bookmark toggle */}
-        {variant !== 'bookmark' ? (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleBookmark();
-            }}
-            className={`p-0.5 rounded hover:bg-white/10 transition-all ${session.bookmarked ? '' : 'opacity-0 group-hover:opacity-100'}`}
-            title={session.bookmarked ? "Remove bookmark" : "Add bookmark"}
-          >
-            <Bookmark
-              className="w-3 h-3"
-              style={{ color: theme.colors.accent }}
-              fill={session.bookmarked ? theme.colors.accent : 'none'}
-            />
-          </button>
-        ) : (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleBookmark();
-            }}
-            className="p-0.5 rounded hover:bg-white/10 transition-colors"
-            title="Remove bookmark"
-          >
-            <Bookmark className="w-3 h-3" style={{ color: theme.colors.accent }} fill={theme.colors.accent} />
-          </button>
+        {/* Bookmark toggle - hidden for worktree children (they inherit from parent) */}
+        {!session.parentSessionId && (
+          variant !== 'bookmark' ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleBookmark();
+              }}
+              className={`p-0.5 rounded hover:bg-white/10 transition-all ${session.bookmarked ? '' : 'opacity-0 group-hover:opacity-100'}`}
+              title={session.bookmarked ? "Remove bookmark" : "Add bookmark"}
+            >
+              <Bookmark
+                className="w-3 h-3"
+                style={{ color: theme.colors.accent }}
+                fill={session.bookmarked ? theme.colors.accent : 'none'}
+              />
+            </button>
+          ) : (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleBookmark();
+              }}
+              className="p-0.5 rounded hover:bg-white/10 transition-colors"
+              title="Remove bookmark"
+            >
+              <Bookmark className="w-3 h-3" style={{ color: theme.colors.accent }} fill={theme.colors.accent} />
+            </button>
+          )
         )}
 
         {/* AI Status Indicator with Unread Badge */}

@@ -896,6 +896,79 @@ export function SessionList(props: SessionListProps) {
     return sessions.some(s => s.parentSessionId === sessionId);
   };
 
+  // Helper component: Renders a collapsed session pill with subdivided parts for worktrees
+  const renderCollapsedPill = (
+    session: Session,
+    keyPrefix: string,
+    onExpand: () => void
+  ) => {
+    const worktreeChildren = getWorktreeChildren(session.id);
+    const allSessions = [session, ...worktreeChildren];
+    const hasWorktrees = worktreeChildren.length > 0;
+
+    // Single pill container that takes flex-1 space
+    return (
+      <div
+        key={`${keyPrefix}-${session.id}`}
+        className="relative flex-1 flex rounded-full overflow-hidden opacity-50 hover:opacity-100 transition-opacity"
+        style={{ gap: hasWorktrees ? '1px' : 0 }}
+      >
+        {allSessions.map((s, idx) => {
+          const hasUnreadTabs = s.aiTabs?.some(tab => tab.hasUnread);
+          const isFirst = idx === 0;
+          const isLast = idx === allSessions.length - 1;
+
+          return (
+            <div
+              key={`${keyPrefix}-part-${s.id}`}
+              className="group/segment relative flex-1 h-full"
+              style={{
+                ...(s.toolType === 'claude' && !s.agentSessionId
+                  ? { border: `1px solid ${theme.colors.textDim}`, backgroundColor: 'transparent' }
+                  : { backgroundColor: getStatusColor(s.state, theme) }),
+                // Rounded ends only on first/last
+                borderRadius: hasWorktrees
+                  ? `${isFirst ? '9999px' : '0'} ${isLast ? '9999px' : '0'} ${isLast ? '9999px' : '0'} ${isFirst ? '9999px' : '0'}`
+                  : '9999px',
+              }}
+              onMouseEnter={(e) => setTooltipPosition({ x: e.clientX, y: e.clientY })}
+              onMouseLeave={() => setTooltipPosition(null)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveSessionId(s.id);
+              }}
+            >
+              {/* Unread indicator - only on last segment */}
+              {hasUnreadTabs && isLast && (
+                <div
+                  className="absolute -right-0.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full"
+                  style={{ backgroundColor: theme.colors.error }}
+                />
+              )}
+              {/* Hover Tooltip - per segment */}
+              <div
+                className="fixed rounded px-3 py-2 z-[100] opacity-0 group-hover/segment:opacity-100 pointer-events-none transition-opacity shadow-xl"
+                style={{
+                  minWidth: '240px',
+                  left: `${leftSidebarWidthState + 8}px`,
+                  top: tooltipPosition ? `${tooltipPosition.y}px` : undefined,
+                  backgroundColor: theme.colors.bgSidebar,
+                  border: `1px solid ${theme.colors.border}`
+                }}
+              >
+                <SessionTooltipContent
+                  session={s}
+                  theme={theme}
+                  gitFileCount={gitFileCounts.get(s.id)}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   // Helper component: Renders a session item with its worktree children (if any)
   const renderSessionWithWorktrees = (
     session: Session,
@@ -1728,56 +1801,14 @@ export function SessionList(props: SessionListProps) {
                   })}
                 </div>
               ) : (
-                /* Collapsed Bookmarks Palette */
+                /* Collapsed Bookmarks Palette - uses subdivided pills for worktrees */
                 <div
                   className="ml-8 mr-3 mt-1 mb-2 flex gap-1 h-1.5 cursor-pointer"
                   onClick={() => setBookmarksCollapsed(false)}
                 >
-                  {[...filteredSessions.filter(s => s.bookmarked)].sort((a, b) => compareSessionNames(a.name, b.name)).map(s => {
-                    // Check if this session has any unread tabs
-                    const hasUnreadTabs = s.aiTabs?.some(tab => tab.hasUnread);
-                    return (
-                    <div
-                      key={`bookmark-collapsed-${s.id}`}
-                      className="group/indicator relative flex-1 rounded-full opacity-50 hover:opacity-100 transition-opacity"
-                      style={
-                        s.toolType === 'claude' && !s.agentSessionId
-                          ? { border: `1px solid ${theme.colors.textDim}`, backgroundColor: 'transparent' }
-                          : { backgroundColor: getStatusColor(s.state, theme) }
-                      }
-                      onMouseEnter={(e) => setTooltipPosition({ x: e.clientX, y: e.clientY })}
-                      onMouseLeave={() => setTooltipPosition(null)}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveSessionId(s.id);
-                      }}
-                    >
-                      {/* Unread indicator tip - red dot at right end */}
-                      {hasUnreadTabs && (
-                        <div
-                          className="absolute -right-0.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full"
-                          style={{ backgroundColor: theme.colors.error }}
-                        />
-                      )}
-                      {/* Hover Tooltip for Collapsed Bookmark Indicator */}
-                      <div
-                        className="fixed rounded px-3 py-2 z-[100] opacity-0 group-hover/indicator:opacity-100 pointer-events-none transition-opacity shadow-xl"
-                        style={{
-                          minWidth: '240px',
-                          left: `${leftSidebarWidthState + 8}px`,
-                          top: tooltipPosition ? `${tooltipPosition.y}px` : undefined,
-                          backgroundColor: theme.colors.bgSidebar,
-                          border: `1px solid ${theme.colors.border}`
-                        }}
-                      >
-                        <SessionTooltipContent
-                          session={s}
-                          theme={theme}
-                          gitFileCount={gitFileCounts.get(s.id)}
-                        />
-                      </div>
-                    </div>
-                  );})}
+                  {[...filteredSessions.filter(s => s.bookmarked && !s.parentSessionId)].sort((a, b) => compareSessionNames(a.name, b.name)).map(s =>
+                    renderCollapsedPill(s, 'bookmark-collapsed', () => setBookmarksCollapsed(false))
+                  )}
                 </div>
               )}
             </div>
@@ -1859,69 +1890,14 @@ export function SessionList(props: SessionListProps) {
                     )}
                   </div>
                 ) : (
-                  /* Collapsed Group Palette - includes worktree children */
+                  /* Collapsed Group Palette - uses subdivided pills for worktrees */
                   <div
                     className="ml-8 mr-3 mt-1 mb-2 flex gap-1 h-1.5 cursor-pointer"
                     onClick={() => toggleGroup(group.id)}
                   >
-                    {groupSessions.flatMap(s => {
-                      // Get worktree children for this session
-                      const worktreeChildren = getWorktreeChildren(s.id);
-                      // Return parent + all worktree children
-                      return [s, ...worktreeChildren];
-                    }).map(s => {
-                      // Check if this session has any unread tabs
-                      const hasUnreadTabs = s.aiTabs?.some(tab => tab.hasUnread);
-                      const isWorktreeChild = !!s.parentSessionId;
-                      return (
-                      <div
-                        key={`group-collapsed-${group.id}-${s.id}`}
-                        className="group/indicator relative flex-1 rounded-full opacity-50 hover:opacity-100 transition-opacity"
-                        style={
-                          s.toolType === 'claude' && !s.agentSessionId
-                            ? { border: `1px solid ${theme.colors.textDim}`, backgroundColor: 'transparent' }
-                            : { backgroundColor: getStatusColor(s.state, theme) }
-                        }
-                        onMouseEnter={(e) => setTooltipPosition({ x: e.clientX, y: e.clientY })}
-                        onMouseLeave={() => setTooltipPosition(null)}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveSessionId(s.id);
-                        }}
-                      >
-                        {/* Unread indicator tip - red dot at right end */}
-                        {hasUnreadTabs && (
-                          <div
-                            className="absolute -right-0.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full"
-                            style={{ backgroundColor: theme.colors.error }}
-                          />
-                        )}
-                        {/* Worktree child indicator - small border accent */}
-                        {isWorktreeChild && (
-                          <div
-                            className="absolute inset-0 rounded-full"
-                            style={{ border: `1px solid ${theme.colors.accent}40` }}
-                          />
-                        )}
-                        {/* Hover Tooltip for Collapsed Group Indicator */}
-                        <div
-                          className="fixed rounded px-3 py-2 z-[100] opacity-0 group-hover/indicator:opacity-100 pointer-events-none transition-opacity shadow-xl"
-                          style={{
-                            minWidth: '240px',
-                            left: `${leftSidebarWidthState + 8}px`,
-                            top: tooltipPosition ? `${tooltipPosition.y}px` : undefined,
-                            backgroundColor: theme.colors.bgSidebar,
-                            border: `1px solid ${theme.colors.border}`
-                          }}
-                        >
-                          <SessionTooltipContent
-                            session={s}
-                            theme={theme}
-                            gitFileCount={gitFileCounts.get(s.id)}
-                          />
-                        </div>
-                      </div>
-                    );})}
+                    {groupSessions.filter(s => !s.parentSessionId).map(s =>
+                      renderCollapsedPill(s, `group-collapsed-${group.id}`, () => toggleGroup(group.id))
+                    )}
                   </div>
                 )}
               </div>
@@ -1975,69 +1951,14 @@ export function SessionList(props: SessionListProps) {
                 )}
               </div>
             ) : (
-              /* Collapsed Ungrouped Palette - includes worktree children */
+              /* Collapsed Ungrouped Palette - uses subdivided pills for worktrees */
               <div
                 className="ml-8 mr-3 mt-1 mb-2 flex gap-1 h-1.5 cursor-pointer"
                 onClick={() => setUngroupedCollapsed(false)}
               >
-                {[...filteredSessions.filter(s => !s.groupId)].sort((a, b) => compareSessionNames(a.name, b.name)).flatMap(s => {
-                  // Get worktree children for this session
-                  const worktreeChildren = getWorktreeChildren(s.id);
-                  // Return parent + all worktree children
-                  return [s, ...worktreeChildren];
-                }).map(s => {
-                  // Check if this session has any unread tabs
-                  const hasUnreadTabs = s.aiTabs?.some(tab => tab.hasUnread);
-                  const isWorktreeChild = !!s.parentSessionId;
-                  return (
-                  <div
-                    key={`ungrouped-collapsed-${s.id}`}
-                    className="group/indicator relative flex-1 rounded-full opacity-50 hover:opacity-100 transition-opacity"
-                    style={
-                      s.toolType === 'claude' && !s.agentSessionId
-                        ? { border: `1px solid ${theme.colors.textDim}`, backgroundColor: 'transparent' }
-                        : { backgroundColor: getStatusColor(s.state, theme) }
-                    }
-                    onMouseEnter={(e) => setTooltipPosition({ x: e.clientX, y: e.clientY })}
-                    onMouseLeave={() => setTooltipPosition(null)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActiveSessionId(s.id);
-                    }}
-                  >
-                    {/* Unread indicator tip - red dot at right end */}
-                    {hasUnreadTabs && (
-                      <div
-                        className="absolute -right-0.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full"
-                        style={{ backgroundColor: theme.colors.error }}
-                      />
-                    )}
-                    {/* Worktree child indicator - small border accent */}
-                    {isWorktreeChild && (
-                      <div
-                        className="absolute inset-0 rounded-full"
-                        style={{ border: `1px solid ${theme.colors.accent}40` }}
-                      />
-                    )}
-                    {/* Hover Tooltip for Collapsed Ungrouped Indicator */}
-                    <div
-                      className="fixed rounded px-3 py-2 z-[100] opacity-0 group-hover/indicator:opacity-100 pointer-events-none transition-opacity shadow-xl"
-                      style={{
-                        minWidth: '240px',
-                        left: `${leftSidebarWidthState + 8}px`,
-                        top: tooltipPosition ? `${tooltipPosition.y}px` : undefined,
-                        backgroundColor: theme.colors.bgSidebar,
-                        border: `1px solid ${theme.colors.border}`
-                      }}
-                    >
-                      <SessionTooltipContent
-                        session={s}
-                        theme={theme}
-                        gitFileCount={gitFileCounts.get(s.id)}
-                      />
-                    </div>
-                  </div>
-                );})}
+                {[...filteredSessions.filter(s => !s.groupId && !s.parentSessionId)].sort((a, b) => compareSessionNames(a.name, b.name)).map(s =>
+                  renderCollapsedPill(s, 'ungrouped-collapsed', () => setUngroupedCollapsed(false))
+                )}
               </div>
             )}
           </div>

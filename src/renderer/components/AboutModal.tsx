@@ -130,7 +130,7 @@ export function AboutModal({ theme, sessions, autoRunStats, onClose, onOpenLeade
           <Globe className="w-4 h-4" />
         </button>
         <button
-          onClick={() => window.maestro.shell.openExternal('https://discord.gg/86crXbGb')}
+          onClick={() => window.maestro.shell.openExternal('https://discord.gg/SrBsykvG')}
           className="p-1 rounded hover:bg-white/10 transition-colors"
           title="Join our Discord"
           style={{ color: theme.colors.accent }}

@@ -1,7 +1,7 @@
 # Maestro
 
 [![Made with Maestro](docs/assets/made-with-maestro.svg)](https://github.com/pedramamini/Maestro)
-[![Discord](https://img.shields.io/badge/Discord-Join%20Us-5865F2?logo=discord&logoColor=white)](https://discord.gg/86crXbGb)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Us-5865F2?logo=discord&logoColor=white)](https://discord.gg/SrBsykvG)
 
 > Run AI coding agents autonomously for days.
 
@@ -891,7 +891,7 @@ The debug package is designed to be **safe to share publicly**:
 ### Getting Help
 
 - **GitHub Issues**: [Report bugs or request features](https://github.com/pedramamini/Maestro/issues)
-- **Discord**: [Join the community](https://discord.gg/86crXbGb)
+- **Discord**: [Join the community](https://discord.gg/SrBsykvG)
 - **Documentation**: This README, [CONTRIBUTING.md](CONTRIBUTING.md), and [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ## Contributing
