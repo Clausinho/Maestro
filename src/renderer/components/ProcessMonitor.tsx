@@ -991,7 +991,7 @@ export function ProcessMonitor(props: ProcessMonitorProps) {
       <div
         ref={detailViewRef}
         tabIndex={-1}
-        className="flex flex-col h-full outline-none"
+        className="flex flex-col h-full min-h-0 overflow-hidden outline-none"
       >
         {/* Detail Header */}
         <div

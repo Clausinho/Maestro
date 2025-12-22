@@ -320,11 +320,13 @@ export class AgentDetector {
       const programFilesX86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
 
       additionalPaths = [
-        // npm global installs
+        // npm global installs (Claude Code, Codex CLI)
         path.join(appData, 'npm'),
         path.join(localAppData, 'npm'),
         // Claude Code CLI install location (npm global)
         path.join(appData, 'npm', 'node_modules', '@anthropic-ai', 'claude-code', 'cli'),
+        // Codex CLI install location (npm global)
+        path.join(appData, 'npm', 'node_modules', '@openai', 'codex', 'bin'),
         // User local bin (Claude Code standalone installer)
         path.join(home, '.local', 'bin'),
         // User local programs
@@ -343,10 +345,13 @@ export class AgentDetector {
         // Node.js
         path.join(programFiles, 'nodejs'),
         path.join(localAppData, 'Programs', 'node'),
-        // Scoop package manager
+        // Scoop package manager (OpenCode, other tools)
         path.join(home, 'scoop', 'shims'),
-        // Chocolatey
+        path.join(home, 'scoop', 'apps', 'opencode', 'current'),
+        // Chocolatey (OpenCode, other tools)
         path.join(process.env.ChocolateyInstall || 'C:\\ProgramData\\chocolatey', 'bin'),
+        // Go binaries (some tools installed via 'go install')
+        path.join(home, 'go', 'bin'),
         // Windows system paths
         path.join(process.env.SystemRoot || 'C:\\Windows', 'System32'),
         path.join(process.env.SystemRoot || 'C:\\Windows'),
