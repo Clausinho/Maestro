@@ -37,6 +37,7 @@ import {
 import { extractTabContext } from '../utils/contextExtractor';
 import { createMergedSession, getActiveTab } from '../utils/tabHelpers';
 import { classifyTransferError } from '../components/TransferErrorModal';
+import { generateId } from '../utils/ids';
 
 /**
  * State of the transfer operation
@@ -566,6 +567,25 @@ export function useSendToAgentWithSessions(
 
       // Add new session to state
       setSessions(prev => [...prev, newSession]);
+
+      // Log transfer operation to history
+      const sourceAgentName = getAgentDisplayName(sourceSession.toolType);
+      const targetAgentName = getAgentDisplayName(targetAgent);
+
+      try {
+        await window.maestro.history.add({
+          id: generateId(),
+          type: 'AUTO',
+          timestamp: Date.now(),
+          summary: `Transferred context from ${sourceAgentName} to ${targetAgentName}`,
+          sessionId: newSession.id,
+          projectPath: sourceSession.projectRoot,
+          sessionName: sessionName,
+        });
+      } catch (historyError) {
+        // Non-critical: log but don't fail the transfer operation
+        console.warn('Failed to log transfer operation to history:', historyError);
+      }
 
       // Notify caller with session ID and name
       if (onSessionCreated) {

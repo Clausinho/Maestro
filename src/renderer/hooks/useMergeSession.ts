@@ -30,6 +30,7 @@ import {
 } from '../services/contextGroomer';
 import { extractTabContext } from '../utils/contextExtractor';
 import { createMergedSession, getActiveTab } from '../utils/tabHelpers';
+import { generateId } from '../utils/ids';
 
 /**
  * State of the merge operation
@@ -513,6 +514,27 @@ export function useMergeSessionWithSessions(
 
         // Add new session to state
         setSessions(prev => [...prev, newSession]);
+
+        // Log merge operation to history
+        const sourceNames = [
+          getSessionDisplayName(sourceSession),
+          getSessionDisplayName(targetSession),
+        ].filter((name, i, arr) => arr.indexOf(name) === i); // Dedupe if same session
+
+        try {
+          await window.maestro.history.add({
+            id: generateId(),
+            type: 'AUTO',
+            timestamp: Date.now(),
+            summary: `Merged contexts from ${sourceNames.join(', ')}`,
+            sessionId: newSession.id,
+            projectPath: sourceSession.projectRoot,
+            sessionName: mergedName,
+          });
+        } catch (historyError) {
+          // Non-critical: log but don't fail the merge operation
+          console.warn('Failed to log merge operation to history:', historyError);
+        }
 
         // Notify caller with session ID and name for notification purposes
         if (onSessionCreated) {
