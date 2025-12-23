@@ -1851,4 +1851,313 @@ export function Component() {
       });
     });
   });
+
+  describe('git:worktreeSetup', () => {
+    it('should create worktree successfully with new branch', async () => {
+      // Mock fs.access to throw (path doesn't exist)
+      const fsPromises = await import('fs/promises');
+      vi.mocked(fsPromises.default.access).mockRejectedValue(new Error('ENOENT'));
+
+      vi.mocked(execFile.execFileNoThrow)
+        .mockResolvedValueOnce({
+          // git rev-parse --verify branchName (branch doesn't exist)
+          stdout: '',
+          stderr: "fatal: Needed a single revision",
+          exitCode: 128,
+        })
+        .mockResolvedValueOnce({
+          // git worktree add -b branchName worktreePath
+          stdout: 'Preparing worktree (new branch \'feature-branch\')',
+          stderr: '',
+          exitCode: 0,
+        });
+
+      const handler = handlers.get('git:worktreeSetup');
+      const result = await handler!({} as any, '/main/repo', '/worktrees/feature', 'feature-branch');
+
+      expect(execFile.execFileNoThrow).toHaveBeenCalledWith(
+        'git',
+        ['rev-parse', '--verify', 'feature-branch'],
+        '/main/repo'
+      );
+      expect(execFile.execFileNoThrow).toHaveBeenCalledWith(
+        'git',
+        ['worktree', 'add', '-b', 'feature-branch', '/worktrees/feature'],
+        '/main/repo'
+      );
+      expect(result).toEqual({
+        success: true,
+        created: true,
+        currentBranch: 'feature-branch',
+        requestedBranch: 'feature-branch',
+        branchMismatch: false,
+      });
+    });
+
+    it('should create worktree with existing branch', async () => {
+      // Mock fs.access to throw (path doesn't exist)
+      const fsPromises = await import('fs/promises');
+      vi.mocked(fsPromises.default.access).mockRejectedValue(new Error('ENOENT'));
+
+      vi.mocked(execFile.execFileNoThrow)
+        .mockResolvedValueOnce({
+          // git rev-parse --verify branchName (branch exists)
+          stdout: 'abc123456789',
+          stderr: '',
+          exitCode: 0,
+        })
+        .mockResolvedValueOnce({
+          // git worktree add worktreePath branchName
+          stdout: 'Preparing worktree (checking out \'existing-branch\')',
+          stderr: '',
+          exitCode: 0,
+        });
+
+      const handler = handlers.get('git:worktreeSetup');
+      const result = await handler!({} as any, '/main/repo', '/worktrees/existing', 'existing-branch');
+
+      expect(execFile.execFileNoThrow).toHaveBeenCalledWith(
+        'git',
+        ['worktree', 'add', '/worktrees/existing', 'existing-branch'],
+        '/main/repo'
+      );
+      expect(result).toEqual({
+        success: true,
+        created: true,
+        currentBranch: 'existing-branch',
+        requestedBranch: 'existing-branch',
+        branchMismatch: false,
+      });
+    });
+
+    it('should return existing worktree info when path already exists with same branch', async () => {
+      // Mock fs.access to succeed (path exists)
+      const fsPromises = await import('fs/promises');
+      vi.mocked(fsPromises.default.access).mockResolvedValue(undefined);
+
+      vi.mocked(execFile.execFileNoThrow)
+        .mockResolvedValueOnce({
+          // git rev-parse --is-inside-work-tree
+          stdout: 'true\n',
+          stderr: '',
+          exitCode: 0,
+        })
+        .mockResolvedValueOnce({
+          // git rev-parse --git-common-dir
+          stdout: '/main/repo/.git\n',
+          stderr: '',
+          exitCode: 0,
+        })
+        .mockResolvedValueOnce({
+          // git rev-parse --git-dir (main repo)
+          stdout: '.git\n',
+          stderr: '',
+          exitCode: 0,
+        })
+        .mockResolvedValueOnce({
+          // git rev-parse --abbrev-ref HEAD
+          stdout: 'feature-branch\n',
+          stderr: '',
+          exitCode: 0,
+        });
+
+      const handler = handlers.get('git:worktreeSetup');
+      const result = await handler!({} as any, '/main/repo', '/worktrees/feature', 'feature-branch');
+
+      expect(result).toEqual({
+        success: true,
+        created: false,
+        currentBranch: 'feature-branch',
+        requestedBranch: 'feature-branch',
+        branchMismatch: false,
+      });
+    });
+
+    it('should return branchMismatch when existing worktree has different branch', async () => {
+      // Mock fs.access to succeed (path exists)
+      const fsPromises = await import('fs/promises');
+      vi.mocked(fsPromises.default.access).mockResolvedValue(undefined);
+
+      vi.mocked(execFile.execFileNoThrow)
+        .mockResolvedValueOnce({
+          // git rev-parse --is-inside-work-tree
+          stdout: 'true\n',
+          stderr: '',
+          exitCode: 0,
+        })
+        .mockResolvedValueOnce({
+          // git rev-parse --git-common-dir
+          stdout: '/main/repo/.git\n',
+          stderr: '',
+          exitCode: 0,
+        })
+        .mockResolvedValueOnce({
+          // git rev-parse --git-dir (main repo)
+          stdout: '.git\n',
+          stderr: '',
+          exitCode: 0,
+        })
+        .mockResolvedValueOnce({
+          // git rev-parse --abbrev-ref HEAD (different branch)
+          stdout: 'other-branch\n',
+          stderr: '',
+          exitCode: 0,
+        });
+
+      const handler = handlers.get('git:worktreeSetup');
+      const result = await handler!({} as any, '/main/repo', '/worktrees/feature', 'feature-branch');
+
+      expect(result).toEqual({
+        success: true,
+        created: false,
+        currentBranch: 'other-branch',
+        requestedBranch: 'feature-branch',
+        branchMismatch: true,
+      });
+    });
+
+    it('should reject nested worktree path inside main repo', async () => {
+      const handler = handlers.get('git:worktreeSetup');
+      // Worktree path is inside the main repo
+      const result = await handler!({} as any, '/main/repo', '/main/repo/worktrees/feature', 'feature-branch');
+
+      expect(result).toEqual({
+        success: false,
+        error: 'Worktree path cannot be inside the main repository. Please use a sibling directory (e.g., ../my-worktree) instead.',
+      });
+    });
+
+    it('should fail when path exists but is not a git repo and not empty', async () => {
+      // Mock fs.access to succeed (path exists)
+      const fsPromises = await import('fs/promises');
+      vi.mocked(fsPromises.default.access).mockResolvedValue(undefined);
+
+      // Mock readdir to return non-empty contents
+      vi.mocked(fsPromises.default.readdir).mockResolvedValue([
+        'file1.txt' as unknown as import('fs').Dirent,
+        'file2.txt' as unknown as import('fs').Dirent,
+      ]);
+
+      vi.mocked(execFile.execFileNoThrow).mockResolvedValueOnce({
+        // git rev-parse --is-inside-work-tree (not a git repo)
+        stdout: '',
+        stderr: 'fatal: not a git repository',
+        exitCode: 128,
+      });
+
+      const handler = handlers.get('git:worktreeSetup');
+      const result = await handler!({} as any, '/main/repo', '/worktrees/existing', 'feature-branch');
+
+      expect(result).toEqual({
+        success: false,
+        error: 'Path exists but is not a git worktree or repository (and is not empty)',
+      });
+    });
+
+    it('should remove empty directory and create worktree', async () => {
+      // Mock fs.access to succeed (path exists)
+      const fsPromises = await import('fs/promises');
+      vi.mocked(fsPromises.default.access).mockResolvedValue(undefined);
+
+      // Mock readdir to return empty directory
+      vi.mocked(fsPromises.default.readdir).mockResolvedValue([]);
+
+      // Mock rmdir to succeed
+      vi.mocked(fsPromises.default.rmdir).mockResolvedValue(undefined);
+
+      vi.mocked(execFile.execFileNoThrow)
+        .mockResolvedValueOnce({
+          // git rev-parse --is-inside-work-tree (not a git repo)
+          stdout: '',
+          stderr: 'fatal: not a git repository',
+          exitCode: 128,
+        })
+        .mockResolvedValueOnce({
+          // git rev-parse --verify branchName (branch exists)
+          stdout: 'abc123',
+          stderr: '',
+          exitCode: 0,
+        })
+        .mockResolvedValueOnce({
+          // git worktree add
+          stdout: 'Preparing worktree',
+          stderr: '',
+          exitCode: 0,
+        });
+
+      const handler = handlers.get('git:worktreeSetup');
+      const result = await handler!({} as any, '/main/repo', '/worktrees/empty', 'feature-branch');
+
+      expect(fsPromises.default.rmdir).toHaveBeenCalledWith(expect.stringContaining('empty'));
+      expect(result).toEqual({
+        success: true,
+        created: true,
+        currentBranch: 'feature-branch',
+        requestedBranch: 'feature-branch',
+        branchMismatch: false,
+      });
+    });
+
+    it('should fail when worktree belongs to a different repository', async () => {
+      // Mock fs.access to succeed (path exists)
+      const fsPromises = await import('fs/promises');
+      vi.mocked(fsPromises.default.access).mockResolvedValue(undefined);
+
+      vi.mocked(execFile.execFileNoThrow)
+        .mockResolvedValueOnce({
+          // git rev-parse --is-inside-work-tree
+          stdout: 'true\n',
+          stderr: '',
+          exitCode: 0,
+        })
+        .mockResolvedValueOnce({
+          // git rev-parse --git-common-dir (different repo)
+          stdout: '/different/repo/.git\n',
+          stderr: '',
+          exitCode: 0,
+        })
+        .mockResolvedValueOnce({
+          // git rev-parse --git-dir (main repo)
+          stdout: '.git\n',
+          stderr: '',
+          exitCode: 0,
+        });
+
+      const handler = handlers.get('git:worktreeSetup');
+      const result = await handler!({} as any, '/main/repo', '/worktrees/feature', 'feature-branch');
+
+      expect(result).toEqual({
+        success: false,
+        error: 'Worktree path belongs to a different repository',
+      });
+    });
+
+    it('should handle git worktree creation failure', async () => {
+      // Mock fs.access to throw (path doesn't exist)
+      const fsPromises = await import('fs/promises');
+      vi.mocked(fsPromises.default.access).mockRejectedValue(new Error('ENOENT'));
+
+      vi.mocked(execFile.execFileNoThrow)
+        .mockResolvedValueOnce({
+          // git rev-parse --verify branchName (branch doesn't exist)
+          stdout: '',
+          stderr: "fatal: Needed a single revision",
+          exitCode: 128,
+        })
+        .mockResolvedValueOnce({
+          // git worktree add -b fails
+          stdout: '',
+          stderr: "fatal: 'feature-branch' is already checked out at '/other/path'",
+          exitCode: 128,
+        });
+
+      const handler = handlers.get('git:worktreeSetup');
+      const result = await handler!({} as any, '/main/repo', '/worktrees/feature', 'feature-branch');
+
+      expect(result).toEqual({
+        success: false,
+        error: "fatal: 'feature-branch' is already checked out at '/other/path'",
+      });
+    });
+  });
 });
