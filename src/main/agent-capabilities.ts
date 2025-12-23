@@ -63,6 +63,12 @@ export interface AgentCapabilities {
 
   /** Agent emits streaming thinking/reasoning content that can be displayed */
   supportsThinkingDisplay: boolean;
+
+  /** Agent can receive merged context from other sessions/tabs */
+  supportsContextMerge: boolean;
+
+  /** Agent can export its context for transfer to other sessions/agents */
+  supportsContextExport: boolean;
 }
 
 /**
@@ -87,6 +93,8 @@ export const DEFAULT_CAPABILITIES: AgentCapabilities = {
   supportsModelSelection: false,
   supportsStreamJsonInput: false,
   supportsThinkingDisplay: false,
+  supportsContextMerge: false,
+  supportsContextExport: false,
 };
 
 /**
@@ -123,6 +131,8 @@ export const AGENT_CAPABILITIES: Record<string, AgentCapabilities> = {
     supportsModelSelection: false, // Model is configured via Anthropic account
     supportsStreamJsonInput: true, // --input-format stream-json for images via stdin
     supportsThinkingDisplay: true, // Emits streaming assistant messages
+    supportsContextMerge: true,  // Can receive merged context via prompts
+    supportsContextExport: true, // Session storage supports context export
   },
 
   /**
@@ -147,6 +157,8 @@ export const AGENT_CAPABILITIES: Record<string, AgentCapabilities> = {
     supportsModelSelection: false,
     supportsStreamJsonInput: false,
     supportsThinkingDisplay: false, // Terminal is not an AI agent
+    supportsContextMerge: false, // Terminal is not an AI agent
+    supportsContextExport: false, // Terminal has no AI context
   },
 
   /**
@@ -174,6 +186,8 @@ export const AGENT_CAPABILITIES: Record<string, AgentCapabilities> = {
     supportsModelSelection: true, // -m, --model flag - Documented
     supportsStreamJsonInput: false, // Uses -i, --image flag instead
     supportsThinkingDisplay: true, // Emits reasoning tokens (o3/o4-mini)
+    supportsContextMerge: true,  // Can receive merged context via prompts
+    supportsContextExport: true, // Session storage supports context export
   },
 
   /**
@@ -200,6 +214,8 @@ export const AGENT_CAPABILITIES: Record<string, AgentCapabilities> = {
     supportsModelSelection: false, // Not yet investigated
     supportsStreamJsonInput: false,
     supportsThinkingDisplay: false, // Not yet investigated
+    supportsContextMerge: false, // Not yet investigated - PLACEHOLDER
+    supportsContextExport: false, // Not yet investigated - PLACEHOLDER
   },
 
   /**
@@ -226,6 +242,8 @@ export const AGENT_CAPABILITIES: Record<string, AgentCapabilities> = {
     supportsModelSelection: false, // Not yet investigated
     supportsStreamJsonInput: false,
     supportsThinkingDisplay: false, // Not yet investigated
+    supportsContextMerge: false, // Not yet investigated - PLACEHOLDER
+    supportsContextExport: false, // Not yet investigated - PLACEHOLDER
   },
 
   /**
@@ -253,6 +271,8 @@ export const AGENT_CAPABILITIES: Record<string, AgentCapabilities> = {
     supportsModelSelection: true, // --model flag
     supportsStreamJsonInput: false,
     supportsThinkingDisplay: false, // Not yet investigated
+    supportsContextMerge: false, // Not yet investigated - PLACEHOLDER
+    supportsContextExport: false, // Not yet investigated - PLACEHOLDER
   },
 
   /**
@@ -280,6 +300,8 @@ export const AGENT_CAPABILITIES: Record<string, AgentCapabilities> = {
     supportsModelSelection: true, // --model provider/model (e.g., 'ollama/qwen3:8b') - Verified
     supportsStreamJsonInput: false, // Uses -f, --file flag instead
     supportsThinkingDisplay: true, // Emits streaming text chunks
+    supportsContextMerge: true,  // Can receive merged context via prompts
+    supportsContextExport: true, // Session storage supports context export
   },
 };
 
