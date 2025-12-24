@@ -39,6 +39,9 @@ export { useExpandedSet } from './useExpandedSet';
 export { useScrollPosition } from './useScrollPosition';
 export { useAgentCapabilities, clearCapabilitiesCache, setCapabilitiesCache, DEFAULT_CAPABILITIES } from './useAgentCapabilities';
 export { useAgentErrorRecovery } from './useAgentErrorRecovery';
+export { useMergeSession, useMergeSessionWithSessions } from './useMergeSession';
+export { useAvailableAgents, useAvailableAgentsForCapability } from './useAvailableAgents';
+export { useSendToAgent, useSendToAgentWithSessions } from './useSendToAgent';
 
 export type { UseSettingsReturn } from './useSettings';
 export type { UseActivityTrackerReturn } from './useActivityTracker';
@@ -125,3 +128,30 @@ export type { UseExpandedSetOptions, UseExpandedSetReturn } from './useExpandedS
 export type { UseScrollPositionOptions, UseScrollPositionReturn, ScrollMetrics } from './useScrollPosition';
 export type { AgentCapabilities, UseAgentCapabilitiesReturn } from './useAgentCapabilities';
 export type { UseAgentErrorRecoveryOptions, UseAgentErrorRecoveryResult } from './useAgentErrorRecovery';
+export type {
+  MergeState,
+  MergeSessionRequest,
+  UseMergeSessionResult,
+  UseMergeSessionWithSessionsDeps,
+  UseMergeSessionWithSessionsResult,
+} from './useMergeSession';
+export type {
+  AgentStatus,
+  AvailableAgent,
+  UseAvailableAgentsReturn,
+} from './useAvailableAgents';
+export type {
+  TransferState,
+  TransferRequest,
+  UseSendToAgentResult,
+  UseSendToAgentWithSessionsDeps,
+  UseSendToAgentWithSessionsResult,
+} from './useSendToAgent';
+
+// Re-export TransferError types from component for convenience
+export type {
+  TransferError,
+  TransferErrorType,
+  TransferErrorModalProps,
+} from '../components/TransferErrorModal';
+export { classifyTransferError } from '../components/TransferErrorModal';

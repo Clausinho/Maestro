@@ -189,6 +189,16 @@ interface MainPanelProps {
   onOpenCreatePR?: () => void;
   /** True if this session is a worktree child (has parentSessionId) */
   isWorktreeChild?: boolean;
+
+  // Context management
+  onSummarizeAndContinue?: (tabId: string) => void;
+  onMergeWith?: (tabId: string) => void;
+  onSendToAgent?: (tabId: string) => void;
+
+  // Context warning sash settings (Phase 6)
+  contextWarningsEnabled?: boolean;
+  contextWarningYellowThreshold?: number;
+  contextWarningRedThreshold?: number;
 }
 
 export const MainPanel = forwardRef<MainPanelHandle, MainPanelProps>(function MainPanel(props, ref) {
@@ -215,6 +225,13 @@ export const MainPanel = forwardRef<MainPanelHandle, MainPanelProps>(function Ma
     onOpenWorktreeConfig,
     onOpenCreatePR,
     isWorktreeChild,
+    onSummarizeAndContinue,
+    onMergeWith,
+    onSendToAgent,
+    // Context warning sash settings (Phase 6)
+    contextWarningsEnabled = false,
+    contextWarningYellowThreshold = 60,
+    contextWarningRedThreshold = 80,
   } = props;
 
   // isCurrentSessionAutoMode: THIS session has active batch run (for all UI indicators)
@@ -833,6 +850,9 @@ export const MainPanel = forwardRef<MainPanelHandle, MainPanelProps>(function Ma
               onTabReorder={onTabReorder}
               onTabStar={onTabStar}
               onTabMarkUnread={onTabMarkUnread}
+              onMergeWith={onMergeWith}
+              onSendToAgent={onSendToAgent}
+              onSummarizeAndContinue={onSummarizeAndContinue}
               showUnreadOnly={showUnreadOnly}
               onToggleUnreadFilter={onToggleUnreadFilter}
               onOpenTabSearch={onOpenTabSearch}
@@ -1036,6 +1056,12 @@ export const MainPanel = forwardRef<MainPanelHandle, MainPanelProps>(function Ma
                 supportsThinking={hasCapability('supportsThinkingDisplay')}
                 onOpenPromptComposer={props.onOpenPromptComposer}
                 showFlashNotification={showFlashNotification}
+                // Context warning sash props (Phase 6) - use tab-level context usage
+                contextUsage={activeTabContextUsage}
+                contextWarningsEnabled={contextWarningsEnabled}
+                contextWarningYellowThreshold={contextWarningYellowThreshold}
+                contextWarningRedThreshold={contextWarningRedThreshold}
+                onSummarizeAndContinue={onSummarizeAndContinue ? () => onSummarizeAndContinue(activeSession.activeTabId) : undefined}
               />
               </div>
               )}

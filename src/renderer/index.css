@@ -77,8 +77,127 @@ body {
   }
 }
 
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes highlight-pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--pulse-color, rgba(99, 102, 241, 0.4));
+  }
+  70% {
+    box-shadow: 0 0 0 6px var(--pulse-color, rgba(99, 102, 241, 0));
+  }
+  100% {
+    box-shadow: 0 0 0 0 var(--pulse-color, rgba(99, 102, 241, 0));
+  }
+}
+
+@keyframes check-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes token-update {
+  0% {
+    color: var(--token-highlight, rgba(99, 102, 241, 1));
+    transform: scale(1.1);
+  }
+  100% {
+    color: inherit;
+    transform: scale(1);
+  }
+}
+
+@keyframes progress-stripe {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 40px 0;
+  }
+}
+
 .animate-in {
   animation: fade-in 0.2s ease-in;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.25s ease-out;
+}
+
+.animate-slide-down {
+  animation: slide-down 0.2s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
+}
+
+.animate-highlight-pulse {
+  animation: highlight-pulse 0.6s ease-out;
+}
+
+.animate-check-pop {
+  animation: check-pop 0.3s ease-out;
+}
+
+.animate-token-update {
+  animation: token-update 0.4s ease-out;
+}
+
+/* Animated progress bar with stripes for indeterminate state */
+.progress-bar-animated {
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.15) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(255, 255, 255, 0.15) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 40px 40px;
+  animation: progress-stripe 1s linear infinite;
 }
 
 /* Shimmer effect for drag-and-drop */

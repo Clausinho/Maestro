@@ -113,6 +113,24 @@ export const MODAL_PRIORITIES = {
   /** Fuzzy file search modal (Cmd+G) */
   FUZZY_FILE_SEARCH: 690,
 
+  /** Merge session contexts modal (via Command Palette or right-click menu) */
+  MERGE_SESSION: 685,
+
+  /** Send to agent modal (cross-agent context transfer) */
+  SEND_TO_AGENT: 686,
+
+  /** Merge progress modal (appears during merge operation) */
+  MERGE_PROGRESS: 684,
+
+  /** Transfer progress modal (appears during cross-agent transfer operation) */
+  TRANSFER_PROGRESS: 683,
+
+  /** Transfer error modal (appears when cross-agent transfer fails) */
+  TRANSFER_ERROR: 682,
+
+  /** Summarization progress modal (appears during context compaction) */
+  SUMMARIZE_PROGRESS: 681,
+
   /** Agent sessions browser (Cmd+Shift+L) */
   AGENT_SESSIONS: 680,
 

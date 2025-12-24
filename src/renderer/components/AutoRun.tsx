@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, memo,
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Eye, Edit, Play, Square, HelpCircle, Loader2, Image, X, Search, ChevronDown, ChevronRight, FolderOpen, FileText, RefreshCw, Maximize2, AlertTriangle, SkipForward, XCircle } from 'lucide-react';
-import { getEncoding } from 'js-tiktoken';
+import { getEncoder, formatTokenCount } from '../utils/tokenCounter';
 import type { BatchRunState, SessionState, Theme, Shortcut } from '../types';
 import { AutoRunnerHelpModal } from './AutoRunnerHelpModal';
 import { MermaidRenderer } from './MermaidRenderer';
@@ -18,26 +18,6 @@ import { formatShortcutKeys } from '../utils/shortcutFormatter';
 
 // Memoize remarkPlugins array - it never changes
 const REMARK_PLUGINS = [remarkGfm];
-
-// Lazy-loaded tokenizer encoder (cl100k_base is used by Claude/GPT-4)
-let encoderPromise: Promise<ReturnType<typeof getEncoding>> | null = null;
-const getEncoder = () => {
-  if (!encoderPromise) {
-    encoderPromise = Promise.resolve(getEncoding('cl100k_base'));
-  }
-  return encoderPromise;
-};
-
-// Format token count with K/M suffix
-const formatTokenCount = (count: number): string => {
-  if (count >= 1_000_000) {
-    return `${(count / 1_000_000).toFixed(1)}M`;
-  }
-  if (count >= 1_000) {
-    return `${(count / 1_000).toFixed(1)}K`;
-  }
-  return count.toLocaleString();
-};
 
 interface AutoRunProps {
   theme: Theme;

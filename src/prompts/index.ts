@@ -31,4 +31,9 @@ export {
   groupChatModeratorSynthesisPrompt,
   groupChatParticipantPrompt,
   groupChatParticipantRequestPrompt,
+
+  // Context management
+  contextGroomingPrompt,
+  contextTransferPrompt,
+  contextSummarizePrompt,
 } from '../generated/prompts';

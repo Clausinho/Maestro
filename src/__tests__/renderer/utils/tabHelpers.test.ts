@@ -14,6 +14,7 @@
  * - navigateToPrevTab
  * - navigateToTabByIndex
  * - navigateToLastTab
+ * - createMergedSession
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -30,7 +31,9 @@ import {
   navigateToPrevTab,
   navigateToTabByIndex,
   navigateToLastTab,
+  createMergedSession,
 } from '../../../renderer/utils/tabHelpers';
+import type { LogEntry } from '../../../renderer/types';
 import type { Session, AITab, ClosedTab } from '../../../renderer/types';
 
 // Mock the generateId function to return predictable IDs
@@ -1023,6 +1026,182 @@ describe('tabHelpers', () => {
       });
 
       expect(navigateToLastTab(session, true)).toBeNull();
+    });
+  });
+
+  describe('createMergedSession', () => {
+    it('creates a session with basic options', () => {
+      const { session, tabId } = createMergedSession({
+        name: 'Merged Session',
+        projectRoot: '/path/to/project',
+        toolType: 'claude-code',
+        mergedLogs: [],
+      });
+
+      expect(session.name).toBe('Merged Session');
+      expect(session.projectRoot).toBe('/path/to/project');
+      expect(session.cwd).toBe('/path/to/project');
+      expect(session.fullPath).toBe('/path/to/project');
+      expect(session.toolType).toBe('claude-code');
+      expect(session.state).toBe('idle');
+      expect(session.aiTabs).toHaveLength(1);
+      expect(session.activeTabId).toBe(tabId);
+      expect(tabId).toBe('mock-generated-id'); // Uses mocked generateId
+    });
+
+    it('creates a session with merged logs in the tab', () => {
+      const testLogs: LogEntry[] = [
+        { id: 'log-1', timestamp: 1000, source: 'user', text: 'Hello' },
+        { id: 'log-2', timestamp: 2000, source: 'ai', text: 'Hi there!' },
+      ];
+
+      const { session } = createMergedSession({
+        name: 'With Logs',
+        projectRoot: '/project',
+        toolType: 'claude-code',
+        mergedLogs: testLogs,
+      });
+
+      const activeTab = session.aiTabs[0];
+      expect(activeTab.logs).toEqual(testLogs);
+    });
+
+    it('creates a session with usage stats', () => {
+      const usageStats = {
+        inputTokens: 1000,
+        outputTokens: 500,
+        cacheReadTokens: 100,
+        cacheCreationTokens: 50,
+        costUsd: 0.05,
+      };
+
+      const { session } = createMergedSession({
+        name: 'With Stats',
+        projectRoot: '/project',
+        toolType: 'claude-code',
+        mergedLogs: [],
+        usageStats,
+      });
+
+      expect(session.aiTabs[0].usageStats).toEqual(usageStats);
+    });
+
+    it('creates a session with group assignment', () => {
+      const { session } = createMergedSession({
+        name: 'Grouped',
+        projectRoot: '/project',
+        toolType: 'claude-code',
+        mergedLogs: [],
+        groupId: 'group-123',
+      });
+
+      expect(session.groupId).toBe('group-123');
+    });
+
+    it('creates a session with saveToHistory option', () => {
+      const { session: sessionWithHistory } = createMergedSession({
+        name: 'With History',
+        projectRoot: '/project',
+        toolType: 'claude-code',
+        mergedLogs: [],
+        saveToHistory: true,
+      });
+
+      expect(sessionWithHistory.aiTabs[0].saveToHistory).toBe(true);
+
+      const { session: sessionWithoutHistory } = createMergedSession({
+        name: 'Without History',
+        projectRoot: '/project',
+        toolType: 'claude-code',
+        mergedLogs: [],
+        saveToHistory: false,
+      });
+
+      expect(sessionWithoutHistory.aiTabs[0].saveToHistory).toBe(false);
+    });
+
+    it('creates a session with terminal toolType sets correct inputMode', () => {
+      const { session } = createMergedSession({
+        name: 'Terminal Session',
+        projectRoot: '/project',
+        toolType: 'terminal',
+        mergedLogs: [],
+      });
+
+      expect(session.inputMode).toBe('terminal');
+    });
+
+    it('creates a session with non-terminal toolType sets ai inputMode', () => {
+      const { session } = createMergedSession({
+        name: 'AI Session',
+        projectRoot: '/project',
+        toolType: 'opencode',
+        mergedLogs: [],
+      });
+
+      expect(session.inputMode).toBe('ai');
+    });
+
+    it('creates tab with agentSessionId as null (assigned on spawn)', () => {
+      const { session } = createMergedSession({
+        name: 'New Session',
+        projectRoot: '/project',
+        toolType: 'claude-code',
+        mergedLogs: [],
+      });
+
+      expect(session.aiTabs[0].agentSessionId).toBeNull();
+    });
+
+    it('creates session with standard defaults', () => {
+      const { session } = createMergedSession({
+        name: 'Defaults Test',
+        projectRoot: '/project',
+        toolType: 'claude-code',
+        mergedLogs: [],
+      });
+
+      // Check standard session defaults match pattern from App.tsx
+      expect(session.isGitRepo).toBe(false);
+      expect(session.isLive).toBe(false);
+      expect(session.aiPid).toBe(0);
+      expect(session.terminalPid).toBe(0);
+      expect(session.contextUsage).toBe(0);
+      expect(session.activeTimeMs).toBe(0);
+      expect(session.changedFiles).toEqual([]);
+      expect(session.fileTree).toEqual([]);
+      expect(session.fileExplorerExpanded).toEqual([]);
+      expect(session.executionQueue).toEqual([]);
+      expect(session.closedTabHistory).toEqual([]);
+      expect(session.shellCwd).toBe('/project');
+      expect(session.fileTreeAutoRefreshInterval).toBe(180);
+    });
+
+    it('creates shell log with merged context message', () => {
+      const { session } = createMergedSession({
+        name: 'Shell Log Test',
+        projectRoot: '/project',
+        toolType: 'claude-code',
+        mergedLogs: [],
+      });
+
+      expect(session.shellLogs).toHaveLength(1);
+      expect(session.shellLogs[0].source).toBe('system');
+      expect(session.shellLogs[0].text).toBe('Merged Context Session Ready.');
+    });
+
+    it('creates tab in idle state', () => {
+      const { session } = createMergedSession({
+        name: 'State Test',
+        projectRoot: '/project',
+        toolType: 'claude-code',
+        mergedLogs: [],
+      });
+
+      expect(session.aiTabs[0].state).toBe('idle');
+      expect(session.aiTabs[0].starred).toBe(false);
+      expect(session.aiTabs[0].inputValue).toBe('');
+      expect(session.aiTabs[0].stagedImages).toEqual([]);
     });
   });
 });

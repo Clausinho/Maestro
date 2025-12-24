@@ -59,9 +59,13 @@ interface AgentCapabilities {
   supportsCostTracking: boolean;
   supportsUsageStats: boolean;
   supportsBatchMode: boolean;
+  requiresPromptToStart: boolean;
   supportsStreaming: boolean;
   supportsResultMessages: boolean;
-  supportsModelSelection?: boolean;
+  supportsModelSelection: boolean;
+  supportsStreamJsonInput: boolean;
+  supportsContextMerge: boolean;
+  supportsContextExport: boolean;
 }
 
 interface AgentConfig {
@@ -94,6 +98,8 @@ interface AgentCapabilities {
   supportsResultMessages: boolean;
   supportsModelSelection: boolean;
   supportsStreamJsonInput: boolean;
+  supportsContextMerge: boolean;
+  supportsContextExport: boolean;
 }
 
 interface DirectoryEntry {
@@ -122,7 +128,34 @@ interface UsageStats {
 
 type HistoryEntryType = 'AUTO' | 'USER';
 
+/**
+ * Result type for reading session messages from agent storage.
+ * Used by context merging operations.
+ */
+interface SessionMessagesResult {
+  messages: Array<{
+    type: string;
+    role?: string;
+    content: string;
+    timestamp: string;
+    uuid: string;
+    toolUse?: unknown;
+  }>;
+  total: number;
+  hasMore: boolean;
+}
+
 interface MaestroAPI {
+  // Context merging API (for session context transfer and grooming)
+  context: {
+    getStoredSession: (agentId: string, projectRoot: string, sessionId: string) => Promise<SessionMessagesResult | null>;
+    // NEW: Single-call grooming (recommended) - spawns batch process and returns response
+    groomContext: (projectRoot: string, agentType: string, prompt: string) => Promise<string>;
+    // DEPRECATED: Use groomContext instead
+    createGroomingSession: (projectRoot: string, agentType: string) => Promise<string>;
+    sendGroomingPrompt: (sessionId: string, prompt: string) => Promise<string>;
+    cleanupGroomingSession: (sessionId: string) => Promise<void>;
+  };
   settings: {
     get: (key: string) => Promise<unknown>;
     set: (key: string, value: unknown) => Promise<boolean>;

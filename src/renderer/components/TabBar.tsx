@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Plus, Star, Copy, Edit2, Mail, Pencil, Search } from 'lucide-react';
+import { X, Plus, Star, Copy, Edit2, Mail, Pencil, Search, GitMerge, ArrowRightCircle, Minimize2 } from 'lucide-react';
 import type { AITab, Theme } from '../types';
 import { hasDraft } from '../utils/tabHelpers';
 
@@ -15,6 +15,12 @@ interface TabBarProps {
   onTabReorder?: (fromIndex: number, toIndex: number) => void;
   onTabStar?: (tabId: string, starred: boolean) => void;
   onTabMarkUnread?: (tabId: string) => void;
+  /** Handler to open merge session modal with this tab as source */
+  onMergeWith?: (tabId: string) => void;
+  /** Handler to open send to agent modal with this tab as source */
+  onSendToAgent?: (tabId: string) => void;
+  /** Handler to summarize and continue in a new tab */
+  onSummarizeAndContinue?: (tabId: string) => void;
   showUnreadOnly?: boolean;
   onToggleUnreadFilter?: () => void;
   onOpenTabSearch?: () => void;
@@ -37,6 +43,12 @@ interface TabProps {
   onRename: () => void;
   onStar?: (starred: boolean) => void;
   onMarkUnread?: () => void;
+  /** Handler to open merge session modal with this tab as source */
+  onMergeWith?: () => void;
+  /** Handler to open send to agent modal with this tab as source */
+  onSendToAgent?: () => void;
+  /** Handler to summarize and continue in a new tab */
+  onSummarizeAndContinue?: () => void;
   shortcutHint?: number | null;
   registerRef?: (el: HTMLDivElement | null) => void;
   hasDraft?: boolean;
@@ -103,6 +115,9 @@ function Tab({
   onRename,
   onStar,
   onMarkUnread,
+  onMergeWith,
+  onSendToAgent,
+  onSummarizeAndContinue,
   shortcutHint,
   registerRef,
   hasDraft
@@ -192,6 +207,24 @@ function Tab({
   const handleMarkUnreadClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onMarkUnread?.();
+    setOverlayOpen(false);
+  };
+
+  const handleMergeWithClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onMergeWith?.();
+    setOverlayOpen(false);
+  };
+
+  const handleSendToAgentClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onSendToAgent?.();
+    setOverlayOpen(false);
+  };
+
+  const handleSummarizeAndContinueClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onSummarizeAndContinue?.();
     setOverlayOpen(false);
   };
 
@@ -371,6 +404,7 @@ function Tab({
                 onClick={handleCopySessionId}
                 className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-white/10 transition-colors"
                 style={{ color: theme.colors.textMain }}
+                title={`Full ID: ${tab.agentSessionId}`}
               >
                 <Copy className="w-3.5 h-3.5" style={{ color: theme.colors.textDim }} />
                 {showCopied ? 'Copied!' : 'Copy Session ID'}
@@ -409,6 +443,47 @@ function Tab({
               <Mail className="w-3.5 h-3.5" style={{ color: theme.colors.textDim }} />
               Mark as Unread
             </button>
+
+            {/* Context Management Section - divider and grouped options */}
+            {(tab.agentSessionId || (tab.logs?.length ?? 0) >= 5) && (onMergeWith || onSendToAgent || onSummarizeAndContinue) && (
+              <div className="my-1 border-t" style={{ borderColor: theme.colors.border }} />
+            )}
+
+            {/* Context: Summarize */}
+            {(tab.logs?.length ?? 0) >= 5 && onSummarizeAndContinue && (
+              <button
+                onClick={handleSummarizeAndContinueClick}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-white/10 transition-colors"
+                style={{ color: theme.colors.textMain }}
+              >
+                <Minimize2 className="w-3.5 h-3.5" style={{ color: theme.colors.textDim }} />
+                Context: Summarize
+              </button>
+            )}
+
+            {/* Context: Merge Into */}
+            {tab.agentSessionId && onMergeWith && (
+              <button
+                onClick={handleMergeWithClick}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-white/10 transition-colors"
+                style={{ color: theme.colors.textMain }}
+              >
+                <GitMerge className="w-3.5 h-3.5" style={{ color: theme.colors.textDim }} />
+                Context: Merge Into
+              </button>
+            )}
+
+            {/* Context: Send to Agent */}
+            {tab.agentSessionId && onSendToAgent && (
+              <button
+                onClick={handleSendToAgentClick}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-white/10 transition-colors"
+                style={{ color: theme.colors.textMain }}
+              >
+                <ArrowRightCircle className="w-3.5 h-3.5" style={{ color: theme.colors.textDim }} />
+                Context: Send to Agent
+              </button>
+            )}
           </div>
         </div>,
         document.body
@@ -433,6 +508,9 @@ export function TabBar({
   onTabReorder,
   onTabStar,
   onTabMarkUnread,
+  onMergeWith,
+  onSendToAgent,
+  onSummarizeAndContinue,
   showUnreadOnly: showUnreadOnlyProp,
   onToggleUnreadFilter,
   onOpenTabSearch
@@ -627,6 +705,9 @@ export function TabBar({
               onRename={() => handleRenameRequest(tab.id)}
               onStar={onTabStar && tab.agentSessionId ? (starred) => onTabStar(tab.id, starred) : undefined}
               onMarkUnread={onTabMarkUnread ? () => onTabMarkUnread(tab.id) : undefined}
+              onMergeWith={onMergeWith && tab.agentSessionId ? () => onMergeWith(tab.id) : undefined}
+              onSendToAgent={onSendToAgent && tab.agentSessionId ? () => onSendToAgent(tab.id) : undefined}
+              onSummarizeAndContinue={onSummarizeAndContinue && (tab.logs?.length ?? 0) >= 5 ? () => onSummarizeAndContinue(tab.id) : undefined}
               shortcutHint={!showUnreadOnly && originalIndex < 9 ? originalIndex + 1 : null}
               hasDraft={hasDraft(tab)}
               registerRef={(el) => {

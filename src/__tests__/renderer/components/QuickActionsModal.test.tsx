@@ -1280,4 +1280,52 @@ describe('QuickActionsModal', () => {
       }
     });
   });
+
+  describe('Send to agent action', () => {
+    it('shows Context: Send to Agent action when capability is supported and callback provided', () => {
+      const onOpenSendToAgent = vi.fn();
+      const props = createDefaultProps({
+        hasActiveSessionCapability: (capability: string) => capability === 'supportsContextMerge',
+        onOpenSendToAgent,
+      });
+      render(<QuickActionsModal {...props} />);
+
+      expect(screen.getByText('Context: Send to Agent')).toBeInTheDocument();
+    });
+
+    it('handles Context: Send to Agent action', () => {
+      const onOpenSendToAgent = vi.fn();
+      const props = createDefaultProps({
+        hasActiveSessionCapability: (capability: string) => capability === 'supportsContextMerge',
+        onOpenSendToAgent,
+      });
+      render(<QuickActionsModal {...props} />);
+
+      fireEvent.click(screen.getByText('Context: Send to Agent'));
+
+      expect(onOpenSendToAgent).toHaveBeenCalled();
+      expect(props.setQuickActionOpen).toHaveBeenCalledWith(false);
+    });
+
+    it('does not show Context: Send to Agent when capability is not supported', () => {
+      const onOpenSendToAgent = vi.fn();
+      const props = createDefaultProps({
+        hasActiveSessionCapability: () => false,
+        onOpenSendToAgent,
+      });
+      render(<QuickActionsModal {...props} />);
+
+      expect(screen.queryByText('Context: Send to Agent')).not.toBeInTheDocument();
+    });
+
+    it('does not show Context: Send to Agent when callback is not provided', () => {
+      const props = createDefaultProps({
+        hasActiveSessionCapability: (capability: string) => capability === 'supportsContextMerge',
+        // onOpenSendToAgent not provided
+      });
+      render(<QuickActionsModal {...props} />);
+
+      expect(screen.queryByText('Context: Send to Agent')).not.toBeInTheDocument();
+    });
+  });
 });

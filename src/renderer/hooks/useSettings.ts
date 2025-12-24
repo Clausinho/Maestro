@@ -1,8 +1,21 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { LLMProvider, ThemeId, ThemeColors, Shortcut, CustomAICommand, GlobalStats, AutoRunStats, OnboardingStats, LeaderboardRegistration } from '../types';
+import type { LLMProvider, ThemeId, ThemeColors, Shortcut, CustomAICommand, GlobalStats, AutoRunStats, OnboardingStats, LeaderboardRegistration, ContextManagementSettings } from '../types';
 import { DEFAULT_CUSTOM_THEME_COLORS } from '../constants/themes';
 import { DEFAULT_SHORTCUTS, TAB_SHORTCUTS } from '../constants/shortcuts';
 import { commitCommandPrompt } from '../../prompts';
+
+// Default context management settings
+const DEFAULT_CONTEXT_MANAGEMENT_SETTINGS: ContextManagementSettings = {
+  autoGroomContexts: true,        // Automatically groom contexts during transfer
+  maxContextTokens: 100000,       // Maximum tokens for context operations
+  showMergePreview: true,         // Show preview before merge
+  groomingTimeout: 60000,         // 1 minute timeout for grooming operations
+  preferredGroomingAgent: 'fastest', // 'fastest' or specific ToolType
+  // Context window warning settings (Phase 6)
+  contextWarningsEnabled: true,   // Enable context consumption warnings
+  contextWarningYellowThreshold: 60, // Yellow warning at 60% (min: 30, max: 90)
+  contextWarningRedThreshold: 80,    // Red warning at 80% (min: 50, max: 95)
+};
 
 // Default global stats
 const DEFAULT_GLOBAL_STATS: GlobalStats = {
@@ -224,6 +237,11 @@ export interface UseSettingsReturn {
   setWebInterfaceUseCustomPort: (value: boolean) => void;
   webInterfaceCustomPort: number;
   setWebInterfaceCustomPort: (value: number) => void;
+
+  // Context Management settings
+  contextManagementSettings: ContextManagementSettings;
+  setContextManagementSettings: (value: ContextManagementSettings) => void;
+  updateContextManagementSettings: (partial: Partial<ContextManagementSettings>) => void;
 }
 
 export function useSettings(): UseSettingsReturn {
@@ -315,6 +333,9 @@ export function useSettings(): UseSettingsReturn {
   // Web Interface settings (persistent)
   const [webInterfaceUseCustomPort, setWebInterfaceUseCustomPortState] = useState(false);
   const [webInterfaceCustomPort, setWebInterfaceCustomPortState] = useState(8080);
+
+  // Context Management settings (persistent)
+  const [contextManagementSettings, setContextManagementSettingsState] = useState<ContextManagementSettings>(DEFAULT_CONTEXT_MANAGEMENT_SETTINGS);
 
   // Wrapper functions that persist to electron-store
   // PERF: All wrapped in useCallback to prevent re-renders
@@ -877,6 +898,21 @@ export function useSettings(): UseSettingsReturn {
     }
   }, []);
 
+  // Context Management settings setters
+  const setContextManagementSettings = useCallback((value: ContextManagementSettings) => {
+    setContextManagementSettingsState(value);
+    window.maestro.settings.set('contextManagementSettings', value);
+  }, []);
+
+  // Update partial context management settings (convenience function)
+  const updateContextManagementSettings = useCallback((partial: Partial<ContextManagementSettings>) => {
+    setContextManagementSettingsState(prev => {
+      const updated = { ...prev, ...partial };
+      window.maestro.settings.set('contextManagementSettings', updated);
+      return updated;
+    });
+  }, []);
+
   // Load settings from electron-store on mount
   useEffect(() => {
     const loadSettings = async () => {
@@ -926,6 +962,7 @@ export function useSettings(): UseSettingsReturn {
       const savedLeaderboardRegistration = await window.maestro.settings.get('leaderboardRegistration');
       const savedWebInterfaceUseCustomPort = await window.maestro.settings.get('webInterfaceUseCustomPort');
       const savedWebInterfaceCustomPort = await window.maestro.settings.get('webInterfaceCustomPort');
+      const savedContextManagementSettings = await window.maestro.settings.get('contextManagementSettings');
 
       if (savedEnterToSendAI !== undefined) setEnterToSendAIState(savedEnterToSendAI as boolean);
       if (savedEnterToSendTerminal !== undefined) setEnterToSendTerminalState(savedEnterToSendTerminal as boolean);
@@ -1129,6 +1166,11 @@ export function useSettings(): UseSettingsReturn {
       if (savedWebInterfaceUseCustomPort !== undefined) setWebInterfaceUseCustomPortState(savedWebInterfaceUseCustomPort as boolean);
       if (savedWebInterfaceCustomPort !== undefined) setWebInterfaceCustomPortState(savedWebInterfaceCustomPort as number);
 
+      // Load context management settings
+      if (savedContextManagementSettings !== undefined) {
+        setContextManagementSettingsState({ ...DEFAULT_CONTEXT_MANAGEMENT_SETTINGS, ...(savedContextManagementSettings as Partial<ContextManagementSettings>) });
+      }
+
       // Mark settings as loaded
       setSettingsLoaded(true);
     };
@@ -1248,6 +1290,9 @@ export function useSettings(): UseSettingsReturn {
     setWebInterfaceUseCustomPort,
     webInterfaceCustomPort,
     setWebInterfaceCustomPort,
+    contextManagementSettings,
+    setContextManagementSettings,
+    updateContextManagementSettings,
   }), [
     // State values
     settingsLoaded,
@@ -1354,5 +1399,8 @@ export function useSettings(): UseSettingsReturn {
     setWebInterfaceUseCustomPort,
     webInterfaceCustomPort,
     setWebInterfaceCustomPort,
+    contextManagementSettings,
+    setContextManagementSettings,
+    updateContextManagementSettings,
   ]);
 }

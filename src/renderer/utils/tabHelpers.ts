@@ -1,7 +1,7 @@
 // Tab helper functions for AI multi-tab support
 // These helpers manage AITab state within Maestro sessions
 
-import { Session, AITab, ClosedTab, LogEntry, UsageStats } from '../types';
+import { Session, AITab, ClosedTab, LogEntry, UsageStats, ToolType } from '../types';
 import { generateId } from './ids';
 
 /**
@@ -659,4 +659,181 @@ export function navigateToLastTab(session: Session, showUnreadOnly = false): Set
 
   const lastIndex = navigableTabs.length - 1;
   return navigateToTabByIndex(session, lastIndex, showUnreadOnly);
+}
+
+/**
+ * Options for creating a new AI tab at a specific position.
+ */
+export interface CreateTabAtPositionOptions extends CreateTabOptions {
+  /** Insert the new tab after this tab ID */
+  afterTabId: string;
+}
+
+/**
+ * Create a new AI tab at a specific position in the session's tab list.
+ * The new tab is inserted immediately after the specified tab.
+ *
+ * @param session - The Maestro session to add the tab to
+ * @param options - Tab configuration including position (afterTabId)
+ * @returns Object containing the new tab and updated session, or null on error
+ *
+ * @example
+ * // Create a compacted tab right after the source tab
+ * const result = createTabAtPosition(session, {
+ *   afterTabId: sourceTab.id,
+ *   name: 'Session Compacted 2024-01-15',
+ *   logs: summarizedLogs,
+ * });
+ */
+export function createTabAtPosition(
+  session: Session,
+  options: CreateTabAtPositionOptions
+): CreateTabResult | null {
+  const result = createTab(session, options);
+  if (!result) return null;
+
+  // Find the index of the afterTabId
+  const afterIndex = result.session.aiTabs.findIndex(t => t.id === options.afterTabId);
+  if (afterIndex === -1) return result;
+
+  // Move the new tab to be right after afterTabId
+  const tabs = [...result.session.aiTabs];
+  const newTabIndex = tabs.findIndex(t => t.id === result.tab.id);
+
+  // Only move if the new tab isn't already in the right position
+  if (newTabIndex !== afterIndex + 1) {
+    const [newTab] = tabs.splice(newTabIndex, 1);
+    tabs.splice(afterIndex + 1, 0, newTab);
+  }
+
+  return {
+    tab: result.tab,
+    session: { ...result.session, aiTabs: tabs },
+  };
+}
+
+/**
+ * Options for creating a merged session from multiple context sources.
+ */
+export interface CreateMergedSessionOptions {
+  /** Name for the new merged session */
+  name: string;
+  /** Project root directory for the new session */
+  projectRoot: string;
+  /** Agent type for the new session */
+  toolType: ToolType;
+  /** Pre-merged conversation logs to initialize the tab with */
+  mergedLogs: LogEntry[];
+  /** Aggregated usage stats from merged contexts (optional) */
+  usageStats?: UsageStats;
+  /** Group ID to assign the session to (optional) */
+  groupId?: string;
+  /** Whether to save completions to history (default: true) */
+  saveToHistory?: boolean;
+}
+
+/**
+ * Result of creating a merged session.
+ */
+export interface CreateMergedSessionResult {
+  /** The newly created session with merged context */
+  session: Session;
+  /** The ID of the active tab in the new session */
+  tabId: string;
+}
+
+/**
+ * Create a new Maestro session pre-populated with merged context logs.
+ * This is used when merging multiple sessions/tabs into a unified context
+ * or when transferring context to a different agent type.
+ *
+ * The merged session is created with:
+ * - A single tab containing the merged logs
+ * - State set to 'idle' (ready to receive new input)
+ * - Standard session structure matching App.tsx createNewSession pattern
+ *
+ * @param options - Configuration for the merged session
+ * @returns Object containing the new session and its active tab ID
+ *
+ * @example
+ * const { session, tabId } = createMergedSession({
+ *   name: 'Merged Context',
+ *   projectRoot: '/path/to/project',
+ *   toolType: 'claude-code',
+ *   mergedLogs: groomedLogs,
+ *   usageStats: combinedStats
+ * });
+ * // Add session to app state and initialize agent
+ */
+export function createMergedSession(options: CreateMergedSessionOptions): CreateMergedSessionResult {
+  const {
+    name,
+    projectRoot,
+    toolType,
+    mergedLogs,
+    usageStats,
+    groupId,
+    saveToHistory = true
+  } = options;
+
+  const sessionId = generateId();
+  const tabId = generateId();
+
+  // Create the initial tab with merged logs
+  const mergedTab: AITab = {
+    id: tabId,
+    agentSessionId: null, // Will be assigned when agent spawns
+    name: null, // Auto-generated name based on session UUID octet
+    starred: false,
+    logs: mergedLogs,
+    inputValue: '',
+    stagedImages: [],
+    usageStats,
+    createdAt: Date.now(),
+    state: 'idle',
+    saveToHistory
+  };
+
+  // Create the merged session with standard structure
+  // Matches the pattern from App.tsx createNewSession
+  const session: Session = {
+    id: sessionId,
+    name,
+    groupId,
+    toolType,
+    state: 'idle',
+    cwd: projectRoot,
+    fullPath: projectRoot,
+    projectRoot, // Never changes, used for session storage
+    isGitRepo: false, // Will be updated by caller if needed
+    aiLogs: [], // Deprecated - logs are in aiTabs
+    shellLogs: [{
+      id: generateId(),
+      timestamp: Date.now(),
+      source: 'system',
+      text: 'Merged Context Session Ready.'
+    }],
+    workLog: [],
+    contextUsage: 0,
+    inputMode: toolType === 'terminal' ? 'terminal' : 'ai',
+    aiPid: 0,
+    terminalPid: 0,
+    port: 3000 + Math.floor(Math.random() * 100),
+    isLive: false,
+    changedFiles: [],
+    fileTree: [],
+    fileExplorerExpanded: [],
+    fileExplorerScrollPos: 0,
+    fileTreeAutoRefreshInterval: 180, // Default: auto-refresh every 3 minutes
+    shellCwd: projectRoot,
+    aiCommandHistory: [],
+    shellCommandHistory: [],
+    executionQueue: [],
+    activeTimeMs: 0,
+    aiTabs: [mergedTab],
+    activeTabId: tabId,
+    closedTabHistory: []
+  };
+
+  return { session, tabId };
 }

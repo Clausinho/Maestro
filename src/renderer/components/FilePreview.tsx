@@ -10,7 +10,7 @@ import { useLayerStack } from '../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
 import { Modal, ModalFooter } from './ui/Modal';
 import { MermaidRenderer } from './MermaidRenderer';
-import { getEncoding } from 'js-tiktoken';
+import { getEncoder, formatTokenCount } from '../utils/tokenCounter';
 import { formatShortcutKeys } from '../utils/shortcutFormatter';
 import { remarkFileLinks } from '../utils/remarkFileLinks';
 import remarkFrontmatter from 'remark-frontmatter';
@@ -157,17 +157,6 @@ const formatDateTime = (isoString: string): string => {
   });
 };
 
-// Format token count with K/M suffix
-const formatTokenCount = (count: number): string => {
-  if (count >= 1_000_000) {
-    return `${(count / 1_000_000).toFixed(1)}M`;
-  }
-  if (count >= 1_000) {
-    return `${(count / 1_000).toFixed(1)}K`;
-  }
-  return count.toLocaleString();
-};
-
 // Count markdown tasks (checkboxes)
 const countMarkdownTasks = (content: string): { open: number; closed: number } => {
   // Match markdown checkboxes: - [ ] or - [x] (also * [ ] and * [x])
@@ -177,15 +166,6 @@ const countMarkdownTasks = (content: string): { open: number; closed: number } =
     open: openMatches?.length || 0,
     closed: closedMatches?.length || 0
   };
-};
-
-// Lazy-loaded tokenizer encoder (cl100k_base is used by Claude/GPT-4)
-let encoderPromise: Promise<ReturnType<typeof getEncoding>> | null = null;
-const getEncoder = () => {
-  if (!encoderPromise) {
-    encoderPromise = Promise.resolve(getEncoding('cl100k_base'));
-  }
-  return encoderPromise;
 };
 
 // Helper to resolve image path relative to markdown file directory

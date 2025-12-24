@@ -41,6 +41,11 @@ import { WorktreeConfigModal } from './components/WorktreeConfigModal';
 import { CreateWorktreeModal } from './components/CreateWorktreeModal';
 import { CreatePRModal, PRDetails } from './components/CreatePRModal';
 import { DeleteWorktreeModal } from './components/DeleteWorktreeModal';
+import { MergeSessionModal } from './components/MergeSessionModal';
+import { MergeProgressModal } from './components/MergeProgressModal';
+import { SendToAgentModal } from './components/SendToAgentModal';
+import { TransferProgressModal } from './components/TransferProgressModal';
+import { SummarizeProgressModal } from './components/SummarizeProgressModal';
 
 // Group Chat Components
 import { GroupChatPanel } from './components/GroupChatPanel';
@@ -73,6 +78,9 @@ import { useSortedSessions, compareNamesIgnoringEmojis } from './hooks/useSorted
 import { useInputProcessing, DEFAULT_IMAGE_ONLY_PROMPT } from './hooks/useInputProcessing';
 import { useAgentErrorRecovery } from './hooks/useAgentErrorRecovery';
 import { useAgentCapabilities } from './hooks/useAgentCapabilities';
+import { useMergeSessionWithSessions } from './hooks/useMergeSession';
+import { useSendToAgentWithSessions } from './hooks/useSendToAgent';
+import { useSummarizeAndContinue } from './hooks/useSummarizeAndContinue';
 
 // Import contexts
 import { useLayerStack } from './contexts/LayerStackContext';
@@ -98,6 +106,13 @@ import type {
 import { THEMES } from './constants/themes';
 import { generateId } from './utils/ids';
 import { getContextColor } from './utils/theme';
+import { setActiveTab, createTab, closeTab, reopenClosedTab, getActiveTab, getWriteModeTab, navigateToNextTab, navigateToPrevTab, navigateToTabByIndex, navigateToLastTab, getInitialRenameValue, createMergedSession } from './utils/tabHelpers';
+import { TAB_SHORTCUTS } from './constants/shortcuts';
+import { shouldOpenExternally, getAllFolderPaths, flattenTree } from './utils/fileExplorer';
+import type { FileNode } from './types/fileTree';
+import { substituteTemplateVariables } from './utils/templateVariables';
+import { validateNewSession } from './utils/sessionValidation';
+import { estimateContextUsage, DEFAULT_CONTEXT_WINDOWS } from './utils/contextUsage';
 
 /**
  * Known Claude Code tool names - used to detect concatenated tool name patterns
@@ -152,11 +167,6 @@ function isLikelyConcatenatedToolNames(text: string): boolean {
   // If we matched 3+ consecutive tool names with no other content, it's likely malformed
   return matchCount >= 3;
 }
-import { setActiveTab, createTab, closeTab, reopenClosedTab, getActiveTab, getWriteModeTab, navigateToNextTab, navigateToPrevTab, navigateToTabByIndex, navigateToLastTab, getInitialRenameValue } from './utils/tabHelpers';
-import { shouldOpenExternally, getAllFolderPaths, flattenTree } from './utils/fileExplorer';
-import type { FileNode } from './types/fileTree';
-import { substituteTemplateVariables } from './utils/templateVariables';
-import { validateNewSession } from './utils/sessionValidation';
 
 // Get description for Claude Code slash commands
 // Built-in commands have known descriptions, custom ones use a generic description
@@ -269,6 +279,7 @@ export default function MaestroConsole() {
     recordWizardStart, recordWizardComplete, recordWizardAbandon, recordWizardResume,
     recordTourStart, recordTourComplete, recordTourSkip,
     leaderboardRegistration, setLeaderboardRegistration, isLeaderboardRegistered,
+    contextManagementSettings, updateContextManagementSettings,
   } = settings;
 
   // --- KEYBOARD SHORTCUT HELPERS ---
@@ -470,6 +481,12 @@ export default function MaestroConsole() {
 
   // Prompt Composer Modal State
   const [promptComposerOpen, setPromptComposerOpen] = useState(false);
+
+  // Merge Session Modal State
+  const [mergeSessionModalOpen, setMergeSessionModalOpen] = useState(false);
+
+  // Send to Agent Modal State
+  const [sendToAgentModalOpen, setSendToAgentModalOpen] = useState(false);
 
   // Group Chat Modal State
   const [showNewGroupChatModal, setShowNewGroupChatModal] = useState(false);
@@ -896,6 +913,7 @@ export default function MaestroConsole() {
             const worktreeSession: Session = {
               id: newId,
               name: subdir.branch || subdir.name,
+              groupId: parentSession.groupId,  // Inherit group from parent
               toolType: parentSession.toolType,
               state: 'idle',
               cwd: subdir.path,
@@ -1761,13 +1779,21 @@ export default function MaestroConsole() {
       // Claude Code reports actual context size as input + cache tokens.
       // Codex/OpenCode cache tokens are subsets or not part of context size, so use input + output.
       const sessionForUsage = sessionsRef.current.find(s => s.id === actualSessionId);
-      const isClaudeUsage = sessionForUsage?.toolType === 'claude-code' || sessionForUsage?.toolType === 'claude';
+      const agentToolType = sessionForUsage?.toolType;
+      const isClaudeUsage = agentToolType === 'claude-code' || agentToolType === 'claude';
       const currentContextTokens = isClaudeUsage
         ? usageStats.inputTokens + usageStats.cacheReadInputTokens + usageStats.cacheCreationInputTokens
         : usageStats.inputTokens + usageStats.outputTokens;
-      const contextPercentage = usageStats.contextWindow > 0
-        ? Math.min(Math.round((currentContextTokens / usageStats.contextWindow) * 100), 100)
-        : 0;
+
+      // Calculate context percentage, falling back to agent-specific defaults if contextWindow not provided
+      let contextPercentage: number;
+      if (usageStats.contextWindow > 0) {
+        contextPercentage = Math.min(Math.round((currentContextTokens / usageStats.contextWindow) * 100), 100);
+      } else {
+        // Use fallback estimation with agent-specific default context window
+        const estimated = estimateContextUsage(usageStats, agentToolType);
+        contextPercentage = estimated ?? 0;
+      }
 
       // Batch the usage stats update, context percentage, and cycle tokens
       // The batched updater handles the accumulation logic internally
@@ -2580,6 +2606,132 @@ export default function MaestroConsole() {
 
   // Get capabilities for the active session's agent type
   const { hasCapability: hasActiveSessionCapability } = useAgentCapabilities(activeSession?.toolType);
+
+  // Merge session hook for context merge operations
+  const {
+    mergeState,
+    progress: mergeProgress,
+    error: mergeError,
+    executeMerge,
+    cancelMerge,
+    reset: resetMerge,
+  } = useMergeSessionWithSessions({
+    sessions,
+    setSessions,
+    onSessionCreated: (sessionId, sessionName) => {
+      // Navigate to the newly created merged session
+      setActiveSessionId(sessionId);
+      setMergeSessionModalOpen(false);
+
+      // Show toast notification in the UI
+      addToast({
+        type: 'success',
+        title: 'Session Merged',
+        message: `Created "${sessionName}" with merged context`,
+      });
+
+      // Show desktop notification for visibility when app is not focused
+      window.maestro.notification.show(
+        'Session Merged',
+        `Created "${sessionName}" with merged context`
+      );
+    },
+  });
+
+  // Track the source/target names for the merge progress modal
+  const [mergeSourceName, setMergeSourceName] = useState<string | null>(null);
+  const [mergeTargetName, setMergeTargetName] = useState<string | null>(null);
+
+  // Send to Agent hook for cross-agent context transfer operations
+  // Track the source/target agents for the transfer progress modal
+  const [transferSourceAgent, setTransferSourceAgent] = useState<ToolType | null>(null);
+  const [transferTargetAgent, setTransferTargetAgent] = useState<ToolType | null>(null);
+  const {
+    transferState,
+    progress: transferProgress,
+    error: transferError,
+    executeTransfer,
+    cancelTransfer,
+    reset: resetTransfer,
+  } = useSendToAgentWithSessions({
+    sessions,
+    setSessions,
+    onSessionCreated: (sessionId, sessionName) => {
+      // Navigate to the newly created transferred session
+      setActiveSessionId(sessionId);
+      setSendToAgentModalOpen(false);
+
+      // Show toast notification in the UI
+      addToast({
+        type: 'success',
+        title: 'Context Transferred',
+        message: `Created "${sessionName}" with transferred context`,
+      });
+
+      // Show desktop notification for visibility when app is not focused
+      window.maestro.notification.show(
+        'Context Transferred',
+        `Created "${sessionName}" with transferred context`
+      );
+
+      // Reset the transfer state after a short delay to allow progress modal to show "Complete"
+      setTimeout(() => {
+        resetTransfer();
+        setTransferSourceAgent(null);
+        setTransferTargetAgent(null);
+      }, 1500);
+    },
+  });
+
+  // Summarize & Continue hook for context compaction
+  const {
+    summarizeState,
+    progress: summarizeProgress,
+    result: summarizeResult,
+    error: summarizeError,
+    startSummarize,
+    cancel: cancelSummarize,
+    canSummarize,
+    minLogsRequired: summarizeMinLogs,
+  } = useSummarizeAndContinue(activeSession ?? null);
+
+  // State for summarize progress modal visibility
+  const [summarizeModalOpen, setSummarizeModalOpen] = useState(false);
+
+  // Handler for starting summarization
+  const handleSummarizeAndContinue = useCallback((tabId?: string) => {
+    if (!activeSession || activeSession.inputMode !== 'ai') return;
+
+    const targetTabId = tabId || activeSession.activeTabId;
+    const targetTab = activeSession.aiTabs.find(t => t.id === targetTabId);
+
+    if (!targetTab || !canSummarize(targetTab)) {
+      addToast({
+        type: 'warning',
+        title: 'Cannot Summarize',
+        message: `Tab needs at least ${summarizeMinLogs} log entries to summarize.`,
+      });
+      return;
+    }
+
+    setSummarizeModalOpen(true);
+
+    startSummarize(targetTabId).then((result) => {
+      if (result) {
+        // Update session with the new tab
+        setSessions(prev => prev.map(s =>
+          s.id === activeSession.id ? result.updatedSession : s
+        ));
+
+        // Show success notification
+        addToast({
+          type: 'success',
+          title: 'Context Compacted',
+          message: `Created compacted tab with ${summarizeResult?.reductionPercent ?? 0}% token reduction`,
+        });
+      }
+    });
+  }, [activeSession, canSummarize, summarizeMinLogs, startSummarize, setSessions, addToast, summarizeResult?.reductionPercent]);
 
   // Combine built-in slash commands with custom AI commands, spec-kit commands, AND agent-specific commands for autocomplete
   const allSlashCommands = useMemo(() => {
@@ -3395,6 +3547,7 @@ export default function MaestroConsole() {
       const worktreeSession: Session = {
         id: newId,
         name: worktree.branch || worktree.name,
+        groupId: parentSession.groupId,  // Inherit group from parent
         toolType: parentSession.toolType,
         state: 'idle',
         cwd: worktree.path,
@@ -4733,6 +4886,100 @@ export default function MaestroConsole() {
     setTourOpen,
     setActiveFocus,
     startBatchRun,
+  ]);
+
+  /**
+   * Initialize a merged session with context from groomed logs.
+   * Spawns the agent process and optionally sends an initial context prompt.
+   *
+   * This is the second step after createMergedSession() - it integrates the
+   * session into app state and spawns the AI process.
+   *
+   * @param session - The pre-created session from createMergedSession()
+   * @param contextSummary - Optional initial prompt to send to establish context
+   *                         (e.g., "Here's a summary of our previous conversations...")
+   * @returns Promise that resolves when the session is initialized
+   */
+  const initializeMergedSession = useCallback(async (
+    session: Session,
+    contextSummary?: string
+  ) => {
+    // Add session to app state
+    setSessions(prev => [...prev, session]);
+    setActiveSessionId(session.id);
+
+    // Track session creation in global stats
+    updateGlobalStats({ totalSessions: 1 });
+
+    // Check if this is a git repo and update git info
+    const isGitRepo = await gitService.isRepo(session.projectRoot);
+    if (isGitRepo) {
+      try {
+        const [gitBranches, gitTags] = await Promise.all([
+          gitService.getBranches(session.projectRoot),
+          gitService.getTags(session.projectRoot)
+        ]);
+
+        setSessions(prev => prev.map(s => {
+          if (s.id !== session.id) return s;
+          return {
+            ...s,
+            isGitRepo: true,
+            gitBranches,
+            gitTags,
+            gitRefsCacheTime: Date.now()
+          };
+        }));
+      } catch {
+        // Ignore git info fetch errors
+      }
+    }
+
+    // If a context summary is provided, queue it as the first message
+    // This will be sent when the agent spawns on first user input
+    if (contextSummary && contextSummary.trim()) {
+      const activeTab = getActiveTab(session);
+      if (activeTab) {
+        // Add context as a system log entry so it appears in conversation history
+        const contextLogEntry: LogEntry = {
+          id: generateId(),
+          timestamp: Date.now(),
+          source: 'system',
+          text: `[Merged Context]\n\n${contextSummary}`
+        };
+
+        setSessions(prev => prev.map(s => {
+          if (s.id !== session.id) return s;
+          return {
+            ...s,
+            aiTabs: s.aiTabs.map(tab => {
+              if (tab.id !== activeTab.id) return tab;
+              return {
+                ...tab,
+                logs: [...tab.logs, contextLogEntry]
+              };
+            })
+          };
+        }));
+      }
+    }
+
+    // Focus the input for immediate user interaction
+    setActiveFocus('main');
+    setTimeout(() => inputRef.current?.focus(), 50);
+
+    // Show success notification
+    addToast({
+      type: 'success',
+      title: 'Session Created',
+      message: `Merged context session "${session.name}" is ready`,
+    });
+  }, [
+    setSessions,
+    setActiveSessionId,
+    updateGlobalStats,
+    setActiveFocus,
+    addToast
   ]);
 
   const toggleInputMode = () => {
@@ -6321,7 +6568,17 @@ export default function MaestroConsole() {
     // Navigation handlers from useKeyboardNavigation hook
     handleSidebarNavigation, handleTabNavigation, handleEnterToActivate, handleEscapeInMain,
     // Agent capabilities
-    hasActiveSessionCapability
+    hasActiveSessionCapability,
+    // Merge session modal and send to agent modal
+    setMergeSessionModalOpen,
+    setSendToAgentModalOpen,
+    // Summarize and continue
+    canSummarizeActiveTab: (() => {
+      if (!activeSession || !activeSession.activeTabId) return false;
+      const tab = activeSession.aiTabs.find(t => t.id === activeSession.activeTabId);
+      return tab ? canSummarize(tab) : false;
+    })(),
+    summarizeAndContinue: handleSummarizeAndContinue,
   };
 
   // Update flat file list when active session's tree, expanded folders, filter, or hidden files setting changes
@@ -6718,10 +6975,14 @@ export default function MaestroConsole() {
           onDeleteGroupChat={deleteGroupChatWithConfirmation}
           activeGroupChatId={activeGroupChatId}
           hasActiveSessionCapability={hasActiveSessionCapability}
+          onOpenMergeSession={() => setMergeSessionModalOpen(true)}
+          onOpenSendToAgent={() => setSendToAgentModalOpen(true)}
           onOpenCreatePR={(session) => {
             setCreatePRSession(session);
             setCreatePRModalOpen(true);
           }}
+          onSummarizeAndContinue={() => handleSummarizeAndContinue()}
+          canSummarizeActiveTab={activeTab ? canSummarize(activeTab) : false}
           onToggleRemoteControl={async () => {
             await toggleGlobalLive();
             // Show flash notification based on the NEW state (opposite of current)
@@ -6943,6 +7204,7 @@ export default function MaestroConsole() {
                   const worktreeSession: Session = {
                     id: newId,
                     name: subdir.branch || subdir.name,
+                    groupId: activeSession.groupId,  // Inherit group from parent
                     toolType: activeSession.toolType,
                     state: 'idle',
                     cwd: subdir.path,
@@ -7062,6 +7324,7 @@ export default function MaestroConsole() {
               const worktreeSession: Session = {
                 id: newId,
                 name: branchName,
+                groupId: activeSession.groupId,  // Inherit group from parent
                 toolType: activeSession.toolType,
                 state: 'idle',
                 cwd: worktreePath,
@@ -7193,6 +7456,7 @@ export default function MaestroConsole() {
             const worktreeSession: Session = {
               id: newId,
               name: branchName,
+              groupId: createWorktreeSession.groupId,  // Inherit group from parent
               toolType: createWorktreeSession.toolType,
               state: 'idle',
               cwd: worktreePath,
@@ -7257,6 +7521,195 @@ export default function MaestroConsole() {
               title: 'Worktree Created',
               message: branchName,
             });
+          }}
+        />
+      )}
+
+      {/* --- MERGE SESSION MODAL --- */}
+      {mergeSessionModalOpen && activeSession && activeSession.activeTabId && (
+        <MergeSessionModal
+          theme={theme}
+          isOpen={mergeSessionModalOpen}
+          sourceSession={activeSession}
+          sourceTabId={activeSession.activeTabId}
+          allSessions={sessions}
+          onClose={() => {
+            setMergeSessionModalOpen(false);
+            resetMerge();
+          }}
+          onMerge={async (targetSessionId, targetTabId, options) => {
+            // Get source tab name for display
+            const sourceTab = activeSession.aiTabs.find(t => t.id === activeSession.activeTabId);
+            const sourceDisplayName = sourceTab?.name || activeSession.name || 'Source';
+
+            // Get target session/tab name for display
+            const targetSession = sessions.find(s => s.id === targetSessionId);
+            const targetTab = targetTabId
+              ? targetSession?.aiTabs.find(t => t.id === targetTabId)
+              : targetSession?.aiTabs.find(t => t.id === targetSession?.activeTabId);
+            const targetDisplayName = targetTab?.name || targetSession?.name || 'Target';
+
+            // Set names for progress modal
+            setMergeSourceName(sourceDisplayName);
+            setMergeTargetName(targetDisplayName);
+
+            // Execute merge using the hook
+            const result = await executeMerge(
+              activeSession,
+              activeSession.activeTabId,
+              targetSessionId,
+              targetTabId,
+              options
+            );
+
+            if (!result.success) {
+              addToast({
+                type: 'error',
+                title: 'Merge Failed',
+                message: result.error || 'Failed to merge contexts',
+              });
+            }
+
+            return result;
+          }}
+        />
+      )}
+
+      {/* --- MERGE PROGRESS MODAL --- */}
+      {mergeState === 'merging' && mergeProgress && (
+        <MergeProgressModal
+          theme={theme}
+          isOpen={mergeState === 'merging'}
+          progress={mergeProgress}
+          sourceName={mergeSourceName || undefined}
+          targetName={mergeTargetName || undefined}
+          onCancel={() => {
+            cancelMerge();
+            setMergeSessionModalOpen(false);
+          }}
+        />
+      )}
+
+      {/* --- TRANSFER PROGRESS MODAL --- */}
+      {(transferState === 'grooming' || transferState === 'creating' || transferState === 'complete') &&
+        transferProgress &&
+        transferSourceAgent &&
+        transferTargetAgent && (
+        <TransferProgressModal
+          theme={theme}
+          isOpen={true}
+          progress={transferProgress}
+          sourceAgent={transferSourceAgent}
+          targetAgent={transferTargetAgent}
+          onCancel={() => {
+            cancelTransfer();
+            setTransferSourceAgent(null);
+            setTransferTargetAgent(null);
+          }}
+          onComplete={() => {
+            resetTransfer();
+            setTransferSourceAgent(null);
+            setTransferTargetAgent(null);
+          }}
+        />
+      )}
+
+      {/* --- SUMMARIZE PROGRESS MODAL --- */}
+      {summarizeModalOpen && summarizeState !== 'idle' && (
+        <SummarizeProgressModal
+          theme={theme}
+          isOpen={summarizeModalOpen}
+          progress={summarizeProgress}
+          result={summarizeResult}
+          onCancel={() => {
+            cancelSummarize();
+            setSummarizeModalOpen(false);
+          }}
+          onComplete={() => {
+            setSummarizeModalOpen(false);
+          }}
+        />
+      )}
+
+      {/* --- SEND TO AGENT MODAL --- */}
+      {sendToAgentModalOpen && activeSession && activeSession.activeTabId && (
+        <SendToAgentModal
+          theme={theme}
+          isOpen={sendToAgentModalOpen}
+          sourceSession={activeSession}
+          sourceTabId={activeSession.activeTabId}
+          allSessions={sessions}
+          onClose={() => setSendToAgentModalOpen(false)}
+          onSend={async (targetSessionId, options) => {
+            // Find the target session
+            const targetSession = sessions.find(s => s.id === targetSessionId);
+            if (!targetSession) {
+              return { success: false, error: 'Target session not found' };
+            }
+
+            // Store source and target agents for progress modal display
+            setTransferSourceAgent(activeSession.toolType);
+            setTransferTargetAgent(targetSession.toolType);
+
+            // Close the selection modal - progress modal will take over
+            setSendToAgentModalOpen(false);
+
+            // Get source tab context
+            const sourceTab = activeSession.aiTabs.find(t => t.id === activeSession.activeTabId);
+            if (!sourceTab) {
+              return { success: false, error: 'Source tab not found' };
+            }
+
+            // Transfer context to the target session's active tab
+            // Create a new tab in the target session with the transferred context
+            const newTabId = `tab-${Date.now()}`;
+            const transferNotice: LogEntry = {
+              id: `transfer-notice-${Date.now()}`,
+              timestamp: Date.now(),
+              source: 'system',
+              text: `Context transferred from "${activeSession.name}" (${activeSession.toolType})${options.groomContext ? ' - cleaned to reduce size' : ''}`,
+            };
+
+            const newTab: AITab = {
+              id: newTabId,
+              name: `From: ${activeSession.name}`,
+              logs: [transferNotice, ...sourceTab.logs],
+              agentSessionId: null,
+              starred: false,
+              inputValue: '',
+              stagedImages: [],
+              createdAt: Date.now(),
+              state: 'idle',
+            };
+
+            // Add the new tab to the target session
+            setSessions(prev => prev.map(s => {
+              if (s.id === targetSessionId) {
+                return {
+                  ...s,
+                  aiTabs: [...s.aiTabs, newTab],
+                  activeTabId: newTabId,
+                };
+              }
+              return s;
+            }));
+
+            // Navigate to the target session
+            setActiveSessionId(targetSessionId);
+
+            // Show success toast
+            addToast({
+              type: 'success',
+              title: 'Context Transferred',
+              message: `Context sent to "${targetSession.name}"`,
+            });
+
+            // Reset transfer state
+            resetTransfer();
+            setTransferSourceAgent(null);
+            setTransferTargetAgent(null);
+
+            return { success: true, newSessionId: targetSessionId, newTabId };
           }}
         />
       )}
@@ -8323,6 +8776,29 @@ export default function MaestroConsole() {
         onOpenWorktreeConfig={() => setWorktreeConfigModalOpen(true)}
         onOpenCreatePR={() => setCreatePRModalOpen(true)}
         isWorktreeChild={!!activeSession?.parentSessionId}
+        onSummarizeAndContinue={handleSummarizeAndContinue}
+        onMergeWith={(tabId: string) => {
+          // First select the tab to make it active, then open merge modal
+          if (activeSession) {
+            setSessions(prev => prev.map(s =>
+              s.id === activeSession.id ? { ...s, activeTabId: tabId } : s
+            ));
+          }
+          setMergeSessionModalOpen(true);
+        }}
+        onSendToAgent={(tabId: string) => {
+          // First select the tab to make it active, then open send modal
+          if (activeSession) {
+            setSessions(prev => prev.map(s =>
+              s.id === activeSession.id ? { ...s, activeTabId: tabId } : s
+            ));
+          }
+          setSendToAgentModalOpen(true);
+        }}
+        // Context warning sash settings (Phase 6)
+        contextWarningsEnabled={contextManagementSettings.contextWarningsEnabled}
+        contextWarningYellowThreshold={contextManagementSettings.contextWarningYellowThreshold}
+        contextWarningRedThreshold={contextManagementSettings.contextWarningRedThreshold}
       />
       )}
 

@@ -59,6 +59,23 @@ vi.mock('../../../renderer/components/CustomThemeBuilder', () => ({
   ),
 }));
 
+// Mock useSettings hook (used for context management settings)
+vi.mock('../../../renderer/hooks/useSettings', () => ({
+  useSettings: () => ({
+    contextManagementSettings: {
+      autoGroomContexts: true,
+      maxContextTokens: 100000,
+      showMergePreview: true,
+      groomingTimeout: 60000,
+      preferredGroomingAgent: 'fastest',
+      contextWarningsEnabled: true,
+      contextWarningYellowThreshold: 60,
+      contextWarningRedThreshold: 80,
+    },
+    updateContextManagementSettings: vi.fn(),
+  }),
+}));
+
 // Sample theme for testing
 const mockTheme: Theme = {
   id: 'dracula',
