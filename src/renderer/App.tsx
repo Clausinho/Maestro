@@ -49,7 +49,6 @@ import { TransferProgressModal } from './components/TransferProgressModal';
 
 // Group Chat Components
 import { GroupChatPanel } from './components/GroupChatPanel';
-import { type GroupChatMessagesHandle } from './components/GroupChatMessages';
 import { GroupChatRightPanel, type GroupChatRightTab } from './components/GroupChatRightPanel';
 import { NewGroupChatModal } from './components/NewGroupChatModal';
 import { DeleteGroupChatModal } from './components/DeleteGroupChatModal';
@@ -87,6 +86,7 @@ import { useLayerStack } from './contexts/LayerStackContext';
 import { useToast } from './contexts/ToastContext';
 import { GitStatusProvider } from './contexts/GitStatusContext';
 import { InputProvider, useInputContext } from './contexts/InputContext';
+import { GroupChatProvider, useGroupChat } from './contexts/GroupChatContext';
 import { ToastContainer } from './components/Toast';
 
 // Import services
@@ -98,10 +98,11 @@ import { autorunSynopsisPrompt, maestroSystemPrompt } from '../prompts';
 import { parseSynopsis } from '../shared/synopsis';
 
 // Import types and constants
+// Note: GroupChat, GroupChatState are now imported via GroupChatContext; GroupChatMessage still used locally
 import type {
   ToolType, SessionState, RightPanelTab, SettingsTab,
   FocusArea, LogEntry, Session, Group, AITab, UsageStats, QueuedItem, BatchRunConfig,
-  AgentError, BatchRunState, GroupChat, GroupChatMessage, GroupChatState,
+  AgentError, BatchRunState, GroupChatMessage,
   SpecKitCommand
 } from './types';
 import { THEMES } from './constants/themes';
@@ -300,26 +301,30 @@ function MaestroConsoleInner() {
   const removedWorktreePathsRef = useRef<Set<string>>(removedWorktreePaths);
   removedWorktreePathsRef.current = removedWorktreePaths;
 
-  // --- GROUP CHAT STATE ---
-  const [groupChats, setGroupChats] = useState<GroupChat[]>([]);
+  // --- GROUP CHAT STATE (Phase 4: extracted to GroupChatContext) ---
+  // Note: groupChatsExpanded remains here as it's a UI layout concern (already in UILayoutContext)
   const [groupChatsExpanded, setGroupChatsExpanded] = useState(true);
-  const [activeGroupChatId, setActiveGroupChatId] = useState<string | null>(null);
-  const [groupChatMessages, setGroupChatMessages] = useState<GroupChatMessage[]>([]);
-  const [groupChatState, setGroupChatState] = useState<GroupChatState>('idle');
-  const [groupChatStagedImages, setGroupChatStagedImages] = useState<string[]>([]);
-  const [groupChatReadOnlyMode, setGroupChatReadOnlyMode] = useState(false);
-  const [groupChatExecutionQueue, setGroupChatExecutionQueue] = useState<QueuedItem[]>([]);
-  const [groupChatRightTab, setGroupChatRightTab] = useState<GroupChatRightTab>('participants');
-  const [groupChatParticipantColors, setGroupChatParticipantColors] = useState<Record<string, string>>({});
-  const [moderatorUsage, setModeratorUsage] = useState<{ contextUsage: number; totalCost: number; tokenCount: number } | null>(null);
-  // Track per-participant working state (participantName -> 'idle' | 'working')
-  const [participantStates, setParticipantStates] = useState<Map<string, 'idle' | 'working'>>(new Map());
-  // Track state per-group-chat (for showing busy indicator when not active)
-  const [groupChatStates, setGroupChatStates] = useState<Map<string, GroupChatState>>(new Map());
-  // Track participant states per-group-chat (groupChatId -> Map<participantName, state>)
-  const [allGroupChatParticipantStates, setAllGroupChatParticipantStates] = useState<Map<string, Map<string, 'idle' | 'working'>>>(new Map());
-  // Group chat agent error state
-  const [groupChatError, setGroupChatError] = useState<{ groupChatId: string; error: AgentError; participantName?: string } | null>(null);
+
+  // Use GroupChatContext for all group chat states
+  const {
+    groupChats, setGroupChats,
+    activeGroupChatId, setActiveGroupChatId,
+    groupChatMessages, setGroupChatMessages,
+    groupChatState, setGroupChatState,
+    groupChatStagedImages, setGroupChatStagedImages,
+    groupChatReadOnlyMode, setGroupChatReadOnlyMode,
+    groupChatExecutionQueue, setGroupChatExecutionQueue,
+    groupChatRightTab, setGroupChatRightTab,
+    groupChatParticipantColors, setGroupChatParticipantColors,
+    moderatorUsage, setModeratorUsage,
+    participantStates, setParticipantStates,
+    groupChatStates, setGroupChatStates,
+    allGroupChatParticipantStates, setAllGroupChatParticipantStates,
+    groupChatError, setGroupChatError,
+    groupChatInputRef,
+    groupChatMessagesRef,
+    clearGroupChatError: handleClearGroupChatErrorBase,
+  } = useGroupChat();
 
   // --- BATCHED SESSION UPDATES (reduces React re-renders during AI streaming) ---
   const batchedUpdater = useBatchedSessionUpdates(setSessions);
@@ -343,7 +348,7 @@ function MaestroConsoleInner() {
     cyclePositionRef.current = -1; // Reset so next cycle finds first occurrence
     setActiveGroupChatId(null); // Dismiss group chat when selecting an agent
     setActiveSessionIdInternal(id);
-  }, [batchedUpdater]);
+  }, [batchedUpdater, setActiveGroupChatId]);
 
   // Input State - extracted to InputContext for centralized management
   // Use InputContext for all input and completion states
@@ -2302,6 +2307,7 @@ function MaestroConsoleInner() {
       unsubParticipantState?.();
       unsubModeratorSessionId?.();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- IPC subscription for group chat events; setters from context are stable
   }, [activeGroupChatId]);
 
   // Process group chat execution queue when state becomes idle
@@ -2327,11 +2333,9 @@ function MaestroConsoleInner() {
     }
   }, [groupChatState, groupChatExecutionQueue, activeGroupChatId]);
 
-  // Refs
+  // Refs (groupChatInputRef and groupChatMessagesRef are now in GroupChatContext)
   const logsEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const groupChatInputRef = useRef<HTMLTextAreaElement>(null);
-  const groupChatMessagesRef = useRef<GroupChatMessagesHandle>(null);
   const terminalOutputRef = useRef<HTMLDivElement>(null);
   const sidebarContainerRef = useRef<HTMLDivElement>(null);
   const fileTreeContainerRef = useRef<HTMLDivElement>(null);
@@ -2671,12 +2675,8 @@ function MaestroConsoleInner() {
     onAuthenticate: errorSession ? () => handleAuthenticateAfterError(errorSession.id) : undefined,
   });
 
-  // Handler to clear group chat error and resume operations
-  const handleClearGroupChatError = useCallback(() => {
-    setGroupChatError(null);
-    // Focus the input for retry
-    setTimeout(() => groupChatInputRef.current?.focus(), 0);
-  }, []);
+  // Handler to clear group chat error (now uses context's clearGroupChatError)
+  const handleClearGroupChatError = handleClearGroupChatErrorBase;
 
   // Use the agent error recovery hook for group chat errors
   const { recoveryActions: groupChatRecoveryActions } = useAgentErrorRecovery({
@@ -9630,13 +9630,17 @@ function MaestroConsoleInner() {
 /**
  * MaestroConsole - Main application component with context providers
  *
- * Wraps MaestroConsoleInner with InputProvider for centralized input state management.
- * Phase 3 of App.tsx decomposition - see refactor-details-2.md for full plan.
+ * Wraps MaestroConsoleInner with context providers for centralized state management.
+ * Phase 3: InputProvider - centralized input state management
+ * Phase 4: GroupChatProvider - centralized group chat state management
+ * See refactor-details-2.md for full plan.
  */
 export default function MaestroConsole() {
   return (
-    <InputProvider>
-      <MaestroConsoleInner />
-    </InputProvider>
+    <GroupChatProvider>
+      <InputProvider>
+        <MaestroConsoleInner />
+      </InputProvider>
+    </GroupChatProvider>
   );
 }
