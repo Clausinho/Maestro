@@ -5,6 +5,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { LayerStackProvider } from './contexts/LayerStackContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ModalProvider } from './contexts/ModalContext';
+import { UILayoutProvider } from './contexts/UILayoutContext';
 import { WizardProvider } from './components/Wizard';
 import { logger } from './utils/logger';
 import './index.css';
@@ -49,9 +50,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <ToastProvider>
         <LayerStackProvider>
           <ModalProvider>
-            <WizardProvider>
-              <MaestroConsole />
-            </WizardProvider>
+            <UILayoutProvider>
+              <WizardProvider>
+                <MaestroConsole />
+              </WizardProvider>
+            </UILayoutProvider>
           </ModalProvider>
         </LayerStackProvider>
       </ToastProvider>
