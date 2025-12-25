@@ -621,9 +621,10 @@ export function useMergeSessionWithSessions(
       } else if (result.targetSessionId && result.targetTabId) {
         // Merge into existing tab - keep target logs unchanged, inject source context
         // Format the source context as a string to inject into the AI conversation
+        // Filter out system messages (including system prompts) - only include user/assistant messages
         const sourceTab = sourceSession.aiTabs.find(t => t.id === sourceTabId);
         const sourceContext = sourceTab?.logs
-          .filter(log => log.text && log.text.trim())
+          .filter(log => log.text && log.text.trim() && log.source !== 'system')
           .map(log => {
             const role = log.source === 'user' ? 'User' : 'Assistant';
             return `${role}: ${log.text}`;
