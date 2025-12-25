@@ -1008,6 +1008,79 @@ describe('InputArea', () => {
       expect(setTabCompletionOpen).toHaveBeenCalledWith(false);
     });
 
+    it('highlights selected suggestion based on selectedTabCompletionIndex', () => {
+      const props = createDefaultProps({
+        session: createMockSession({ inputMode: 'terminal' }),
+        tabCompletionOpen: true,
+        tabCompletionSuggestions: [
+          { value: 'ls -la', type: 'history', displayText: 'ls -la' },
+          { value: 'cd src', type: 'history', displayText: 'cd src' },
+          { value: 'main', type: 'branch', displayText: 'main' },
+        ],
+        selectedTabCompletionIndex: 1,
+        setSelectedTabCompletionIndex: vi.fn(),
+      });
+      render(<InputArea {...props} />);
+
+      const items = screen.getAllByText(/ls -la|cd src|main/).map(el => el.closest('div[class*="cursor-pointer"]'));
+
+      // The second item (index 1) should have the ring class indicating selection
+      expect(items[1]).toHaveClass('ring-1');
+      // The first and third items should NOT have the ring class
+      expect(items[0]).not.toHaveClass('ring-1');
+      expect(items[2]).not.toHaveClass('ring-1');
+    });
+
+    it('updates selection on mouse hover', () => {
+      const setSelectedTabCompletionIndex = vi.fn();
+      const props = createDefaultProps({
+        session: createMockSession({ inputMode: 'terminal' }),
+        tabCompletionOpen: true,
+        tabCompletionSuggestions: [
+          { value: 'ls -la', type: 'history', displayText: 'ls -la' },
+          { value: 'cd src', type: 'history', displayText: 'cd src' },
+        ],
+        selectedTabCompletionIndex: 0,
+        setSelectedTabCompletionIndex,
+      });
+      render(<InputArea {...props} />);
+
+      const secondItem = screen.getByText('cd src').closest('div[class*="cursor-pointer"]');
+      fireEvent.mouseEnter(secondItem!);
+
+      expect(setSelectedTabCompletionIndex).toHaveBeenCalledWith(1);
+    });
+
+    it('shows appropriate icons for different suggestion types', () => {
+      const props = createDefaultProps({
+        session: createMockSession({ inputMode: 'terminal', isGitRepo: true }),
+        tabCompletionOpen: true,
+        tabCompletionSuggestions: [
+          { value: 'ls -la', type: 'history', displayText: 'ls -la' },
+          { value: 'git checkout main', type: 'branch', displayText: 'main' },
+          { value: 'v1.0.0', type: 'tag', displayText: 'v1.0.0' },
+          { value: 'src/components', type: 'folder', displayText: 'components' },
+          { value: 'src/index.ts', type: 'file', displayText: 'index.ts' },
+        ],
+        setTabCompletionFilter: vi.fn(),
+      });
+      render(<InputArea {...props} />);
+
+      // Each suggestion should be visible
+      expect(screen.getByText('ls -la')).toBeInTheDocument();
+      expect(screen.getByText('main')).toBeInTheDocument();
+      expect(screen.getByText('v1.0.0')).toBeInTheDocument();
+      expect(screen.getByText('components')).toBeInTheDocument();
+      expect(screen.getByText('index.ts')).toBeInTheDocument();
+
+      // Each suggestion should have its type label
+      expect(screen.getByText('history')).toBeInTheDocument();
+      expect(screen.getByText('branch')).toBeInTheDocument();
+      expect(screen.getByText('tag')).toBeInTheDocument();
+      expect(screen.getByText('folder')).toBeInTheDocument();
+      expect(screen.getByText('file')).toBeInTheDocument();
+    });
+
     it('shows empty state for filtered results', () => {
       const props = createDefaultProps({
         session: createMockSession({ inputMode: 'terminal', isGitRepo: true }),
