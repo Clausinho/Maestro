@@ -872,6 +872,17 @@ export class ProcessManager extends EventEmitter {
                       managedProcess.resultEmitted = true;
                       // Use event text if available, otherwise use accumulated streamed text
                       const resultText = event.text || managedProcess.streamedText || '';
+                      // Log synopsis result processing (for debugging empty synopsis issue)
+                      if (sessionId.includes('-synopsis-')) {
+                        logger.info('[ProcessManager] Synopsis result processing', 'ProcessManager', {
+                          sessionId,
+                          eventText: event.text?.substring(0, 200) || '(empty)',
+                          eventTextLength: event.text?.length || 0,
+                          streamedText: managedProcess.streamedText?.substring(0, 200) || '(empty)',
+                          streamedTextLength: managedProcess.streamedText?.length || 0,
+                          resultTextLength: resultText.length,
+                        });
+                      }
                       if (resultText) {
                         logger.debug('[ProcessManager] Emitting result data via parser', 'ProcessManager', {
                           sessionId,
@@ -880,6 +891,11 @@ export class ProcessManager extends EventEmitter {
                           hasStreamedText: !!managedProcess.streamedText
                         });
                         this.emit('data', sessionId, resultText);
+                      } else if (sessionId.includes('-synopsis-')) {
+                        logger.warn('[ProcessManager] Synopsis result is empty - no text to emit', 'ProcessManager', {
+                          sessionId,
+                          rawEvent: JSON.stringify(event).substring(0, 500),
+                        });
                       }
                     }
                   }
@@ -998,6 +1014,20 @@ export class ProcessManager extends EventEmitter {
             console.log(`[GroupChat:Debug:ProcessManager] jsonBuffer length: ${managedProcess.jsonBuffer?.length || 0}`);
             console.log(`[GroupChat:Debug:ProcessManager] stderrBuffer length: ${managedProcess.stderrBuffer?.length || 0}`);
             console.log(`[GroupChat:Debug:ProcessManager] stderrBuffer preview: "${(managedProcess.stderrBuffer || '').substring(0, 500)}"`);
+          }
+
+          // Debug: Log exit details for synopsis sessions to diagnose empty response issue
+          if (sessionId.includes('-synopsis-')) {
+            logger.info('[ProcessManager] Synopsis session exit', 'ProcessManager', {
+              sessionId,
+              exitCode: code,
+              resultEmitted: managedProcess.resultEmitted,
+              streamedTextLength: managedProcess.streamedText?.length || 0,
+              streamedTextPreview: managedProcess.streamedText?.substring(0, 200) || '(empty)',
+              stdoutBufferLength: managedProcess.stdoutBuffer?.length || 0,
+              stderrBufferLength: managedProcess.stderrBuffer?.length || 0,
+              stderrPreview: managedProcess.stderrBuffer?.substring(0, 200) || '(empty)',
+            });
           }
           if (isBatchMode && !isStreamJsonMode && managedProcess.jsonBuffer) {
             // Parse JSON response from regular batch mode (not stream-json)

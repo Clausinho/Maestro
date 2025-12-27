@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { X, Wand2, ExternalLink, FileCode, BarChart3, Loader2, Trophy, Globe, Check, BookOpen } from 'lucide-react';
-import type { Theme, Session, AutoRunStats, MaestroUsageStats } from '../types';
+import type { Theme, Session, AutoRunStats, MaestroUsageStats, LeaderboardRegistration } from '../types';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
 import pedramAvatar from '../assets/pedram-avatar.png';
 import { AchievementCard } from './AchievementCard';
@@ -38,9 +38,10 @@ interface AboutModalProps {
   onClose: () => void;
   onOpenLeaderboardRegistration?: () => void;
   isLeaderboardRegistered?: boolean;
+  leaderboardRegistration?: LeaderboardRegistration | null;
 }
 
-export function AboutModal({ theme, sessions, autoRunStats, usageStats, onClose, onOpenLeaderboardRegistration, isLeaderboardRegistered }: AboutModalProps) {
+export function AboutModal({ theme, sessions, autoRunStats, usageStats, onClose, onOpenLeaderboardRegistration, isLeaderboardRegistered, leaderboardRegistration }: AboutModalProps) {
   const [globalStats, setGlobalStats] = useState<GlobalAgentStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [isStatsComplete, setIsStatsComplete] = useState(false);
@@ -222,6 +223,7 @@ export function AboutModal({ theme, sessions, autoRunStats, usageStats, onClose,
             globalStats={globalStats}
             usageStats={usageStats}
             handsOnTimeMs={totalActiveTimeMs}
+            leaderboardRegistration={leaderboardRegistration}
             onEscapeWithBadgeOpen={(handler) => { badgeEscapeHandlerRef.current = handler; }}
           />
 

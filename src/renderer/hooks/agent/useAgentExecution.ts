@@ -356,6 +356,7 @@ export function useAgentExecution(
 
       // Use a unique target ID for background synopsis
       const targetSessionId = `${sessionId}-synopsis-${Date.now()}`;
+      console.log(`[spawnBackgroundSynopsis] Starting synopsis request, targetSessionId: ${targetSessionId}, resumeAgentSessionId: ${resumeAgentSessionId}`);
 
       return new Promise((resolve) => {
         let agentSessionId: string | undefined;
@@ -371,6 +372,7 @@ export function useAgentExecution(
 
         cleanupFns.push(window.maestro.process.onData((sid: string, data: string) => {
           if (sid === targetSessionId) {
+            console.log(`[spawnBackgroundSynopsis] onData received, length: ${data.length}, preview: "${data.substring(0, 200)}"`);
             responseText += data;
           }
         }));
@@ -391,6 +393,7 @@ export function useAgentExecution(
 
         cleanupFns.push(window.maestro.process.onExit((sid: string) => {
           if (sid === targetSessionId) {
+            console.log(`[spawnBackgroundSynopsis] onExit received, responseText length: ${responseText.length}, responseText preview: "${responseText.substring(0, 200)}"`);
             cleanup();
             resolve({ success: true, response: responseText, agentSessionId, usageStats: synopsisUsageStats });
           }

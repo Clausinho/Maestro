@@ -54,6 +54,24 @@ These shortcuts work in AI Terminal mode and affect the current tab:
 
 Toggle states are saved per-tab. See [Input Toggles](./general-usage#input-toggles) for details on configuring defaults.
 
+## Tab Management Shortcuts
+
+| Action | macOS | Windows/Linux |
+|--------|-------|---------------|
+| New Tab | `Cmd+T` | `Ctrl+T` |
+| Close Tab | `Cmd+W` | `Ctrl+W` |
+| Close All Tabs | `Cmd+Shift+W` | `Ctrl+Shift+W` |
+| Close Other Tabs | `Opt+Cmd+W` | `Alt+Ctrl+W` |
+| Close Tabs to Left | `Cmd+Shift+Opt+[` | `Ctrl+Shift+Alt+[` |
+| Close Tabs to Right | `Cmd+Shift+Opt+]` | `Ctrl+Shift+Alt+]` |
+| Reopen Closed Tab | `Cmd+Shift+T` | `Ctrl+Shift+T` |
+| Previous Tab | `Cmd+Shift+[` | `Ctrl+Shift+[` |
+| Next Tab | `Cmd+Shift+]` | `Ctrl+Shift+]` |
+| Tab Switcher | `Opt+Cmd+T` | `Alt+Ctrl+T` |
+| Rename Tab | `Cmd+Shift+R` | `Ctrl+Shift+R` |
+
+The bulk close operations (Close All, Close Others, Close Left, Close Right) are also available via the [Tab Menu](./context-management#tab-close-operations) hover overlay and Quick Actions (`Cmd+K`).
+
 ## Input & Output
 
 | Action | Key |

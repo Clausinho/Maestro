@@ -380,6 +380,7 @@ export const MainPanel = React.memo(forwardRef<MainPanelHandle, MainPanelProps>(
   // Responsive breakpoints for hiding/simplifying widgets
   const showCostWidget = panelWidth > 500;
   const useCompactGitWidget = panelWidth < 700;
+  const useCompactContextLabel = panelWidth < 800;
 
   // Git status from centralized context (replaces local polling)
   // The context handles polling for all sessions and provides detailed data for the active session
@@ -506,9 +507,9 @@ export const MainPanel = React.memo(forwardRef<MainPanelHandle, MainPanelProps>(
           {/* Top Bar (hidden in mobile landscape for focused reading) */}
           {!isMobileLandscape && (
           <div ref={headerRef} className="h-16 border-b flex items-center justify-between px-6 shrink-0" style={{ borderColor: theme.colors.border, backgroundColor: theme.colors.bgSidebar }} data-tour="header-controls">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                {activeSession.name}
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="flex items-center gap-2 text-sm font-medium min-w-0">
+                <span className="truncate max-w-[200px]">{activeSession.name}</span>
                 <div
                   className="relative"
                   onMouseEnter={activeSession.isGitRepo ? gitTooltip.triggerHandlers.onMouseEnter : undefined}
@@ -723,7 +724,7 @@ export const MainPanel = React.memo(forwardRef<MainPanelHandle, MainPanelProps>(
               </button>
             )}
 
-            <div className="flex items-center gap-3 min-w-[200px] justify-end">
+            <div className="flex items-center gap-3 justify-end shrink-0">
               {/* Session UUID Pill - click to copy full UUID, left-most of session stats */}
               {activeSession.inputMode === 'ai' && activeTab?.agentSessionId && hasCapability('supportsSessionId') && (
                 <button
@@ -753,7 +754,7 @@ export const MainPanel = React.memo(forwardRef<MainPanelHandle, MainPanelProps>(
                 className="flex flex-col items-end mr-2 relative cursor-pointer"
                 {...contextTooltip.triggerHandlers}
               >
-                <span className="text-[10px] font-bold uppercase" style={{ color: theme.colors.textDim }}>Context Window</span>
+                <span className="text-[10px] font-bold uppercase" style={{ color: theme.colors.textDim }}>{useCompactContextLabel ? 'Context' : 'Context Window'}</span>
                 <div className="w-24 h-1.5 rounded-full mt-1 overflow-hidden" style={{ backgroundColor: theme.colors.border }}>
                   <div
                     className="h-full transition-all duration-500 ease-out"

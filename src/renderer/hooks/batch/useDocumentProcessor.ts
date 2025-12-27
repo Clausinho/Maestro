@@ -372,8 +372,21 @@ export function useDocumentProcessor(): UseDocumentProcessorReturn {
             session.toolType // Pass the agent type for multi-provider support
           );
 
+          // Debug: Log synopsis result
+          window.maestro.logger.log('debug', '[DocumentProcessor] Synopsis result', 'DocumentProcessor', {
+            success: synopsisResult.success,
+            hasResponse: !!synopsisResult.response,
+            responseLength: synopsisResult.response?.length || 0,
+            responsePreview: synopsisResult.response?.substring(0, 200) || '(empty)',
+          });
+
           if (synopsisResult.success && synopsisResult.response) {
             const parsed = parseSynopsis(synopsisResult.response);
+            // Debug: Log parsed synopsis
+            window.maestro.logger.log('debug', '[DocumentProcessor] Parsed synopsis', 'DocumentProcessor', {
+              shortSummary: parsed.shortSummary.substring(0, 100),
+              fullSynopsisLength: parsed.fullSynopsis.length,
+            });
             shortSummary = parsed.shortSummary;
             fullSynopsis = parsed.fullSynopsis;
           }

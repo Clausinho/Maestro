@@ -6,7 +6,7 @@ icon: layers
 
 ## Tab Menu
 
-Right-click any tab to access the full range of context management options:
+Hover over any tab with an established session to access the tab menu overlay:
 
 ![Tab Menu](./screenshots/tab-menu.png)
 
@@ -20,6 +20,35 @@ Right-click any tab to access the full range of context management options:
 | **Context: Compact** | Compress context while preserving key information |
 | **Context: Merge Into** | Merge this context into another session |
 | **Context: Send to Agent** | Transfer context to a different agent |
+
+### Tab Close Operations
+
+The tab menu also provides bulk close operations for managing multiple tabs:
+
+![Tab Close - Center Tab](./screenshots/tab-close-center.png)
+
+| Action | Description |
+|--------|-------------|
+| **Close** | Close the current tab |
+| **Close Others** | Close all tabs except this one |
+| **Close Tabs to the Left** | Close all tabs to the left of this one |
+| **Close Tabs to the Right** | Close all tabs to the right of this one |
+
+These operations respect the **Unread Filter**: when the filter is active, only visible tabs are affected — hidden "read" tabs are preserved.
+
+**Position-aware options:** The menu intelligently hides inapplicable options:
+- First tab: "Close Tabs to the Left" is disabled
+- Last tab: "Close Tabs to the Right" is disabled
+- Single tab: "Close" and "Close Others" are disabled
+
+![Tab Close - Left Tab](./screenshots/tab-close-left.png)
+![Tab Close - Right Tab](./screenshots/tab-close-right.png)
+
+All close operations support **undo** — press `Cmd+Shift+T` / `Ctrl+Shift+T` to reopen recently closed tabs (up to 25 tabs are remembered).
+
+These actions are also available via **Quick Actions** (`Cmd+K` / `Ctrl+K`) with keyboard shortcuts displayed:
+
+![Tab Close - Quick Actions](./screenshots/tab-close-cmd-k.png)
 
 ## Tab Export
 

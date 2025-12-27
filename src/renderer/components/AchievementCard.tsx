@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Trophy, Clock, Zap, Star, ExternalLink, ChevronDown, History, Share2, Copy, Download, Check } from 'lucide-react';
-import type { Theme } from '../types';
+import type { Theme, LeaderboardRegistration } from '../types';
 import type { AutoRunStats, MaestroUsageStats } from '../types';
 import {
   CONDUCTOR_BADGES,
@@ -148,6 +148,7 @@ interface AchievementCardProps {
   globalStats?: GlobalStatsSubset | null;
   usageStats?: MaestroUsageStats | null;
   handsOnTimeMs?: number;
+  leaderboardRegistration?: LeaderboardRegistration | null;
 }
 
 interface BadgeTooltipProps {
@@ -262,7 +263,7 @@ function BadgeTooltip({ badge, theme, isUnlocked, position, onClose: _onClose }:
  * Achievement card component for displaying in the About modal
  * Shows current badge, progress to next level, and stats
  */
-export function AchievementCard({ theme, autoRunStats, globalStats, usageStats, handsOnTimeMs, onEscapeWithBadgeOpen }: AchievementCardProps & { onEscapeWithBadgeOpen?: (handler: (() => boolean) | null) => void }) {
+export function AchievementCard({ theme, autoRunStats, globalStats, usageStats, handsOnTimeMs, leaderboardRegistration, onEscapeWithBadgeOpen }: AchievementCardProps & { onEscapeWithBadgeOpen?: (handler: (() => boolean) | null) => void }) {
   const [selectedBadge, setSelectedBadge] = useState<number | null>(null);
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
@@ -378,15 +379,56 @@ export function AchievementCard({ theme, autoRunStats, globalStats, usageStats, 
     return `${minutes}m`;
   };
 
+  // Helper to load an image from URL with timeout
+  const loadImage = useCallback((url: string, timeoutMs: number = 5000): Promise<HTMLImageElement | null> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      const timeout = setTimeout(() => {
+        img.onload = null;
+        img.onerror = null;
+        resolve(null);
+      }, timeoutMs);
+      img.onload = () => {
+        clearTimeout(timeout);
+        resolve(img);
+      };
+      img.onerror = () => {
+        clearTimeout(timeout);
+        resolve(null);
+      };
+      img.src = url;
+    });
+  }, []);
+
   // Generate shareable achievement card as canvas
   const generateShareImage = useCallback(async (): Promise<HTMLCanvasElement> => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d')!;
 
+    // Check if we have personalization data
+    const hasPersonalization = leaderboardRegistration?.displayName;
+    const displayName = leaderboardRegistration?.displayName;
+    const githubUsername = leaderboardRegistration?.githubUsername;
+    const twitterHandle = leaderboardRegistration?.twitterHandle;
+    const linkedinHandle = leaderboardRegistration?.linkedinHandle;
+    const discordUsername = leaderboardRegistration?.discordUsername;
+
+    // Collect social handles for display
+    const socialHandles: { icon: string; handle: string; color: string }[] = [];
+    if (githubUsername) socialHandles.push({ icon: 'github', handle: githubUsername, color: '#FFFFFF' });
+    if (twitterHandle) socialHandles.push({ icon: 'twitter', handle: twitterHandle, color: '#FFFFFF' });
+    if (linkedinHandle) socialHandles.push({ icon: 'linkedin', handle: linkedinHandle, color: '#0A66C2' });
+    if (discordUsername) socialHandles.push({ icon: 'discord', handle: discordUsername, color: '#5865F2' });
+
+    // Calculate height based on whether we have social handles
+    const hasSocialHandles = socialHandles.length > 0;
+
     // High-DPI rendering for crisp text
     const scale = 3;  // 3x resolution for sharp output
     const width = 600;
-    const height = 560;  // 3-row stats layout
+    // Reduced height - tighter layout with social handles integrated into footer area
+    const height = hasSocialHandles ? 580 : 540;
     canvas.width = width * scale;
     canvas.height = height * scale;
     canvas.style.width = `${width}px`;
@@ -396,6 +438,12 @@ export function AchievementCard({ theme, autoRunStats, globalStats, usageStats, 
     // Enable font smoothing
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
+
+    // Try to load GitHub avatar if available
+    let avatarImage: HTMLImageElement | null = null;
+    if (githubUsername) {
+      avatarImage = await loadImage(`https://github.com/${githubUsername}.png?size=200`);
+    }
 
     // Background gradient matching app icon (radial gradient from center)
     const bgGradient = ctx.createRadialGradient(
@@ -429,60 +477,121 @@ export function AchievementCard({ theme, autoRunStats, globalStats, usageStats, 
     ctx.roundRect(-2, -2, width + 4, height + 4, 22);
     ctx.stroke();
 
-    // Trophy icon circle with gradient
-    const trophyX = width / 2;
-    const trophyY = 52;
-    const trophyRadius = 32;
+    // Avatar/Trophy icon - larger with more vertical space
+    const iconX = width / 2;
+    const iconY = 60;  // Moved down slightly
+    const iconRadius = 40;  // Larger radius
 
-    ctx.beginPath();
-    ctx.arc(trophyX, trophyY, trophyRadius, 0, Math.PI * 2);
-    const trophyGradient = ctx.createRadialGradient(trophyX, trophyY - 10, 0, trophyX, trophyY, trophyRadius);
-    trophyGradient.addColorStop(0, '#FFE066');
-    trophyGradient.addColorStop(1, '#F59E0B');
-    ctx.fillStyle = trophyGradient;
-    ctx.fill();
+    if (avatarImage) {
+      // Draw avatar in a circular clip
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(iconX, iconY, iconRadius, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(avatarImage, iconX - iconRadius, iconY - iconRadius, iconRadius * 2, iconRadius * 2);
+      ctx.restore();
 
-    // Trophy emoji
-    ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#78350F';
-    ctx.fillText('🏆', trophyX, trophyY + 2);
+      // Add a gold border around the avatar
+      ctx.beginPath();
+      ctx.arc(iconX, iconY, iconRadius + 2, 0, Math.PI * 2);
+      ctx.strokeStyle = '#FFD700';
+      ctx.lineWidth = 3;
+      ctx.stroke();
 
-    // Title
+      // Add a larger trophy badge in the bottom-right corner
+      const badgeRadius = 18;  // Larger badge
+      const badgeX = iconX + iconRadius - 6;
+      const badgeY = iconY + iconRadius - 6;
+      ctx.beginPath();
+      ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2);
+      // Bright gold gradient for trophy badge
+      const badgeGradient = ctx.createRadialGradient(badgeX, badgeY - 5, 0, badgeX, badgeY, badgeRadius);
+      badgeGradient.addColorStop(0, '#FFD700');  // Bright gold
+      badgeGradient.addColorStop(0.5, '#FFC107');
+      badgeGradient.addColorStop(1, '#FF9800');
+      ctx.fillStyle = badgeGradient;
+      ctx.fill();
+      // Badge border
+      ctx.strokeStyle = '#B8860B';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // Trophy emoji - larger
+      ctx.font = '20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🏆', badgeX, badgeY + 1);
+    } else {
+      // Default trophy icon - bright gold circle
+      ctx.beginPath();
+      ctx.arc(iconX, iconY, iconRadius, 0, Math.PI * 2);
+      // Bright, vibrant gold gradient
+      const trophyGradient = ctx.createRadialGradient(iconX, iconY - 15, 0, iconX, iconY, iconRadius);
+      trophyGradient.addColorStop(0, '#FFD700');  // Bright gold center
+      trophyGradient.addColorStop(0.6, '#FFC107');
+      trophyGradient.addColorStop(1, '#FF9800');  // Darker gold edge
+      ctx.fillStyle = trophyGradient;
+      ctx.fill();
+      // Add border for definition
+      ctx.strokeStyle = '#B8860B';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Trophy emoji - larger
+      ctx.font = '38px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🏆', iconX, iconY + 2);
+    }
+
+    // Title - show display name if personalized, otherwise generic title
+    // Positioned with more breathing room after larger icon
+    const titleY = iconY + iconRadius + 28;
     ctx.font = '600 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = '#F472B6';
-    ctx.fillText('MAESTRO ACHIEVEMENTS', width / 2, 105);
+    ctx.textAlign = 'center';
+    if (hasPersonalization && displayName) {
+      ctx.fillText(`${displayName.toUpperCase()}'S ACHIEVEMENTS`, width / 2, titleY);
+    } else {
+      ctx.fillText('MAESTRO ACHIEVEMENTS', width / 2, titleY);
+    }
+
+    // Badge info area
+    const levelY = titleY + 28;
+    const badgeNameY = levelY + 32;
+    let flavorEndY = badgeNameY + 20;
 
     if (currentBadge) {
       // Level indicator with stars
       ctx.font = '600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillStyle = goldColor;
-      ctx.fillText(`★ Level ${currentBadge.level} of 11 ★`, width / 2, 130);
+      ctx.fillText(`★ Level ${currentBadge.level} of 11 ★`, width / 2, levelY);
 
       // Badge name - larger and more prominent
       ctx.font = '700 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillStyle = '#F472B6';
-      ctx.fillText(currentBadge.name, width / 2, 162);
+      ctx.fillText(currentBadge.name, width / 2, badgeNameY);
 
       // Flavor text in quotes
       ctx.font = 'italic 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
       const flavorLines = wrapText(ctx, `"${currentBadge.flavorText}"`, width - 100);
-      let yOffset = 190;
+      let yOffset = badgeNameY + 30;
       flavorLines.forEach(line => {
         ctx.fillText(line, width / 2, yOffset);
         yOffset += 18;
       });
+      flavorEndY = yOffset;
     } else {
       // No badge yet
       ctx.font = '700 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-      ctx.fillText('Journey Just Beginning...', width / 2, 155);
+      ctx.fillText('Journey Just Beginning...', width / 2, badgeNameY);
 
       ctx.font = '400 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-      ctx.fillText('Complete 15 minutes of AutoRun to unlock first badge', width / 2, 185);
+      ctx.fillText('Complete 15 minutes of AutoRun to unlock first badge', width / 2, badgeNameY + 28);
+      flavorEndY = badgeNameY + 46;
     }
 
     // Get stat values
@@ -501,11 +610,11 @@ export function AchievementCard({ theme, autoRunStats, globalStats, usageStats, 
     const maxQueries = usageStats?.maxSimultaneousQueries?.toString() || '0';
     const maxQueue = usageStats?.maxQueueDepth?.toString() || '0';
 
-    const rowHeight = 60;
-    const rowGap = 12;
+    const rowHeight = 56;
+    const rowGap = 10;
 
     // --- Row 1: Sessions & Tokens (2 columns) ---
-    const row1Y = 240;
+    const row1Y = flavorEndY + 14;
     ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
     ctx.roundRect(30, row1Y, width - 60, rowHeight, 12);
     ctx.fill();
@@ -526,7 +635,7 @@ export function AchievementCard({ theme, autoRunStats, globalStats, usageStats, 
 
       ctx.font = '500 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.fillText(label, x, centerY + 16);
+      ctx.fillText(label, x, centerY + 14);
     };
 
     drawStatInRow(30 + row1ColWidth * 0.5, row1CenterY, sessionsValue, 'Sessions', 22);
@@ -551,7 +660,7 @@ export function AchievementCard({ theme, autoRunStats, globalStats, usageStats, 
 
     // --- Row 3: Peak Usage (4 columns) ---
     const row3Y = row2Y + rowHeight + rowGap;
-    const row3Height = 70;
+    const row3Height = 66;
     ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
     ctx.roundRect(30, row3Y, width - 60, row3Height, 12);
     ctx.fill();
@@ -586,19 +695,132 @@ export function AchievementCard({ theme, autoRunStats, globalStats, usageStats, 
     drawPeakStat(30 + row3ColWidth * 2.5, maxQueries, 'Parallel Queries');
     drawPeakStat(30 + row3ColWidth * 3.5, maxQueue, 'Queue Depth');
 
-    // Footer with branding
+    // --- Social Handles Row (if personalized) ---
+    if (hasSocialHandles) {
+      const socialY = row3Y + row3Height + rowGap + 4;
+      const socialHeight = 20;
+
+      // Draw social handles centered
+      ctx.font = '500 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+
+      // Calculate total width needed for all handles
+      const handleGap = 24;
+      const iconSize = 14;
+      const iconGap = 6;
+      let totalWidth = 0;
+      socialHandles.forEach((social) => {
+        const textWidth = ctx.measureText(social.handle).width;
+        totalWidth += iconSize + iconGap + textWidth;
+      });
+      totalWidth += handleGap * (socialHandles.length - 1);
+
+      // Start position to center all handles
+      let currentX = (width - totalWidth) / 2;
+
+      // Helper to draw social icon using proper brand shapes
+      const drawSocialIcon = (x: number, y: number, icon: string, size: number) => {
+        ctx.save();
+        const halfSize = size / 2;
+
+        if (icon === 'github') {
+          // GitHub mark - octocat silhouette approximation as a circle with cutout
+          ctx.fillStyle = '#FFFFFF';
+          ctx.beginPath();
+          ctx.arc(x, y, halfSize, 0, Math.PI * 2);
+          ctx.fill();
+          // Draw simplified octocat shape
+          ctx.fillStyle = '#1a1a2e';
+          ctx.beginPath();
+          // Body
+          ctx.arc(x, y + 1, halfSize * 0.6, 0, Math.PI * 2);
+          ctx.fill();
+          // Head bump
+          ctx.beginPath();
+          ctx.arc(x, y - halfSize * 0.3, halfSize * 0.5, 0, Math.PI, true);
+          ctx.fill();
+        } else if (icon === 'twitter') {
+          // X/Twitter - simple X shape
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = 2;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(x - halfSize * 0.6, y - halfSize * 0.6);
+          ctx.lineTo(x + halfSize * 0.6, y + halfSize * 0.6);
+          ctx.moveTo(x + halfSize * 0.6, y - halfSize * 0.6);
+          ctx.lineTo(x - halfSize * 0.6, y + halfSize * 0.6);
+          ctx.stroke();
+        } else if (icon === 'linkedin') {
+          // LinkedIn - rounded square with 'in'
+          ctx.fillStyle = '#0A66C2';
+          ctx.beginPath();
+          ctx.roundRect(x - halfSize, y - halfSize, size, size, 2);
+          ctx.fill();
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = `bold ${size * 0.6}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('in', x, y + 1);
+        } else if (icon === 'discord') {
+          // Discord - rounded square with controller/game icon hint
+          ctx.fillStyle = '#5865F2';
+          ctx.beginPath();
+          ctx.roundRect(x - halfSize, y - halfSize, size, size, 3);
+          ctx.fill();
+          // Draw simplified Discord logo (two circles for eyes, curved bottom)
+          ctx.fillStyle = '#FFFFFF';
+          // Left eye
+          ctx.beginPath();
+          ctx.ellipse(x - halfSize * 0.35, y - halfSize * 0.1, halfSize * 0.2, halfSize * 0.25, 0, 0, Math.PI * 2);
+          ctx.fill();
+          // Right eye
+          ctx.beginPath();
+          ctx.ellipse(x + halfSize * 0.35, y - halfSize * 0.1, halfSize * 0.2, halfSize * 0.25, 0, 0, Math.PI * 2);
+          ctx.fill();
+          // Smile/body curve
+          ctx.beginPath();
+          ctx.arc(x, y + halfSize * 0.5, halfSize * 0.5, Math.PI * 0.2, Math.PI * 0.8);
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+        ctx.restore();
+      };
+
+      socialHandles.forEach((social, index) => {
+        // Draw icon
+        drawSocialIcon(currentX + iconSize / 2, socialY + socialHeight / 2, social.icon, iconSize);
+        currentX += iconSize + iconGap;
+
+        // Draw handle text
+        ctx.font = '500 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.fillText(social.handle, currentX, socialY + socialHeight / 2 + 4);
+
+        const textWidth = ctx.measureText(social.handle).width;
+        currentX += textWidth;
+
+        // Add gap between handles (except after last one)
+        if (index < socialHandles.length - 1) {
+          currentX += handleGap;
+        }
+      });
+    }
+
+    // Footer with branding - positioned at bottom
+    const footerY = height - 28;
     ctx.font = '600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.textAlign = 'center';
-    ctx.fillText('MAESTRO • Agent Orchestration Command Center', width / 2, height - 30);
+    ctx.fillText('MAESTRO • Agent Orchestration Command Center', width / 2, footerY);
 
     // Website link
     ctx.font = '400 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = 'rgba(139, 92, 246, 0.8)';
-    ctx.fillText('RunMaestro.ai', width / 2, height - 14);
+    ctx.fillText('RunMaestro.ai', width / 2, footerY + 14);
 
     return canvas;
-  }, [currentBadge, autoRunStats.cumulativeTimeMs, autoRunStats.longestRunMs, globalStats, usageStats, handsOnTimeMs, wrapText]);
+  }, [currentBadge, autoRunStats.cumulativeTimeMs, autoRunStats.longestRunMs, globalStats, usageStats, handsOnTimeMs, wrapText, leaderboardRegistration, loadImage]);
 
   // Copy to clipboard
   const copyToClipboard = useCallback(async () => {

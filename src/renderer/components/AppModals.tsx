@@ -123,6 +123,7 @@ export interface AppInfoModalsProps {
   usageStats?: MaestroUsageStats | null;
   onOpenLeaderboardRegistration: () => void;
   isLeaderboardRegistered: boolean;
+  leaderboardRegistration?: LeaderboardRegistration | null;
 
   // Update Check Modal
   updateCheckModalOpen: boolean;
@@ -166,6 +167,7 @@ export function AppInfoModals({
   usageStats,
   onOpenLeaderboardRegistration,
   isLeaderboardRegistered,
+  leaderboardRegistration,
   // Update Check Modal
   updateCheckModalOpen,
   onCloseUpdateCheckModal,
@@ -201,6 +203,7 @@ export function AppInfoModals({
           onClose={onCloseAboutModal}
           onOpenLeaderboardRegistration={onOpenLeaderboardRegistration}
           isLeaderboardRegistered={isLeaderboardRegistered}
+          leaderboardRegistration={leaderboardRegistration}
         />
       )}
 
@@ -1568,6 +1571,7 @@ export interface AppModalsProps {
   usageStats?: MaestroUsageStats | null;
   onOpenLeaderboardRegistration: () => void;
   isLeaderboardRegistered: boolean;
+  // leaderboardRegistration is provided via AppAgentModals props below
   updateCheckModalOpen: boolean;
   onCloseUpdateCheckModal: () => void;
   processMonitorOpen: boolean;
@@ -1852,6 +1856,7 @@ export function AppModals(props: AppModalsProps) {
     usageStats,
     onOpenLeaderboardRegistration,
     isLeaderboardRegistered,
+    // leaderboardRegistration is destructured below in Agent modals section
     updateCheckModalOpen,
     onCloseUpdateCheckModal,
     processMonitorOpen,
@@ -2092,6 +2097,7 @@ export function AppModals(props: AppModalsProps) {
         usageStats={usageStats}
         onOpenLeaderboardRegistration={onOpenLeaderboardRegistration}
         isLeaderboardRegistered={isLeaderboardRegistered}
+        leaderboardRegistration={leaderboardRegistration}
         updateCheckModalOpen={updateCheckModalOpen}
         onCloseUpdateCheckModal={onCloseUpdateCheckModal}
         processMonitorOpen={processMonitorOpen}

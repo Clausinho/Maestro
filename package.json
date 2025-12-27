@@ -130,6 +130,7 @@
       ]
     },
     "linux": {
+      "npmRebuild": false,
       "target": [
         {
           "target": "AppImage",

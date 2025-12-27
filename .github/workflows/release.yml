@@ -192,20 +192,78 @@ jobs:
         env:
           DEBUG: electron-builder
 
+      # Linux x64: Explicitly rebuild native modules before packaging
+      # The npmRebuild: false in package.json prevents electron-builder from re-running
+      # npm rebuild during packaging, so we ensure correct binaries are in place first
       - name: Package for Linux x64
         if: matrix.platform == 'linux'
-        run: npx electron-builder --linux --x64 --publish never --config.extraMetadata.version=${{ steps.version.outputs.VERSION }}
         env:
           DEBUG: electron-builder
+          npm_config_arch: x64
+          npm_config_target_arch: x64
+          BUILD_VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          # Explicitly rebuild native modules for x64 architecture
+          echo "Rebuilding native modules for x64..."
+          npx electron-rebuild --arch=x64 --force
+
+          # Verify node-pty binary was built correctly for x64 before packaging
+          echo "Verifying node-pty binary architecture before packaging..."
+          PTY_PATH=$(find node_modules/node-pty -name "pty.node" -type f 2>/dev/null | head -1)
+          if [ -n "$PTY_PATH" ]; then
+            echo "Found pty.node at: $PTY_PATH"
+            file "$PTY_PATH"
+            if file "$PTY_PATH" | grep -q "x86-64\|x86_64\|AMD64"; then
+              echo "✓ node-pty is correctly built for x64"
+            else
+              echo "✗ ERROR: node-pty is NOT built for x64!"
+              exit 1
+            fi
+          else
+            echo "✗ ERROR: node-pty binary not found!"
+            exit 1
+          fi
+
+          # Package with x64 target
+          npx electron-builder --linux --x64 --publish never --config.extraMetadata.version="$BUILD_VERSION"
 
       # ARM64 Linux: Build on native ARM64 runner to properly compile node-pty
-      # USE_SYSTEM_FPM=true tells electron-builder to use system fpm instead of bundled x86 version
+      # Critical: Explicitly rebuild native modules for ARM64 before packaging
+      # The npmRebuild: false in package.json prevents electron-builder from re-running
+      # npm rebuild with x86_64 flags (-m64) that would corrupt the ARM64 binaries
       - name: Package for Linux ARM64
         if: matrix.platform == 'linux-arm64'
-        run: npx electron-builder --linux --arm64 --publish never --config.extraMetadata.version=${{ steps.version.outputs.VERSION }}
         env:
           DEBUG: electron-builder
-          USE_SYSTEM_FPM: true
+          npm_config_arch: arm64
+          npm_config_target_arch: arm64
+          USE_SYSTEM_FPM: "true"
+          BUILD_VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          # Explicitly rebuild native modules for ARM64 architecture
+          # This ensures node-pty is correctly compiled before packaging
+          echo "Rebuilding native modules for ARM64..."
+          npx electron-rebuild --arch=arm64 --force
+
+          # Verify node-pty binary was built correctly for ARM64 before packaging
+          echo "Verifying node-pty binary architecture before packaging..."
+          PTY_PATH=$(find node_modules/node-pty -name "pty.node" -type f 2>/dev/null | head -1)
+          if [ -n "$PTY_PATH" ]; then
+            echo "Found pty.node at: $PTY_PATH"
+            file "$PTY_PATH"
+            if file "$PTY_PATH" | grep -q "ARM\|aarch64"; then
+              echo "✓ node-pty is correctly built for ARM64"
+            else
+              echo "✗ ERROR: node-pty is NOT built for ARM64!"
+              exit 1
+            fi
+          else
+            echo "✗ ERROR: node-pty binary not found!"
+            exit 1
+          fi
+
+          # Package with ARM64 target
+          npx electron-builder --linux --arm64 --publish never --config.extraMetadata.version="$BUILD_VERSION"
 
       # Verify pty.node is correctly included in unpacked resources (Linux ARM64 only)
       - name: Verify pty.node in package
