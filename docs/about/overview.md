@@ -8,17 +8,14 @@ Maestro hones fractured attention into focused intent. It is built for developer
 
 Maestro enables a **specification-first approach** to AI-assisted development. Instead of ad-hoc prompting, you collaboratively build detailed specs with the AI, then execute them systematically:
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│  1. PLAN          2. SPECIFY         3. EXECUTE        4. REFINE    │
-│  ─────────        ──────────         ─────────         ─────────    │
-│  Discuss the      Create markdown    Auto Run works    Review       │
-│  feature with     docs with task     through tasks,    results,     │
-│  the AI agent     checklists in      fresh session     update specs │
-│                   your Auto Run      per task          and repeat   │
-│                   folder                                            │
-└─────────────────────────────────────────────────────────────────────┘
-```
+1. PLAN
+Discuss the feature with the AI agent.
+2. SPECIFY
+Create markdown docs with task checklists in the Auto Run folder.
+3. EXECUTE
+Auto Run executes tasks in a fresh session per task.
+4. REFINE
+Review results, update specs, and repeat.
 
 **Why this works:**
 - **Deliberate planning** — Conversation forces you to think through requirements before coding
