@@ -4,6 +4,41 @@ description: Compact, merge, and transfer conversation context between sessions 
 icon: layers
 ---
 
+## Tab Menu
+
+Right-click any tab to access the full range of context management options:
+
+![Tab Menu](./screenshots/tab-menu.png)
+
+| Action | Description |
+|--------|-------------|
+| **Copy Session ID** | Copy the Claude Code session ID to clipboard |
+| **Star Session** | Bookmark this session for quick access |
+| **Rename Tab** | Give the tab a descriptive name |
+| **Mark as Unread** | Add unread indicator to the tab |
+| **Context: Copy to Clipboard** | Copy the full conversation to clipboard |
+| **Context: Compact** | Compress context while preserving key information |
+| **Context: Merge Into** | Merge this context into another session |
+| **Context: Send to Agent** | Transfer context to a different agent |
+
+## Tab Export
+
+Export any tab conversation as a self-contained HTML file:
+
+1. Right-click the tab → **Context: Copy to Clipboard**
+2. Or use **Command Palette** (`Cmd+K`) → "Export tab to HTML"
+
+The exported HTML file includes:
+- **Full conversation history** with all messages
+- **Your current theme colors** — the export adopts your active Maestro theme
+- **Maestro branding** with links to the website and GitHub
+- **Session metadata** — agent type, working directory, timestamps, token usage
+- **Rendered markdown** — code blocks, tables, and formatting preserved
+
+This is useful for sharing conversations, creating documentation, or archiving important sessions.
+
+---
+
 Context management lets you combine or transfer conversation history between sessions and agents, enabling powerful workflows where you can:
 
 - **Compact & continue** — Compress your context to stay within token limits while preserving key information
@@ -33,10 +68,19 @@ When your conversation approaches context limits, you can compress it while pres
 
 Combine context from multiple sessions or tabs into one:
 
-1. **Right-click** a tab → **"Merge With..."**, or use **Command Palette** (`Cmd+K` / `Ctrl+K`) → "Merge with another session"
-2. Search for or select the target session/tab
+1. **Right-click** a tab → **"Context: Merge Into"**, or use **Command Palette** (`Cmd+K` / `Ctrl+K`) → "Merge with another session"
+2. Search for or select the target session/tab from the modal
 3. Review the merge preview showing estimated token count
-4. Click **"Merge Contexts"**
+4. Optionally enable **Clean context** to remove duplicates and reduce size
+5. Click **"Merge Into"**
+
+![Merge Modal](./screenshots/tab-merge.png)
+
+The modal shows:
+- **Paste ID** tab — Enter a specific session ID directly
+- **Open Tabs** tab — Browse all open tabs across all agents
+- **Token estimate** — Shows source size and estimated size after cleaning
+- **Agent grouping** — Tabs organized by agent with tab counts
 
 The merged context creates a new tab in the target session with conversation history from both sources. Use this to consolidate related conversations or bring context from an older session into a current one.
 
@@ -48,25 +92,35 @@ The merged context creates a new tab in the target session with conversation his
 - You can merge tabs within the same session or across different sessions
 - Large merges (100k+ tokens) will show a warning but still proceed
 - Self-merge (same tab to itself) is prevented
+- Enable "Clean context" for large merges to reduce token count
 
 ## Sending to Another Agent
 
 Transfer your context to a different AI agent:
 
-1. **Right-click** a tab → **"Send to Agent..."**, or use **Command Palette** (`Cmd+K` / `Ctrl+K`) → "Send to another agent"
-2. Select the target agent (only available/installed agents are shown)
-3. Optionally enable **context grooming** to optimize the context for the target agent
-4. A new session opens with the transferred context
+1. **Right-click** a tab → **"Context: Send to Agent"**, or use **Command Palette** (`Cmd+K` / `Ctrl+K`) → "Send to another agent"
+2. Search for or select the target agent from the list
+3. Review the token estimate and cleaning options
+4. Click **"Send to Session"**
 
-**Context Grooming:**
-When transferring between different agent types, the context can be automatically "groomed" to:
-- Remove agent-specific artifacts and formatting
-- Condense verbose output while preserving key information
-- Optimize for the target agent's capabilities
+![Send to Agent Modal](./screenshots/tab-send.png)
 
-Grooming is enabled by default but can be skipped for faster transfers.
+The modal shows:
+- **Searchable agent list** with status indicators (Idle, Busy, etc.)
+- **Agent paths** to distinguish between agents with similar names
+- **Token estimate** — Shows source size and estimated size after cleaning
+- **Clean context option** — Remove duplicates and reduce size before transfer
+
+**Context Cleaning:**
+When transferring between agents, the context can be automatically cleaned to:
+- Remove duplicate messages and verbose output
+- Condense while preserving key information
+- Optimize token usage for the target session
+
+Cleaning is enabled by default but can be disabled for verbatim transfers.
 
 **Use Cases:**
 - Start a task in Claude Code, then hand off to Codex for a different perspective
 - Transfer a debugging session to an agent with different tool access
 - Move context to an agent pointing at a different project directory
+- Share context with a worktree sub-agent working on the same codebase

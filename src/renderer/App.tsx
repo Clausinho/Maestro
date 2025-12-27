@@ -9127,6 +9127,33 @@ function MaestroConsoleInner() {
             });
           });
         }}
+        onExportHtml={async (tabId: string) => {
+          // Export tab conversation as HTML
+          if (!activeSession) return;
+          const tab = activeSession.aiTabs.find(t => t.id === tabId);
+          if (!tab || !tab.logs || tab.logs.length === 0) return;
+
+          try {
+            const { downloadTabExport } = await import('./utils/tabExport');
+            await downloadTabExport(
+              tab,
+              { name: activeSession.name, cwd: activeSession.cwd, toolType: activeSession.toolType },
+              theme
+            );
+            addToast({
+              type: 'success',
+              title: 'Export Complete',
+              message: 'Conversation exported as HTML.',
+            });
+          } catch (err) {
+            console.error('Failed to export tab:', err);
+            addToast({
+              type: 'error',
+              title: 'Export Failed',
+              message: 'Failed to export conversation as HTML.',
+            });
+          }
+        }}
         // Context warning sash settings (Phase 6)
         contextWarningsEnabled={contextManagementSettings.contextWarningsEnabled}
         contextWarningYellowThreshold={contextManagementSettings.contextWarningYellowThreshold}

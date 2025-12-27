@@ -57,9 +57,11 @@
               "general-usage",
               "keyboard-shortcuts",
               "slash-commands",
+              "speckit-commands",
               "git-worktrees",
               "group-chat",
               "autorun-playbooks",
+              "history",
               "context-management",
               "achievements"
             ]

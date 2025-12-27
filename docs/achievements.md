@@ -31,3 +31,46 @@ Since Auto Runs can execute in parallel across multiple Maestro sessions, achiev
 But let's be real — getting to Level 11 is going to take some serious hacking. You'll need a well-orchestrated fleet of agents running around the clock, carefully crafted playbooks that loop indefinitely, and the infrastructure to keep it all humming. It's the ultimate test of your Maestro skills.
 
 The achievement panel shows your current rank, progress to the next level, and total accumulated time. Each rank includes flavor text and information about a legendary conductor who exemplifies that level of mastery.
+
+## Sharing Your Achievements
+
+Generate a shareable image of your achievements to celebrate milestones or compare progress with other Maestro users. The share image captures **unique statistics not tracked anywhere else** in the app.
+
+![Achievement Share Image](./screenshots/achievements-share.png)
+
+**To generate a share image:**
+1. Open the Achievements panel
+2. Click **Share** in the header
+3. Choose **Copy to Clipboard** or **Save as Image**
+
+### Stats Captured in Share Images
+
+The share image includes comprehensive usage statistics:
+
+| Stat | Description |
+|------|-------------|
+| **Sessions** | Total number of AI sessions created |
+| **Total Tokens** | Cumulative tokens processed across all sessions |
+| **Total AutoRun** | Cumulative Auto Run execution time |
+| **Longest AutoRun** | Your personal record for longest continuous Auto Run |
+| **Hands-on Time** | Time spent actively interacting with Maestro |
+| **Registered Agents** | Peak number of agents you've configured |
+| **Parallel AutoRuns** | Peak simultaneous Auto Runs achieved |
+| **Parallel Queries** | Peak simultaneous AI queries in flight |
+| **Queue Depth** | Peak message queue depth reached |
+
+These peak usage stats are tracked automatically and persist across sessions. They represent your high-water marks — evidence of your most intensive Maestro orchestrations.
+
+## Keyboard Mastery
+
+Separate from Conductor ranks, Maestro tracks your **keyboard mastery** based on shortcut usage. As you discover and use more keyboard shortcuts, you level up through 5 mastery levels:
+
+| Level | Title | Shortcuts Used |
+|:-----:|-------|----------------|
+| 0 | Novice | 0-19% |
+| 1 | Apprentice | 20-39% |
+| 2 | Journeyman | 40-59% |
+| 3 | Expert | 60-79% |
+| 4 | Master | 80-100% |
+
+Your current keyboard mastery level is shown in the status bar. Hover over the keyboard icon to see which shortcuts you've used and which remain to be discovered. See [Keyboard Shortcuts](./keyboard-shortcuts) for the full shortcut reference.

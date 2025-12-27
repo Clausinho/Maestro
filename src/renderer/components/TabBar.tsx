@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Plus, Star, Copy, Edit2, Mail, Pencil, Search, GitMerge, ArrowRightCircle, Minimize2, Clipboard } from 'lucide-react';
+import { X, Plus, Star, Copy, Edit2, Mail, Pencil, Search, GitMerge, ArrowRightCircle, Minimize2, Clipboard, Download } from 'lucide-react';
 import type { AITab, Theme } from '../types';
 import { hasDraft } from '../utils/tabHelpers';
 
@@ -23,6 +23,8 @@ interface TabBarProps {
   onSummarizeAndContinue?: (tabId: string) => void;
   /** Handler to copy conversation context to clipboard */
   onCopyContext?: (tabId: string) => void;
+  /** Handler to export tab as HTML */
+  onExportHtml?: (tabId: string) => void;
   showUnreadOnly?: boolean;
   onToggleUnreadFilter?: () => void;
   onOpenTabSearch?: () => void;
@@ -53,6 +55,8 @@ interface TabProps {
   onSummarizeAndContinue?: () => void;
   /** Handler to copy conversation context to clipboard */
   onCopyContext?: () => void;
+  /** Handler to export tab as HTML */
+  onExportHtml?: () => void;
   shortcutHint?: number | null;
   registerRef?: (el: HTMLDivElement | null) => void;
   hasDraft?: boolean;
@@ -123,6 +127,7 @@ function Tab({
   onSendToAgent,
   onSummarizeAndContinue,
   onCopyContext,
+  onExportHtml,
   shortcutHint,
   registerRef,
   hasDraft
@@ -236,6 +241,12 @@ function Tab({
   const handleCopyContextClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onCopyContext?.();
+    setOverlayOpen(false);
+  };
+
+  const handleExportHtmlClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onExportHtml?.();
     setOverlayOpen(false);
   };
 
@@ -455,6 +466,18 @@ function Tab({
               Mark as Unread
             </button>
 
+            {/* Export as HTML - only show if tab has logs */}
+            {(tab.logs?.length ?? 0) >= 1 && onExportHtml && (
+              <button
+                onClick={handleExportHtmlClick}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-white/10 transition-colors"
+                style={{ color: theme.colors.textMain }}
+              >
+                <Download className="w-3.5 h-3.5" style={{ color: theme.colors.textDim }} />
+                Export as HTML
+              </button>
+            )}
+
             {/* Context Management Section - divider and grouped options */}
             {(tab.agentSessionId || (tab.logs?.length ?? 0) >= 1) && (onMergeWith || onSendToAgent || onSummarizeAndContinue || onCopyContext) && (
               <div className="my-1 border-t" style={{ borderColor: theme.colors.border }} />
@@ -535,6 +558,7 @@ export function TabBar({
   onSendToAgent,
   onSummarizeAndContinue,
   onCopyContext,
+  onExportHtml,
   showUnreadOnly: showUnreadOnlyProp,
   onToggleUnreadFilter,
   onOpenTabSearch
@@ -733,6 +757,7 @@ export function TabBar({
               onSendToAgent={onSendToAgent && tab.agentSessionId ? () => onSendToAgent(tab.id) : undefined}
               onSummarizeAndContinue={onSummarizeAndContinue && (tab.logs?.length ?? 0) >= 5 ? () => onSummarizeAndContinue(tab.id) : undefined}
               onCopyContext={onCopyContext && (tab.logs?.length ?? 0) >= 1 ? () => onCopyContext(tab.id) : undefined}
+              onExportHtml={onExportHtml && (tab.logs?.length ?? 0) >= 1 ? () => onExportHtml(tab.id) : undefined}
               shortcutHint={!showUnreadOnly && originalIndex < 9 ? originalIndex + 1 : null}
               hasDraft={hasDraft(tab)}
               registerRef={(el) => {

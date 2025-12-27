@@ -38,6 +38,32 @@ To access Maestro from outside your local network (e.g., on mobile data or from 
 5. Use the Local/Remote pill selector to switch between QR codes
 6. The tunnel stays active as long as Maestro is running - no time limits, no account required
 
+## Static Port Configuration
+
+By default, Maestro assigns a **random port** each time the web server starts. This is a security-by-obscurity measure — attackers can't easily guess which port to target.
+
+However, if you need a **fixed port** (e.g., for firewall rules, reverse proxies, or persistent tunnel configurations), you can enable static port mode:
+
+1. Click the **OFFLINE** button to open the Live overlay
+2. Toggle **Use Custom Port** to enable static port mode
+3. Enter your desired port number (1024-65535)
+4. The server restarts automatically on the new port
+
+**Use cases for static ports:**
+- Punching a hole through a firewall or NAT
+- Configuring a reverse proxy (nginx, Caddy)
+- Setting up persistent SSH tunnels
+- Integration with home automation systems
+
+<Warning>
+**Security Trade-off**: Using a static port removes one layer of security-by-obscurity. The randomized port and auto-generated auth token in the URL work together to protect access. With a static port, you're relying solely on the auth token for security.
+
+**Recommendations when using static ports:**
+- Use Cloudflare tunnel for remote access instead of exposing ports directly
+- Ensure your network firewall is properly configured
+- Consider additional authentication at the network level
+</Warning>
+
 ## Screenshots
 
 ![Mobile chat](./screenshots/mobile-chat.png)

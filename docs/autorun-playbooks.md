@@ -110,6 +110,24 @@ Each completed task is logged to the History panel with:
 - `Enter` - View full response
 - `Esc` - Close detail view and return to list
 
+## Expanded Editor View
+
+For editing complex Auto Run documents, use the **Expanded Editor** — a fullscreen modal that provides more screen real-estate.
+
+**To open the Expanded Editor:**
+- Click the **expand icon** (↗️) in the top-right corner of the Auto Run panel
+
+![Expanded Auto Run Editor](./screenshots/autorun-expanded.png)
+
+The Expanded Editor provides:
+- **Edit/Preview toggle** — Switch between editing markdown and previewing rendered output
+- **Document selector** — Switch between documents without closing the modal
+- **Run controls** — Start, stop, and monitor batch runs from the expanded view
+- **Task progress** — See "X of Y tasks completed" and token count at the bottom
+- **Full toolbar** — Create new documents, refresh, and open folder
+
+Click **Collapse** or press `Esc` to return to the sidebar panel view.
+
 ## Auto-Save
 
 Documents auto-save after 5 seconds of inactivity, and immediately when switching documents. Full undo/redo support with `Cmd+Z` / `Cmd+Shift+Z`.

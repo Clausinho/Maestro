@@ -33,6 +33,25 @@ Browse project files with syntax highlighting, markdown preview, and image viewi
 
 ![File viewer](./screenshots/file-viewer.png)
 
+## Prompt Composer
+
+For complex prompts that need more editing space, use the **Prompt Composer** — a fullscreen editing modal.
+
+**To open the Prompt Composer:**
+- Click the **pencil icon** (✏️) in the bottom-left corner of the AI input box
+
+![Prompt Composer Button](./screenshots/prompt-composer-button.png)
+
+The Prompt Composer provides:
+- **Full-screen editing space** for complex, multi-paragraph prompts
+- **Character and token count** displayed in the footer
+- **All input controls** — History toggle, Read-only mode, Thinking toggle, and send shortcut indicator
+- **Image attachment support** via the image icon in the footer
+
+![Prompt Composer](./screenshots/prompt-composer.png)
+
+When you're done editing, click **Send** or press the displayed shortcut to send your message. The composer closes automatically and your prompt is sent to the AI.
+
 ## Output Filtering
 
 Search and filter AI output with include/exclude modes, regex support, and per-response local filters.
