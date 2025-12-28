@@ -58,6 +58,10 @@ Save your batch configurations for reuse:
 
 ![Playbooks](./screenshots/autorun-2.png)
 
+### Playbook Marketplace
+
+Looking for pre-built playbooks? The [Playbook Marketplace](./playbook-marketplace) offers community-contributed playbooks for common workflows like security audits, code reviews, and documentation generation. Press `Cmd+Shift+M` (Mac) or `Ctrl+Shift+M` (Windows/Linux) to browse and import playbooks directly into your Auto Run folder.
+
 ## Progress Tracking
 
 The runner will:

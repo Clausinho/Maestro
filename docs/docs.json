@@ -62,6 +62,7 @@
               "history",
               "context-management",
               "autorun-playbooks",
+              "playbook-marketplace",
               "git-worktrees",
               "group-chat",
               "remote-access",
