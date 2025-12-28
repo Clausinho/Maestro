@@ -264,6 +264,27 @@ body {
   background-color: rgba(0, 0, 0, 0.85);
 }
 
+/* React Flow - Document Graph edge hover styling */
+/* Subtle glow effect on edge hover */
+.react-flow__edge-path {
+  transition: stroke 0.2s ease, stroke-width 0.2s ease, filter 0.2s ease;
+}
+
+.react-flow__edge:hover .react-flow__edge-path {
+  filter: drop-shadow(0 0 3px var(--edge-hover-color, currentColor));
+  stroke-width: 2.5;
+}
+
+/* Edge path styling for better visibility */
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke-width: 3;
+}
+
+/* Smooth step edge marker hover effect */
+.react-flow__edge:hover .react-flow__edge-textwrapper {
+  opacity: 1;
+}
+
 /* Reduced motion preference - accessibility best practice */
 @media (prefers-reduced-motion: reduce) {
   .animate-pulse,
@@ -276,6 +297,11 @@ body {
   .transition-colors,
   .transition-opacity,
   .transition-transform {
+    transition: none !important;
+  }
+
+  /* Disable React Flow edge animations */
+  .react-flow__edge-path {
     transition: none !important;
   }
 }

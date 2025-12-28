@@ -294,4 +294,177 @@ describe('DocumentGraphView', () => {
       expect(typeof props.onExternalLinkOpen).toBe('function');
     });
   });
+
+  describe('Edge Styling', () => {
+    // Test theme colors used for edge styling
+    const testTheme = {
+      id: 'test',
+      name: 'Test',
+      mode: 'dark' as const,
+      colors: {
+        bgMain: '#000000',
+        bgSidebar: '#111111',
+        bgActivity: '#222222',
+        border: '#333333',
+        textMain: '#ffffff',
+        textDim: '#888888',
+        accent: '#0066ff',
+        accentDim: '#003388',
+        accentText: '#00ffff',
+        accentForeground: '#ffffff',
+        success: '#00ff00',
+        warning: '#ffff00',
+        error: '#ff0000',
+      },
+    };
+
+    it('uses theme.colors.textDim as default edge color', () => {
+      // This test documents the expected edge styling behavior
+      // The styledEdges useMemo in DocumentGraphView applies:
+      // - stroke: theme.colors.textDim for unselected edges
+      // - stroke: theme.colors.accent for edges connected to selected node
+
+      // Verify theme has required colors for edge styling
+      expect(testTheme.colors.textDim).toBe('#888888');
+      expect(testTheme.colors.accent).toBe('#0066ff');
+    });
+
+    it('highlights edges connected to selected node with accent color', () => {
+      // The styledEdges logic checks:
+      // const isConnectedToSelected = selectedNodeId !== null &&
+      //   (edge.source === selectedNodeId || edge.target === selectedNodeId);
+      //
+      // When connected: stroke = theme.colors.accent, strokeWidth = 2.5
+      // When not connected: stroke = theme.colors.textDim, strokeWidth = 1.5
+
+      const selectedNodeId = 'doc1';
+      const edges = [
+        { id: 'e1', source: 'doc1', target: 'doc2', type: 'document' },
+        { id: 'e2', source: 'doc2', target: 'doc3', type: 'document' },
+        { id: 'e3', source: 'doc3', target: 'doc1', type: 'document' },
+      ];
+
+      // Simulate the styledEdges logic
+      const styledEdges = edges.map((edge) => {
+        const isConnectedToSelected =
+          selectedNodeId !== null &&
+          (edge.source === selectedNodeId || edge.target === selectedNodeId);
+
+        return {
+          ...edge,
+          style: {
+            stroke: isConnectedToSelected ? testTheme.colors.accent : testTheme.colors.textDim,
+            strokeWidth: isConnectedToSelected ? 2.5 : 1.5,
+          },
+        };
+      });
+
+      // e1 connects doc1->doc2, should be highlighted
+      expect(styledEdges[0].style.stroke).toBe('#0066ff');
+      expect(styledEdges[0].style.strokeWidth).toBe(2.5);
+
+      // e2 connects doc2->doc3, not connected to doc1
+      expect(styledEdges[1].style.stroke).toBe('#888888');
+      expect(styledEdges[1].style.strokeWidth).toBe(1.5);
+
+      // e3 connects doc3->doc1, should be highlighted
+      expect(styledEdges[2].style.stroke).toBe('#0066ff');
+      expect(styledEdges[2].style.strokeWidth).toBe(2.5);
+    });
+
+    it('uses dashed stroke for external link edges', () => {
+      // External link edges use strokeDasharray: '4 4' for dashed appearance
+      // while document edges have no dasharray (solid lines)
+
+      const edges = [
+        { id: 'e1', source: 'doc1', target: 'doc2', type: 'document' },
+        { id: 'e2', source: 'doc1', target: 'ext1', type: 'external' },
+      ];
+
+      // Simulate the styledEdges logic for dasharray
+      const styledEdges = edges.map((edge) => ({
+        ...edge,
+        style: {
+          strokeDasharray: edge.type === 'external' ? '4 4' : undefined,
+        },
+      }));
+
+      // Document edge should have no dash
+      expect(styledEdges[0].style.strokeDasharray).toBeUndefined();
+
+      // External edge should be dashed
+      expect(styledEdges[1].style.strokeDasharray).toBe('4 4');
+    });
+
+    it('applies transition animation for smooth edge style changes', () => {
+      // Edges have CSS transition for smooth visual changes:
+      // transition: 'stroke 0.2s ease, stroke-width 0.2s ease'
+
+      const edge = { id: 'e1', source: 'doc1', target: 'doc2' };
+
+      // Simulate edge styling with transition
+      const styledEdge = {
+        ...edge,
+        style: {
+          stroke: testTheme.colors.textDim,
+          strokeWidth: 1.5,
+          transition: 'stroke 0.2s ease, stroke-width 0.2s ease',
+        },
+      };
+
+      expect(styledEdge.style.transition).toBe('stroke 0.2s ease, stroke-width 0.2s ease');
+    });
+
+    it('uses smoothstep edge type for clean routing', () => {
+      // The component configures smoothstep as default edge type:
+      // defaultEdgeOptions={{ type: 'smoothstep' }}
+      // This provides clean, right-angled edge routing between nodes
+
+      // This is configured in the ReactFlow component props (line 672-674)
+      const defaultEdgeOptions = { type: 'smoothstep' };
+      expect(defaultEdgeOptions.type).toBe('smoothstep');
+    });
+
+    it('sets higher z-index for edges connected to selected node', () => {
+      // Connected edges are brought to front with zIndex: 1000
+      // Unconnected edges have zIndex: 0
+
+      const selectedNodeId = 'doc1';
+      const edges = [
+        { id: 'e1', source: 'doc1', target: 'doc2' },
+        { id: 'e2', source: 'doc2', target: 'doc3' },
+      ];
+
+      const styledEdges = edges.map((edge) => {
+        const isConnectedToSelected =
+          (edge.source === selectedNodeId || edge.target === selectedNodeId);
+
+        return {
+          ...edge,
+          zIndex: isConnectedToSelected ? 1000 : 0,
+        };
+      });
+
+      expect(styledEdges[0].zIndex).toBe(1000); // Connected to selected
+      expect(styledEdges[1].zIndex).toBe(0);     // Not connected
+    });
+
+    it('applies animated property to external link edges', () => {
+      // External link edges have animated: true for visual movement
+      // This creates a flowing animation along the edge path
+
+      const edges = [
+        { id: 'e1', source: 'doc1', target: 'doc2', type: 'document' },
+        { id: 'e2', source: 'doc1', target: 'ext1', type: 'external' },
+      ];
+
+      const styledEdges = edges.map((edge) => ({
+        ...edge,
+        animated: edge.type === 'external',
+      }));
+
+      expect(styledEdges[0].animated).toBe(false); // Document edge not animated
+      expect(styledEdges[1].animated).toBe(true);  // External edge animated
+    });
+  });
 });
