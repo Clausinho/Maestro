@@ -730,12 +730,11 @@ function DocumentGraphViewInner({
         {/* Main Content - React Flow Canvas */}
         <div className="flex-1 relative" style={{ backgroundColor: theme.colors.bgMain }}>
           {loading ? (
-            <div
-              className="h-full flex items-center justify-center"
-              style={{ color: theme.colors.textDim }}
-            >
-              <RefreshCw className="w-6 h-6 animate-spin mr-2" />
-              Scanning documents...
+            <div className="h-full flex flex-col items-center justify-center gap-4">
+              <Loader2 className="w-8 h-8 animate-spin" style={{ color: theme.colors.accent }} />
+              <p className="text-sm" style={{ color: theme.colors.textDim }}>
+                Scanning documents...
+              </p>
             </div>
           ) : error ? (
             <div

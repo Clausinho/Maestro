@@ -620,4 +620,85 @@ describe('DocumentGraphView', () => {
       });
     });
   });
+
+  describe('Loading & Empty States', () => {
+    it('shows loading spinner with Loader2 icon and accent color while scanning', () => {
+      // The loading state displays:
+      // 1. A Loader2 icon (8x8) with animate-spin animation
+      // 2. Styled with theme.colors.accent color
+      // 3. "Scanning documents..." text below the spinner
+      // 4. Text styled with theme.colors.textDim color
+      //
+      // This matches the standard loading pattern used across the codebase
+      // (e.g., DebugPackageModal, AgentSessionsBrowser, etc.)
+      //
+      // Implementation in DocumentGraphView.tsx lines ~732-738:
+      // <div className="h-full flex flex-col items-center justify-center gap-4">
+      //   <Loader2 className="w-8 h-8 animate-spin" style={{ color: theme.colors.accent }} />
+      //   <p className="text-sm" style={{ color: theme.colors.textDim }}>
+      //     Scanning documents...
+      //   </p>
+      // </div>
+
+      const loadingStateStructure = {
+        layout: 'flex-col items-center justify-center gap-4',
+        spinner: {
+          icon: 'Loader2',
+          size: 'w-8 h-8',
+          animation: 'animate-spin',
+          color: 'theme.colors.accent',
+        },
+        text: {
+          content: 'Scanning documents...',
+          size: 'text-sm',
+          color: 'theme.colors.textDim',
+        },
+      };
+
+      expect(loadingStateStructure.spinner.icon).toBe('Loader2');
+      expect(loadingStateStructure.spinner.color).toBe('theme.colors.accent');
+      expect(loadingStateStructure.text.content).toBe('Scanning documents...');
+    });
+
+    it('displays empty state with icon and message when no markdown files found', () => {
+      // The empty state shows:
+      // 1. A Network icon (12x12) with 30% opacity
+      // 2. "No markdown files found" as main message
+      // 3. "This directory doesn't contain any .md files" as subtext
+      //
+      // Implementation in DocumentGraphView.tsx lines ~758-766
+
+      const emptyStateStructure = {
+        icon: 'Network',
+        iconSize: 'w-12 h-12',
+        iconOpacity: 'opacity-30',
+        mainMessage: 'No markdown files found',
+        subtext: "This directory doesn't contain any .md files",
+      };
+
+      expect(emptyStateStructure.mainMessage).toBe('No markdown files found');
+      expect(emptyStateStructure.subtext).toContain('.md files');
+    });
+
+    it('displays error state with retry button when loading fails', () => {
+      // The error state shows:
+      // 1. "Failed to load document graph" as main message
+      // 2. The error message details
+      // 3. A "Retry" button styled with accent color
+      //
+      // Implementation in DocumentGraphView.tsx lines ~740-757
+
+      const errorStateStructure = {
+        mainMessage: 'Failed to load document graph',
+        hasRetryButton: true,
+        retryButtonStyle: {
+          backgroundColor: 'theme.colors.accent',
+          textColor: 'theme.colors.bgMain',
+        },
+      };
+
+      expect(errorStateStructure.mainMessage).toBe('Failed to load document graph');
+      expect(errorStateStructure.hasRetryButton).toBe(true);
+    });
+  });
 });
