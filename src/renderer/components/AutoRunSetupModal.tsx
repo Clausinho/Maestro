@@ -10,9 +10,11 @@ interface AutoRunSetupModalProps {
   onFolderSelected: (folderPath: string) => void;
   currentFolder?: string; // If changing existing folder
   sessionName?: string; // Name of the agent session
+  sshRemoteId?: string; // SSH remote ID if agent uses remote execution
+  sshRemoteHost?: string; // SSH remote host for tooltip display
 }
 
-export function AutoRunSetupModal({ theme, onClose, onFolderSelected, currentFolder, sessionName }: AutoRunSetupModalProps) {
+export function AutoRunSetupModal({ theme, onClose, onFolderSelected, currentFolder, sessionName, sshRemoteId, sshRemoteHost }: AutoRunSetupModalProps) {
   const [selectedFolder, setSelectedFolder] = useState(currentFolder || '');
   const [homeDir, setHomeDir] = useState<string>('');
   const [folderValidation, setFolderValidation] = useState<{
@@ -64,7 +66,7 @@ export function AutoRunSetupModal({ theme, onClose, onFolderSelected, currentFol
           }
         }
 
-        const result = await window.maestro.autorun.listDocs(expandedPath);
+        const result = await window.maestro.autorun.listDocs(expandedPath, sshRemoteId);
 
         if (result.success) {
           setFolderValidation({
@@ -91,7 +93,7 @@ export function AutoRunSetupModal({ theme, onClose, onFolderSelected, currentFol
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [selectedFolder, homeDir]);
+  }, [selectedFolder, homeDir, sshRemoteId]);
 
   const handleSelectFolder = async () => {
     const folder = await window.maestro.dialog.selectFolder();
@@ -115,11 +117,13 @@ export function AutoRunSetupModal({ theme, onClose, onFolderSelected, currentFol
 
   // Handle custom keyboard shortcuts
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // Handle Cmd+O for folder picker
+    // Handle Cmd+O for folder picker (disabled when SSH remote is active)
     if ((e.key === 'o' || e.key === 'O') && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       e.stopPropagation();
-      handleSelectFolder();
+      if (!sshRemoteId) {
+        handleSelectFolder();
+      }
       return;
     }
     // Handle Enter for continue when folder is selected
@@ -209,15 +213,22 @@ export function AutoRunSetupModal({ theme, onClose, onFolderSelected, currentFol
             label="Auto Run Folder"
             value={selectedFolder}
             onChange={setSelectedFolder}
-            placeholder={sessionName ? `Select Auto Run folder for ${sessionName}` : 'Select Auto Run folder'}
+            placeholder={sshRemoteId
+              ? `Enter remote path${sshRemoteHost ? ` on ${sshRemoteHost}` : ''} (e.g., /home/user/docs)`
+              : sessionName ? `Select Auto Run folder for ${sessionName}` : 'Select Auto Run folder'
+            }
             monospace
             heightClass="p-2"
             addon={
               <button
-                onClick={handleSelectFolder}
-                className="p-2 rounded border hover:bg-white/5 transition-colors"
+                onClick={sshRemoteId ? undefined : handleSelectFolder}
+                disabled={!!sshRemoteId}
+                className={`p-2 rounded border transition-colors ${sshRemoteId ? 'opacity-40 cursor-not-allowed' : 'hover:bg-white/5'}`}
                 style={{ borderColor: theme.colors.border, color: theme.colors.textMain }}
-                title="Browse folders (Cmd+O)"
+                title={sshRemoteId
+                  ? `Folder picker unavailable for SSH remote${sshRemoteHost ? ` (${sshRemoteHost})` : ''}. Enter the remote path manually.`
+                  : 'Browse folders (Cmd+O)'
+                }
               >
                 <Folder className="w-5 h-5" />
               </button>

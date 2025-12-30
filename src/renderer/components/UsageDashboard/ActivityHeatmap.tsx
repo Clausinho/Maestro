@@ -285,9 +285,6 @@ export function ActivityHeatmap({ data, timeRange, theme, colorBlindMode = false
     setTooltipPos(null);
   }, []);
 
-  // Label width for Y-axis
-  const labelWidth = 32;
-
   return (
     <div
       className="p-4 rounded-lg"
@@ -356,56 +353,47 @@ export function ActivityHeatmap({ data, timeRange, theme, colorBlindMode = false
       </div>
 
       {/* Heatmap grid */}
-      <div className="flex">
+      <div className="flex gap-2">
         {/* Hour labels (Y-axis) */}
-        <div
-          className="flex flex-col justify-around pr-2 flex-shrink-0"
-          style={{ width: labelWidth }}
-        >
+        <div className="flex flex-col flex-shrink-0" style={{ width: 28, paddingTop: 20 }}>
           {hourLabels.map((label, idx) => (
-            <span
+            <div
               key={idx}
-              className="text-xs leading-none text-right"
+              className="text-xs text-right flex items-center justify-end"
               style={{
                 color: theme.colors.textDim,
-                height: useAmPm ? 40 : 10,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
+                height: useAmPm ? 32 : 12,
               }}
             >
               {label}
-            </span>
+            </div>
           ))}
         </div>
 
         {/* Grid of cells */}
-        <div className="flex-1 overflow-x-auto">
-          <div
-            className="flex gap-[2px]"
-            style={{ minWidth: dayColumns.length * 16 }}
-          >
+        <div className="flex-1">
+          <div className="flex gap-[3px]">
             {dayColumns.map((col) => (
               <div
                 key={col.dateString}
                 className="flex flex-col gap-[2px] flex-1"
-                style={{ minWidth: 14, maxWidth: 40 }}
+                style={{ minWidth: 20 }}
               >
                 {/* Day label */}
-                <span
-                  className="text-xs text-center truncate mb-1"
+                <div
+                  className="text-xs text-center truncate h-[18px] flex items-center justify-center"
                   style={{ color: theme.colors.textDim }}
                   title={format(col.date, 'EEEE, MMM d')}
                 >
                   {col.dayLabel}
-                </span>
+                </div>
                 {/* Hour cells */}
                 {col.hours.map((hourData) => (
                   <div
                     key={hourData.hourKey}
-                    className="rounded-sm cursor-default flex-1"
+                    className="rounded-sm cursor-default"
                     style={{
-                      minHeight: useAmPm ? 36 : 8,
+                      height: useAmPm ? 32 : 12,
                       backgroundColor: getIntensityColor(
                         hourData.intensity,
                         theme,

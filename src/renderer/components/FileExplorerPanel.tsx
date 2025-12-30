@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ChevronRight, ChevronDown, ChevronUp, Folder, RefreshCw, Check, Eye, EyeOff, GitGraph, Target, Copy, ExternalLink } from 'lucide-react';
+import { ChevronRight, ChevronDown, ChevronUp, Folder, RefreshCw, Check, Eye, EyeOff, GitGraph, Target, Copy, ExternalLink, Server } from 'lucide-react';
 import type { Session, Theme, FocusArea } from '../types';
 import type { FileNode } from '../types/fileTree';
 import type { FileTreeChanges } from '../utils/fileExplorer';
@@ -454,19 +454,31 @@ function FileExplorerPanelInner(props: FileExplorerPanelProps) {
           backgroundColor: theme.colors.bgSidebar
         }}
       >
-        <span
-          className="opacity-50 min-w-0 flex-1 overflow-hidden whitespace-nowrap cursor-pointer"
-          style={{
-            direction: 'rtl',
-            textOverflow: 'ellipsis',
-            textAlign: 'left',
-          }}
-          title={session.cwd}
-          onDoubleClick={() => {
-            navigator.clipboard.writeText(session.cwd);
-            onShowFlash?.('Path copied to clipboard');
-          }}
-        ><bdi>{session.cwd}</bdi></span>
+        <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
+          {/* SSH Remote indicator */}
+          {session.sshRemote && (
+            <span
+              className="flex-shrink-0"
+              title={`SSH: ${session.sshRemote.name} (${session.sshRemote.host})`}
+              style={{ color: theme.colors.accent }}
+            >
+              <Server className="w-3.5 h-3.5" />
+            </span>
+          )}
+          <span
+            className="opacity-50 min-w-0 flex-1 overflow-hidden whitespace-nowrap cursor-pointer"
+            style={{
+              direction: 'rtl',
+              textOverflow: 'ellipsis',
+              textAlign: 'left',
+            }}
+            title={session.sshRemote ? `${session.sshRemote.host}:${session.cwd}` : session.cwd}
+            onDoubleClick={() => {
+              navigator.clipboard.writeText(session.cwd);
+              onShowFlash?.('Path copied to clipboard');
+            }}
+          ><bdi>{session.cwd}</bdi></span>
+        </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           {onOpenGraphView && (
             <button

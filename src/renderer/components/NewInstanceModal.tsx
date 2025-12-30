@@ -282,6 +282,22 @@ export function NewInstanceModal({ isOpen, onClose, onCreate, theme, existingSes
     });
   }, [instanceName, selectedAgent, workingDir, nudgeMessage, customAgentPaths, customAgentArgs, customAgentEnvVars, agentConfigs, agentSshRemoteConfigs, onCreate, onClose, expandTilde, existingSessions]);
 
+  // Check if SSH remote is enabled for the selected agent
+  const isSshEnabled = useMemo(() => {
+    if (!selectedAgent) return false;
+    const config = agentSshRemoteConfigs[selectedAgent];
+    return config?.enabled && !!config?.remoteId;
+  }, [selectedAgent, agentSshRemoteConfigs]);
+
+  // Get SSH remote host for display
+  const sshRemoteHost = useMemo(() => {
+    if (!isSshEnabled || !selectedAgent) return undefined;
+    const config = agentSshRemoteConfigs[selectedAgent];
+    if (!config?.remoteId) return undefined;
+    const remote = sshRemotes.find(r => r.id === config.remoteId);
+    return remote?.host;
+  }, [isSshEnabled, selectedAgent, agentSshRemoteConfigs, sshRemotes]);
+
   // Check if form is valid for submission
   const isFormValid = useMemo(() => {
     const hasWarningThatNeedsAck = validation.warning && !directoryWarningAcknowledged;
@@ -295,11 +311,13 @@ export function NewInstanceModal({ isOpen, onClose, onCreate, theme, existingSes
 
   // Handle keyboard shortcuts
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    // Handle Cmd+O for folder picker before stopping propagation
+    // Handle Cmd+O for folder picker (disabled when SSH remote is active)
     if ((e.key === 'o' || e.key === 'O') && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       e.stopPropagation();
-      handleSelectFolder();
+      if (!isSshEnabled) {
+        handleSelectFolder();
+      }
       return;
     }
     // Handle Cmd+Enter for creating agent
@@ -311,7 +329,7 @@ export function NewInstanceModal({ isOpen, onClose, onCreate, theme, existingSes
       }
       return;
     }
-  }, [handleSelectFolder, handleCreate, isFormValid]);
+  }, [handleSelectFolder, handleCreate, isFormValid, isSshEnabled]);
 
   // Sort agents: supported first, then coming soon at the bottom
   const sortedAgents = useMemo(() => {
@@ -643,16 +661,23 @@ export function NewInstanceModal({ isOpen, onClose, onCreate, theme, existingSes
             label="Working Directory"
             value={workingDir}
             onChange={setWorkingDir}
-            placeholder="Select directory..."
+            placeholder={isSshEnabled
+              ? `Enter remote path${sshRemoteHost ? ` on ${sshRemoteHost}` : ''} (e.g., /home/user/project)`
+              : 'Select directory...'
+            }
             error={validation.errorField === 'directory' ? validation.error : undefined}
             monospace
             heightClass="p-2"
             addon={
               <button
-                onClick={handleSelectFolder}
-                className="p-2 rounded border hover:bg-opacity-10"
+                onClick={isSshEnabled ? undefined : handleSelectFolder}
+                disabled={isSshEnabled}
+                className={`p-2 rounded border transition-colors ${isSshEnabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-opacity-10'}`}
                 style={{ borderColor: theme.colors.border, color: theme.colors.textMain }}
-                title="Browse folders (Cmd+O)"
+                title={isSshEnabled
+                  ? `Folder picker unavailable for SSH remote${sshRemoteHost ? ` (${sshRemoteHost})` : ''}. Enter the remote path manually.`
+                  : 'Browse folders (Cmd+O)'
+                }
               >
                 <Folder className="w-5 h-5" />
               </button>

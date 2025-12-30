@@ -294,7 +294,9 @@ export function registerProcessHandlers(deps: ProcessHandlerDependencies): void 
         // When using SSH, disable PTY (SSH provides its own terminal handling)
         // and env vars are passed via the remote command string
         requiresPty: sshRemoteUsed ? false : agent?.requiresPty,
-        prompt: config.prompt,
+        // When using SSH, the prompt is already embedded in the SSH command args
+        // (via buildAgentArgs -> buildSshCommand), so don't pass it again
+        prompt: sshRemoteUsed ? undefined : config.prompt,
         shell: shellToUse,
         shellArgs: shellArgsStr,         // Shell-specific CLI args (for terminal sessions)
         shellEnvVars: shellEnvVars,      // Shell-specific env vars (for terminal sessions)

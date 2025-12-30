@@ -39,31 +39,34 @@ interface AgentComparisonChartProps {
   colorBlindMode?: boolean;
 }
 
-// Standard color palette that works with both light and dark themes
-const STANDARD_AGENT_PALETTE = [
-  '#3b82f6', // blue
-  '#10b981', // emerald
-  '#f59e0b', // amber
-  '#ef4444', // red
-  '#8b5cf6', // violet
-  '#ec4899', // pink
-  '#06b6d4', // cyan
-  '#f97316', // orange
-  '#84cc16', // lime
-  '#6366f1', // indigo
-];
-
 /**
- * Generate a distinct color for an agent based on its position in the list
- * Uses a predefined palette to ensure visual distinction between agents
+ * Generate a color for an agent
+ * Uses the theme's accent color as primary, with additional colors for multiple agents
  */
 function getAgentColor(agentName: string, index: number, theme: Theme, colorBlindMode?: boolean): string {
   // Use colorblind-safe palette when colorblind mode is enabled
-  const palette = colorBlindMode ? COLORBLIND_AGENT_PALETTE : STANDARD_AGENT_PALETTE;
+  if (colorBlindMode) {
+    return COLORBLIND_AGENT_PALETTE[index % COLORBLIND_AGENT_PALETTE.length];
+  }
 
-  // Use index directly to ensure unique colors for each agent position
-  // This guarantees distinct colors for up to 10 agents
-  return palette[index % palette.length];
+  // For the first (primary) agent, use the theme's accent color
+  if (index === 0) {
+    return theme.colors.accent;
+  }
+
+  // For additional agents, use a palette that complements the accent
+  const additionalColors = [
+    '#10b981', // emerald
+    '#8b5cf6', // violet
+    '#ef4444', // red
+    '#06b6d4', // cyan
+    '#ec4899', // pink
+    '#f59e0b', // amber
+    '#84cc16', // lime
+    '#6366f1', // indigo
+  ];
+
+  return additionalColors[(index - 1) % additionalColors.length];
 }
 
 /**
