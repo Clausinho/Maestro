@@ -43,35 +43,12 @@ import type {
   SessionListOptions,
   SessionReadOptions,
 } from '../../agent-session-storage';
+import type { GlobalAgentStats, ProviderStats } from '../../../shared/types';
+
+// Re-export for backwards compatibility
+export type { GlobalAgentStats, ProviderStats };
 
 const LOG_CONTEXT = '[AgentSessions]';
-
-/**
- * Global stats aggregated from all providers
- */
-export interface GlobalAgentStats {
-  totalSessions: number;
-  totalMessages: number;
-  totalInputTokens: number;
-  totalOutputTokens: number;
-  totalCacheReadTokens: number;
-  totalCacheCreationTokens: number;
-  /** Total cost in USD - only includes providers that support cost tracking */
-  totalCostUsd: number;
-  /** Whether any provider contributed cost data */
-  hasCostData: boolean;
-  totalSizeBytes: number;
-  isComplete: boolean;
-  /** Per-provider breakdown */
-  byProvider: Record<string, {
-    sessions: number;
-    messages: number;
-    inputTokens: number;
-    outputTokens: number;
-    costUsd: number;
-    hasCostData: boolean;
-  }>;
-}
 
 /**
  * Generic agent session origins data structure
