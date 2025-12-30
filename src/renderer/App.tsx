@@ -8772,33 +8772,38 @@ function MaestroConsoleInner() {
         />
       )}
 
-      {/* --- DOCUMENT GRAPH VIEW --- */}
-      <DocumentGraphView
-        isOpen={isGraphViewOpen}
-        onClose={() => setIsGraphViewOpen(false)}
-        theme={theme}
-        rootPath={activeSession?.cwd ?? ''}
-        onDocumentOpen={(filePath) => {
-          // Open the document in file preview
-          const fullPath = `${activeSession?.cwd ?? ''}/${filePath}`;
-          window.maestro.fs.readFile(fullPath, activeSession?.sshRemoteId).then((content) => {
-            if (content !== null) {
-              setPreviewFile({ name: filePath.split('/').pop() || filePath, content, path: fullPath });
-            }
-          });
-          setIsGraphViewOpen(false);
-        }}
-        onExternalLinkOpen={(url) => {
-          // Open external URL in default browser
-          window.maestro.shell.openExternal(url);
-        }}
-        focusFilePath={graphFocusFilePath}
-        onFocusFileConsumed={() => setGraphFocusFilePath(undefined)}
-        defaultShowExternalLinks={documentGraphShowExternalLinks}
-        onExternalLinksChange={settings.setDocumentGraphShowExternalLinks}
-        defaultMaxNodes={documentGraphMaxNodes}
-        sshRemoteId={activeSession?.sshRemoteId}
-      />
+      {/* --- DOCUMENT GRAPH VIEW (Mind Map) --- */}
+      {/* Only render when a focus file is provided - mind map requires a center document */}
+      {graphFocusFilePath && (
+        <DocumentGraphView
+          isOpen={isGraphViewOpen}
+          onClose={() => {
+            setIsGraphViewOpen(false);
+            setGraphFocusFilePath(undefined);
+          }}
+          theme={theme}
+          rootPath={activeSession?.cwd ?? ''}
+          onDocumentOpen={(filePath) => {
+            // Open the document in file preview
+            const fullPath = `${activeSession?.cwd ?? ''}/${filePath}`;
+            window.maestro.fs.readFile(fullPath, activeSession?.sshRemoteId).then((content) => {
+              if (content !== null) {
+                setPreviewFile({ name: filePath.split('/').pop() || filePath, content, path: fullPath });
+              }
+            });
+            setIsGraphViewOpen(false);
+          }}
+          onExternalLinkOpen={(url) => {
+            // Open external URL in default browser
+            window.maestro.shell.openExternal(url);
+          }}
+          focusFilePath={graphFocusFilePath}
+          defaultShowExternalLinks={documentGraphShowExternalLinks}
+          onExternalLinksChange={settings.setDocumentGraphShowExternalLinks}
+          defaultMaxNodes={documentGraphMaxNodes}
+          sshRemoteId={activeSession?.sshRemoteId}
+        />
+      )}
 
       {/* NOTE: All modals are now rendered via the unified <AppModals /> component above */}
 
