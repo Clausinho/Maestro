@@ -273,9 +273,15 @@ export function ActivityHeatmap({ data, timeRange, theme, colorBlindMode = false
     (cell: HourData, event: React.MouseEvent<HTMLDivElement>) => {
       setHoveredCell(cell);
       const rect = event.currentTarget.getBoundingClientRect();
-      // Position tooltip above and centered on the cell
+      const tooltipWidth = 180; // Approximate tooltip width
+      const viewportWidth = window.innerWidth;
+
+      // Check if tooltip would overflow right edge
+      const wouldOverflowRight = rect.left + rect.width / 2 + tooltipWidth / 2 > viewportWidth - 20;
+
+      // Position tooltip above the cell, adjusting horizontally if needed
       setTooltipPos({
-        x: rect.left + rect.width / 2,
+        x: wouldOverflowRight ? rect.left - 10 : rect.left + rect.width / 2,
         y: rect.top - 4,
       });
     },
@@ -357,14 +363,15 @@ export function ActivityHeatmap({ data, timeRange, theme, colorBlindMode = false
       {/* Heatmap grid */}
       <div className="flex gap-2">
         {/* Hour labels (Y-axis) - only show every 2 hours for readability */}
-        <div className="flex flex-col flex-shrink-0" style={{ width: 28, paddingTop: 20 }}>
+        <div className="flex flex-col flex-shrink-0" style={{ width: 28, paddingTop: 18 }}>
           {hourLabels.map((label, idx) => (
             <div
               key={idx}
               className="text-xs text-right flex items-center justify-end"
               style={{
                 color: theme.colors.textDim,
-                height: useAmPm ? 34 : 14,
+                // Match cell height + gap: 14px cell + 2px gap = 16px (or 34 + 2 = 36 for AM/PM)
+                height: useAmPm ? 36 : 16,
               }}
             >
               {/* Only show labels for even hours (0, 2, 4, etc.) */}
@@ -384,7 +391,7 @@ export function ActivityHeatmap({ data, timeRange, theme, colorBlindMode = false
               >
                 {/* Day label */}
                 <div
-                  className="text-xs text-center truncate h-[18px] flex items-center justify-center"
+                  className="text-xs text-center truncate h-[16px] flex items-center justify-center"
                   style={{ color: theme.colors.textDim }}
                   title={format(col.date, 'EEEE, MMM d')}
                 >
@@ -454,31 +461,37 @@ export function ActivityHeatmap({ data, timeRange, theme, colorBlindMode = false
       </div>
 
       {/* Tooltip */}
-      {hoveredCell && tooltipPos && (
-        <div
-          className="fixed z-50 px-2 py-1.5 rounded text-xs whitespace-nowrap pointer-events-none shadow-lg"
-          style={{
-            left: tooltipPos.x,
-            top: tooltipPos.y - 8,
-            transform: 'translate(-50%, -100%)',
-            backgroundColor: theme.colors.bgActivity,
-            color: theme.colors.textMain,
-            border: `1px solid ${theme.colors.border}`,
-          }}
-        >
-          <div className="font-medium mb-0.5">
-            {format(hoveredCell.date, 'EEEE, MMM d')}
-            {!useAmPm && ` at ${hoveredCell.hour}:00`}
-            {useAmPm && ` (${hoveredCell.hour === 0 ? 'AM' : 'PM'})`}
+      {hoveredCell && tooltipPos && (() => {
+        const tooltipWidth = 180;
+        const viewportWidth = window.innerWidth;
+        const wouldOverflowRight = tooltipPos.x + tooltipWidth / 2 > viewportWidth - 20;
+
+        return (
+          <div
+            className="fixed z-50 px-2 py-1.5 rounded text-xs whitespace-nowrap pointer-events-none shadow-lg"
+            style={{
+              left: tooltipPos.x,
+              top: tooltipPos.y - 8,
+              transform: wouldOverflowRight ? 'translate(-100%, -100%)' : 'translate(-50%, -100%)',
+              backgroundColor: theme.colors.bgActivity,
+              color: theme.colors.textMain,
+              border: `1px solid ${theme.colors.border}`,
+            }}
+          >
+            <div className="font-medium mb-0.5">
+              {format(hoveredCell.date, 'EEEE, MMM d')}
+              {!useAmPm && ` at ${hoveredCell.hour}:00`}
+              {useAmPm && ` (${hoveredCell.hour === 0 ? 'AM' : 'PM'})`}
+            </div>
+            <div style={{ color: theme.colors.textDim }}>
+              {hoveredCell.count} {hoveredCell.count === 1 ? 'query' : 'queries'}
+              {hoveredCell.duration > 0 && (
+                <span> • {formatDuration(hoveredCell.duration)}</span>
+              )}
+            </div>
           </div>
-          <div style={{ color: theme.colors.textDim }}>
-            {hoveredCell.count} {hoveredCell.count === 1 ? 'query' : 'queries'}
-            {hoveredCell.duration > 0 && (
-              <span> • {formatDuration(hoveredCell.duration)}</span>
-            )}
-          </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

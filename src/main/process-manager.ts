@@ -10,7 +10,7 @@ import { getOutputParser, type ParsedEvent, type AgentOutputParser } from './par
 import { aggregateModelUsage } from './parsers/usage-aggregator';
 import { matchSshErrorPattern } from './parsers/error-patterns';
 import type { AgentError } from '../shared/types';
-import { compareVersions } from '../shared/pathUtils';
+import { detectNodeVersionManagerBinPaths } from '../shared/pathUtils';
 import { getAgentCapabilities } from './agent-capabilities';
 
 // Re-export parser types for consumers
@@ -25,7 +25,8 @@ export type { UsageStats, ModelStats } from './parsers/usage-aggregator';
 export { aggregateModelUsage } from './parsers/usage-aggregator';
 
 // Export Node version manager detection for testing
-export { detectNodeVersionManagerPaths, buildUnixBasePath };
+// detectNodeVersionManagerBinPaths is now in shared/pathUtils.ts
+export { detectNodeVersionManagerBinPaths, buildUnixBasePath };
 
 /**
  * Maximum buffer size for stdout/stderr error detection buffers.
@@ -190,146 +191,15 @@ function normalizeCodexUsage(
 // and re-exported above for backwards compatibility
 
 /**
- * Detect Node version manager paths on Unix systems (macOS/Linux).
- * Checks for nvm, fnm, volta, and mise installations and returns their bin paths.
- * These paths are prepended to ensure node/npm are available even when launched from
- * GUI applications (Electron) that don't inherit shell PATH configuration.
- *
- * @returns Array of existing bin paths from detected version managers
- */
-function detectNodeVersionManagerPaths(): string[] {
-  if (process.platform === 'win32') {
-    return []; // Windows has different version manager paths handled elsewhere
-  }
-
-  const home = os.homedir();
-  const detectedPaths: string[] = [];
-
-  // nvm: Check for ~/.nvm and find the current default node version
-  const nvmDir = process.env.NVM_DIR || path.join(home, '.nvm');
-  if (fs.existsSync(nvmDir)) {
-    // Try to find current/default version
-    const nvmCurrentBin = path.join(nvmDir, 'current', 'bin');
-    const nvmAlias = path.join(nvmDir, 'alias', 'default');
-
-    if (fs.existsSync(nvmCurrentBin)) {
-      detectedPaths.push(nvmCurrentBin);
-    } else if (fs.existsSync(nvmAlias)) {
-      // Read the default alias and resolve to version
-      try {
-        let version = fs.readFileSync(nvmAlias, 'utf8').trim();
-        // Handle aliases like 'lts/*' or 'node' by checking versions dir
-        if (version.startsWith('lts/') || version === 'node' || version === 'stable') {
-          // Just find any installed version as fallback
-          const versionsDir = path.join(nvmDir, 'versions', 'node');
-          if (fs.existsSync(versionsDir)) {
-            const versions = fs.readdirSync(versionsDir).filter(v => v.startsWith('v'));
-            if (versions.length > 0) {
-              versions.sort((a, b) => compareVersions(b, a));
-              version = versions[0];
-            }
-          }
-        }
-        const versionBin = path.join(nvmDir, 'versions', 'node', version, 'bin');
-        if (fs.existsSync(versionBin)) {
-          detectedPaths.push(versionBin);
-        }
-      } catch {
-        // Ignore errors reading alias file
-      }
-    } else {
-      // Fallback: check versions directory for any installed version
-      const versionsDir = path.join(nvmDir, 'versions', 'node');
-      if (fs.existsSync(versionsDir)) {
-        try {
-          const versions = fs.readdirSync(versionsDir).filter(v => v.startsWith('v'));
-          if (versions.length > 0) {
-            versions.sort((a, b) => compareVersions(b, a));
-            const versionBin = path.join(versionsDir, versions[0], 'bin');
-            if (fs.existsSync(versionBin)) {
-              detectedPaths.push(versionBin);
-            }
-          }
-        } catch {
-          // Ignore errors listing versions directory
-        }
-      }
-    }
-  }
-
-  // fnm: Fast Node Manager
-  // - macOS: ~/Library/Application Support/fnm (default) or ~/.fnm
-  // - Linux: ~/.local/share/fnm (default) or ~/.fnm
-  const fnmPaths = [
-    path.join(home, 'Library', 'Application Support', 'fnm'), // macOS default
-    path.join(home, '.local', 'share', 'fnm'), // Linux default
-    path.join(home, '.fnm'), // Legacy/custom location
-  ];
-  for (const fnmDir of fnmPaths) {
-    if (fs.existsSync(fnmDir)) {
-      // fnm uses aliases/current or node-versions/<version>
-      const fnmCurrentBin = path.join(fnmDir, 'aliases', 'default', 'bin');
-      const fnmNodeVersions = path.join(fnmDir, 'node-versions');
-
-      if (fs.existsSync(fnmCurrentBin)) {
-        detectedPaths.push(fnmCurrentBin);
-        break;
-      } else if (fs.existsSync(fnmNodeVersions)) {
-        try {
-          const versions = fs.readdirSync(fnmNodeVersions).filter(v => v.startsWith('v'));
-          if (versions.length > 0) {
-            versions.sort((a, b) => compareVersions(b, a));
-            const versionBin = path.join(fnmNodeVersions, versions[0], 'installation', 'bin');
-            if (fs.existsSync(versionBin)) {
-              detectedPaths.push(versionBin);
-              break;
-            }
-          }
-        } catch {
-          // Ignore errors
-        }
-      }
-    }
-  }
-
-  // volta: Uses ~/.volta/bin for shims
-  const voltaBin = path.join(home, '.volta', 'bin');
-  if (fs.existsSync(voltaBin)) {
-    detectedPaths.push(voltaBin);
-  }
-
-  // mise (formerly rtx): Uses ~/.local/share/mise/shims
-  const miseShims = path.join(home, '.local', 'share', 'mise', 'shims');
-  if (fs.existsSync(miseShims)) {
-    detectedPaths.push(miseShims);
-  }
-
-  // asdf: Uses ~/.asdf/shims
-  const asdfShims = path.join(home, '.asdf', 'shims');
-  if (fs.existsSync(asdfShims)) {
-    detectedPaths.push(asdfShims);
-  }
-
-  // n: Node version manager - uses /usr/local/n/versions or N_PREFIX
-  const nPrefix = process.env.N_PREFIX || '/usr/local';
-  const nBin = path.join(nPrefix, 'bin');
-  // Only add if n is actually managing node (check for n binary)
-  if (fs.existsSync(path.join(nPrefix, 'n', 'versions'))) {
-    if (fs.existsSync(nBin)) {
-      detectedPaths.push(nBin);
-    }
-  }
-
-  return detectedPaths;
-}
-
-/**
  * Build the base PATH for macOS/Linux with detected Node version manager paths.
  * Prepends version manager paths to ensure node/npm are available from GUI apps.
+ *
+ * Uses detectNodeVersionManagerBinPaths from shared/pathUtils.ts for consistency
+ * with agent-detector.ts.
  */
 function buildUnixBasePath(): string {
   const standardPaths = '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
-  const versionManagerPaths = detectNodeVersionManagerPaths();
+  const versionManagerPaths = detectNodeVersionManagerBinPaths();
 
   if (versionManagerPaths.length > 0) {
     return versionManagerPaths.join(':') + ':' + standardPaths;

@@ -6,3 +6,4 @@
  */
 
 export { UsageDashboardModal } from './UsageDashboardModal';
+export { SessionStats } from './SessionStats';

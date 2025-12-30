@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
 import { AgentCapabilities, getAgentCapabilities } from './agent-capabilities';
-import { expandTilde } from '../shared/pathUtils';
+import { expandTilde, detectNodeVersionManagerBinPaths } from '../shared/pathUtils';
 
 // Re-export AgentCapabilities for convenience
 export { AgentCapabilities } from './agent-capabilities';
@@ -523,99 +523,6 @@ export class AgentDetector {
   }
 
   /**
-   * Detect Node version manager paths on Unix systems (macOS/Linux).
-   * Returns an array of bin paths from nvm, fnm, volta, mise, asdf, and n.
-   * These paths are needed to find npm-installed CLIs like codex, claude, gemini.
-   */
-  private detectNodeVersionManagerBinPaths(): string[] {
-    const home = os.homedir();
-    const detectedPaths: string[] = [];
-
-    // nvm: Check for ~/.nvm and find installed node versions
-    const nvmDir = process.env.NVM_DIR || path.join(home, '.nvm');
-    if (fs.existsSync(nvmDir)) {
-      const versionsDir = path.join(nvmDir, 'versions', 'node');
-      if (fs.existsSync(versionsDir)) {
-        try {
-          const versions = fs.readdirSync(versionsDir).filter(v => v.startsWith('v'));
-          // Sort versions descending to check newest first
-          versions.sort((a, b) => {
-            const parseVersion = (v: string) => v.replace('v', '').split('.').map(n => parseInt(n, 10));
-            const av = parseVersion(a);
-            const bv = parseVersion(b);
-            for (let i = 0; i < 3; i++) {
-              if ((bv[i] || 0) !== (av[i] || 0)) return (bv[i] || 0) - (av[i] || 0);
-            }
-            return 0;
-          });
-          for (const version of versions) {
-            const versionBin = path.join(versionsDir, version, 'bin');
-            if (fs.existsSync(versionBin)) {
-              detectedPaths.push(versionBin);
-            }
-          }
-        } catch {
-          // Ignore errors reading versions directory
-        }
-      }
-      // Also check nvm/current symlink
-      const nvmCurrentBin = path.join(nvmDir, 'current', 'bin');
-      if (fs.existsSync(nvmCurrentBin) && !detectedPaths.includes(nvmCurrentBin)) {
-        detectedPaths.unshift(nvmCurrentBin);
-      }
-    }
-
-    // fnm: Fast Node Manager
-    const fnmPaths = [
-      path.join(home, 'Library', 'Application Support', 'fnm'), // macOS default
-      path.join(home, '.local', 'share', 'fnm'), // Linux default
-      path.join(home, '.fnm'), // Legacy/custom location
-    ];
-    for (const fnmDir of fnmPaths) {
-      if (fs.existsSync(fnmDir)) {
-        const fnmCurrentBin = path.join(fnmDir, 'aliases', 'default', 'bin');
-        if (fs.existsSync(fnmCurrentBin)) {
-          detectedPaths.push(fnmCurrentBin);
-        }
-        const fnmNodeVersions = path.join(fnmDir, 'node-versions');
-        if (fs.existsSync(fnmNodeVersions)) {
-          try {
-            const versions = fs.readdirSync(fnmNodeVersions).filter(v => v.startsWith('v'));
-            for (const version of versions) {
-              const versionBin = path.join(fnmNodeVersions, version, 'installation', 'bin');
-              if (fs.existsSync(versionBin)) {
-                detectedPaths.push(versionBin);
-              }
-            }
-          } catch {
-            // Ignore errors
-          }
-        }
-      }
-    }
-
-    // volta: Uses ~/.volta/bin for shims
-    const voltaBin = path.join(home, '.volta', 'bin');
-    if (fs.existsSync(voltaBin)) {
-      detectedPaths.push(voltaBin);
-    }
-
-    // mise (formerly rtx): Uses ~/.local/share/mise/shims
-    const miseShims = path.join(home, '.local', 'share', 'mise', 'shims');
-    if (fs.existsSync(miseShims)) {
-      detectedPaths.push(miseShims);
-    }
-
-    // asdf: Uses ~/.asdf/shims
-    const asdfShims = path.join(home, '.asdf', 'shims');
-    if (fs.existsSync(asdfShims)) {
-      detectedPaths.push(asdfShims);
-    }
-
-    return detectedPaths;
-  }
-
-  /**
    * On macOS/Linux, directly probe known installation paths for a binary.
    * This is necessary because packaged Electron apps don't inherit shell aliases,
    * and 'which' may fail to find binaries in non-standard locations.
@@ -625,7 +532,7 @@ export class AgentDetector {
     const home = os.homedir();
 
     // Get dynamic paths from Node version managers (nvm, fnm, volta, etc.)
-    const versionManagerPaths = this.detectNodeVersionManagerBinPaths();
+    const versionManagerPaths = detectNodeVersionManagerBinPaths();
 
     // Define known installation paths for each binary, in priority order
     const knownPaths: Record<string, string[]> = {

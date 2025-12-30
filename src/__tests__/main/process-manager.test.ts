@@ -27,7 +27,7 @@ import * as fs from 'fs';
 import {
   aggregateModelUsage,
   ProcessManager,
-  detectNodeVersionManagerPaths,
+  detectNodeVersionManagerBinPaths,
   buildUnixBasePath,
   type UsageStats,
   type ModelStats,
@@ -425,7 +425,7 @@ describe('process-manager.ts', () => {
     });
   });
 
-  describe('detectNodeVersionManagerPaths', () => {
+  describe('detectNodeVersionManagerBinPaths', () => {
     // Note: These tests use the real filesystem. On the test machine, they verify
     // that the function returns an array (possibly empty) and doesn't throw.
     // Full mocking would require restructuring the module to accept fs as a dependency.
@@ -435,7 +435,7 @@ describe('process-manager.ts', () => {
         const originalPlatform = process.platform;
         Object.defineProperty(process, 'platform', { value: 'win32', configurable: true });
 
-        const result = detectNodeVersionManagerPaths();
+        const result = detectNodeVersionManagerBinPaths();
 
         expect(result).toEqual([]);
         Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true });
@@ -447,7 +447,7 @@ describe('process-manager.ts', () => {
         // Skip on Windows
         if (process.platform === 'win32') return;
 
-        const result = detectNodeVersionManagerPaths();
+        const result = detectNodeVersionManagerBinPaths();
 
         expect(Array.isArray(result)).toBe(true);
         result.forEach(path => {
@@ -460,7 +460,7 @@ describe('process-manager.ts', () => {
         // Skip on Windows
         if (process.platform === 'win32') return;
 
-        const result = detectNodeVersionManagerPaths();
+        const result = detectNodeVersionManagerBinPaths();
 
         // All returned paths should exist on the filesystem
         result.forEach(path => {
@@ -476,7 +476,7 @@ describe('process-manager.ts', () => {
 
         // Set to a non-existent path
         process.env.NVM_DIR = '/nonexistent/nvm/path';
-        const resultWithFakePath = detectNodeVersionManagerPaths();
+        const resultWithFakePath = detectNodeVersionManagerBinPaths();
 
         // Should not include the fake path since it doesn't exist
         expect(resultWithFakePath.some(p => p.includes('/nonexistent/'))).toBe(false);

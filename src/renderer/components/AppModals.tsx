@@ -254,6 +254,7 @@ export function AppInfoModals({
           theme={theme}
           defaultTimeRange={defaultStatsTimeRange}
           colorBlindMode={colorBlindMode}
+          sessions={sessions}
         />
       )}
     </>

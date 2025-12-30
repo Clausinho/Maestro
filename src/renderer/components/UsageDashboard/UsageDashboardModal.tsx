@@ -21,10 +21,11 @@ import { AgentComparisonChart } from './AgentComparisonChart';
 import { SourceDistributionChart } from './SourceDistributionChart';
 import { DurationTrendsChart } from './DurationTrendsChart';
 import { AutoRunStats } from './AutoRunStats';
+import { SessionStats } from './SessionStats';
 import { EmptyState } from './EmptyState';
 import { DashboardSkeleton } from './ChartSkeletons';
 import { ChartErrorBoundary } from './ChartErrorBoundary';
-import type { Theme } from '../../types';
+import type { Theme, Session } from '../../types';
 import { useLayerStack } from '../../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../../constants/modalPriorities';
 import { getRendererPerfMetrics } from '../../utils/logger';
@@ -32,7 +33,7 @@ import { PERFORMANCE_THRESHOLDS } from '../../../shared/performance-metrics';
 
 // Section IDs for keyboard navigation
 const OVERVIEW_SECTIONS = ['summary-cards', 'agent-comparison', 'source-distribution', 'activity-heatmap', 'duration-trends'] as const;
-const AGENTS_SECTIONS = ['agent-comparison'] as const;
+const AGENTS_SECTIONS = ['session-stats', 'agent-comparison'] as const;
 const ACTIVITY_SECTIONS = ['activity-heatmap', 'duration-trends'] as const;
 const AUTORUN_SECTIONS = ['autorun-stats'] as const;
 
@@ -65,6 +66,8 @@ interface UsageDashboardModalProps {
   colorBlindMode?: boolean;
   /** Default time range from settings (default: 'week') */
   defaultTimeRange?: StatsTimeRange;
+  /** Sessions for displaying session statistics in Agents tab */
+  sessions?: Session[];
 }
 
 /**
@@ -107,6 +110,7 @@ export function UsageDashboardModal({
   theme,
   colorBlindMode = false,
   defaultTimeRange = 'week',
+  sessions = [],
 }: UsageDashboardModalProps) {
   const [timeRange, setTimeRange] = useState<StatsTimeRange>(defaultTimeRange);
   const [viewMode, setViewMode] = useState<ViewMode>('overview');
@@ -313,6 +317,7 @@ export function UsageDashboardModal({
   const getSectionLabel = useCallback((sectionId: SectionId): string => {
     const labels: Record<SectionId, string> = {
       'summary-cards': 'Summary Cards',
+      'session-stats': 'Session Statistics',
       'agent-comparison': 'Agent Comparison Chart',
       'source-distribution': 'Source Distribution Chart',
       'activity-heatmap': 'Activity Heatmap',
@@ -760,6 +765,25 @@ export function UsageDashboardModal({
 
               {viewMode === 'agents' && (
                 <>
+                  {/* Session Statistics */}
+                  <div
+                    ref={setSectionRef('session-stats')}
+                    tabIndex={0}
+                    role="region"
+                    aria-label="Session Statistics"
+                    onKeyDown={(e) => handleSectionKeyDown(e, 'session-stats')}
+                    className="outline-none rounded-lg transition-shadow dashboard-section-enter"
+                    style={{
+                      boxShadow: focusedSection === 'session-stats' ? `0 0 0 2px ${theme.colors.accent}` : 'none',
+                      animationDelay: '0ms',
+                    }}
+                    data-testid="section-session-stats"
+                  >
+                    <ChartErrorBoundary theme={theme} chartName="Session Statistics">
+                      <SessionStats sessions={sessions} theme={theme} colorBlindMode={colorBlindMode} />
+                    </ChartErrorBoundary>
+                  </div>
+
                   {/* Agent-focused view */}
                   <div
                     ref={setSectionRef('agent-comparison')}
@@ -771,7 +795,7 @@ export function UsageDashboardModal({
                     style={{
                       minHeight: '400px',
                       boxShadow: focusedSection === 'agent-comparison' ? `0 0 0 2px ${theme.colors.accent}` : 'none',
-                      animationDelay: '0ms',
+                      animationDelay: '100ms',
                     }}
                     data-testid="section-agent-comparison"
                   >
