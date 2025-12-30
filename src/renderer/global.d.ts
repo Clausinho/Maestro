@@ -291,7 +291,8 @@ interface MaestroAPI {
       error?: string;
     }>;
     // Git worktree operations for Auto Run parallelization
-    worktreeInfo: (worktreePath: string) => Promise<{
+    // All worktree operations support SSH remote execution via optional sshRemoteId parameter
+    worktreeInfo: (worktreePath: string, sshRemoteId?: string) => Promise<{
       success: boolean;
       exists?: boolean;
       isWorktree?: boolean;
@@ -299,12 +300,12 @@ interface MaestroAPI {
       repoRoot?: string;
       error?: string;
     }>;
-    getRepoRoot: (cwd: string) => Promise<{
+    getRepoRoot: (cwd: string, sshRemoteId?: string) => Promise<{
       success: boolean;
       root?: string;
       error?: string;
     }>;
-    worktreeSetup: (mainRepoCwd: string, worktreePath: string, branchName: string) => Promise<{
+    worktreeSetup: (mainRepoCwd: string, worktreePath: string, branchName: string, sshRemoteId?: string) => Promise<{
       success: boolean;
       created?: boolean;
       currentBranch?: string;
@@ -312,7 +313,7 @@ interface MaestroAPI {
       branchMismatch?: boolean;
       error?: string;
     }>;
-    worktreeCheckout: (worktreePath: string, branchName: string, createIfMissing: boolean) => Promise<{
+    worktreeCheckout: (worktreePath: string, branchName: string, createIfMissing: boolean, sshRemoteId?: string) => Promise<{
       success: boolean;
       hasUncommittedChanges: boolean;
       error?: string;
@@ -331,7 +332,8 @@ interface MaestroAPI {
       installed: boolean;
       authenticated: boolean;
     }>;
-    listWorktrees: (cwd: string) => Promise<{
+    // Supports SSH remote execution via optional sshRemoteId parameter
+    listWorktrees: (cwd: string, sshRemoteId?: string) => Promise<{
       worktrees: Array<{
         path: string;
         head: string;
@@ -348,9 +350,13 @@ interface MaestroAPI {
         repoRoot: string | null;
       }>;
     }>;
-    watchWorktreeDirectory: (sessionId: string, worktreePath: string) => Promise<{
+    // File watching is not available for SSH remote sessions.
+    // For remote sessions, returns isRemote: true indicating polling should be used instead.
+    watchWorktreeDirectory: (sessionId: string, worktreePath: string, sshRemoteId?: string) => Promise<{
       success: boolean;
       error?: string;
+      isRemote?: boolean;
+      message?: string;
     }>;
     unwatchWorktreeDirectory: (sessionId: string) => Promise<{
       success: boolean;

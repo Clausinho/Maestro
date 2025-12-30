@@ -385,8 +385,9 @@ contextBridge.exposeInMainWorld('maestro', {
     showFile: (cwd: string, ref: string, filePath: string) =>
       ipcRenderer.invoke('git:showFile', cwd, ref, filePath) as Promise<{ content?: string; error?: string }>,
     // Git worktree operations for Auto Run parallelization
-    worktreeInfo: (worktreePath: string) =>
-      ipcRenderer.invoke('git:worktreeInfo', worktreePath) as Promise<{
+    // All worktree operations support SSH remote execution via optional sshRemoteId parameter
+    worktreeInfo: (worktreePath: string, sshRemoteId?: string) =>
+      ipcRenderer.invoke('git:worktreeInfo', worktreePath, sshRemoteId) as Promise<{
         success: boolean;
         exists?: boolean;
         isWorktree?: boolean;
@@ -394,14 +395,14 @@ contextBridge.exposeInMainWorld('maestro', {
         repoRoot?: string;
         error?: string;
       }>,
-    getRepoRoot: (cwd: string) =>
-      ipcRenderer.invoke('git:getRepoRoot', cwd) as Promise<{
+    getRepoRoot: (cwd: string, sshRemoteId?: string) =>
+      ipcRenderer.invoke('git:getRepoRoot', cwd, sshRemoteId) as Promise<{
         success: boolean;
         root?: string;
         error?: string;
       }>,
-    worktreeSetup: (mainRepoCwd: string, worktreePath: string, branchName: string) =>
-      ipcRenderer.invoke('git:worktreeSetup', mainRepoCwd, worktreePath, branchName) as Promise<{
+    worktreeSetup: (mainRepoCwd: string, worktreePath: string, branchName: string, sshRemoteId?: string) =>
+      ipcRenderer.invoke('git:worktreeSetup', mainRepoCwd, worktreePath, branchName, sshRemoteId) as Promise<{
         success: boolean;
         created?: boolean;
         currentBranch?: string;
@@ -409,8 +410,8 @@ contextBridge.exposeInMainWorld('maestro', {
         branchMismatch?: boolean;
         error?: string;
       }>,
-    worktreeCheckout: (worktreePath: string, branchName: string, createIfMissing: boolean) =>
-      ipcRenderer.invoke('git:worktreeCheckout', worktreePath, branchName, createIfMissing) as Promise<{
+    worktreeCheckout: (worktreePath: string, branchName: string, createIfMissing: boolean, sshRemoteId?: string) =>
+      ipcRenderer.invoke('git:worktreeCheckout', worktreePath, branchName, createIfMissing, sshRemoteId) as Promise<{
         success: boolean;
         hasUncommittedChanges: boolean;
         error?: string;
@@ -440,8 +441,9 @@ contextBridge.exposeInMainWorld('maestro', {
         error?: string;
       }>,
     // List all worktrees for a git repository
-    listWorktrees: (cwd: string) =>
-      ipcRenderer.invoke('git:listWorktrees', cwd) as Promise<{
+    // Supports SSH remote execution via optional sshRemoteId parameter
+    listWorktrees: (cwd: string, sshRemoteId?: string) =>
+      ipcRenderer.invoke('git:listWorktrees', cwd, sshRemoteId) as Promise<{
         worktrees: Array<{
           path: string;
           head: string;
@@ -461,10 +463,14 @@ contextBridge.exposeInMainWorld('maestro', {
         }>;
       }>,
     // Watch a worktree directory for new worktrees
-    watchWorktreeDirectory: (sessionId: string, worktreePath: string) =>
-      ipcRenderer.invoke('git:watchWorktreeDirectory', sessionId, worktreePath) as Promise<{
+    // Note: File watching is not available for SSH remote sessions.
+    // For remote sessions, returns isRemote: true indicating polling should be used instead.
+    watchWorktreeDirectory: (sessionId: string, worktreePath: string, sshRemoteId?: string) =>
+      ipcRenderer.invoke('git:watchWorktreeDirectory', sessionId, worktreePath, sshRemoteId) as Promise<{
         success: boolean;
         error?: string;
+        isRemote?: boolean;
+        message?: string;
       }>,
     // Stop watching a worktree directory
     unwatchWorktreeDirectory: (sessionId: string) =>
