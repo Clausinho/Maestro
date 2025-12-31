@@ -58,6 +58,14 @@ export interface MindMapLink {
 }
 
 /**
+ * Custom node position override
+ */
+export interface NodePositionOverride {
+  x: number;
+  y: number;
+}
+
+/**
  * Props for the MindMap component
  */
 export interface MindMapProps {
@@ -89,6 +97,12 @@ export interface MindMapProps {
   onOpenFile: (filePath: string) => void;
   /** Search query for highlighting */
   searchQuery: string;
+  /** Custom position overrides for nodes (from user drag operations) */
+  nodePositions?: Map<string, NodePositionOverride>;
+  /** Callback when a node position is changed via drag */
+  onNodePositionChange?: (nodeId: string, position: NodePositionOverride) => void;
+  /** Optional ref to the container div for external focus control */
+  containerRef?: React.RefObject<HTMLDivElement>;
 }
 
 // ============================================================================
@@ -749,16 +763,25 @@ export function MindMap({
   onNodeContextMenu,
   onOpenFile,
   searchQuery,
+  nodePositions,
+  onNodePositionChange,
+  containerRef: externalContainerRef,
 }: MindMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const internalContainerRef = useRef<HTMLDivElement>(null);
+  // Use external ref if provided, otherwise use internal ref
+  const containerRef = externalContainerRef || internalContainerRef;
 
   // State - combine zoom and pan into single transform state to avoid jitter
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [transform, setTransform] = useState({ zoom: 1, panX: 0, panY: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+
+  // Node dragging state
+  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+  const [nodeDragStart, setNodeDragStart] = useState({ nodeX: 0, nodeY: 0, mouseX: 0, mouseY: 0 });
 
   // Derived values for convenience
   const zoom = transform.zoom;
@@ -781,13 +804,19 @@ export function MindMap({
     );
   }, [rawNodes, rawLinks, centerFilePath, maxDepth, width, height, showExternalLinks]);
 
-  // Apply selection state to nodes
+  // Apply selection state and custom positions to nodes
   const nodesWithState = useMemo(() => {
-    return layout.nodes.map(node => ({
-      ...node,
-      isSelected: node.id === selectedNodeId,
-    }));
-  }, [layout.nodes, selectedNodeId]);
+    return layout.nodes.map(node => {
+      const customPos = nodePositions?.get(node.id);
+      return {
+        ...node,
+        // Apply custom position if available
+        x: customPos?.x ?? node.x,
+        y: customPos?.y ?? node.y,
+        isSelected: node.id === selectedNodeId,
+      };
+    });
+  }, [layout.nodes, selectedNodeId, nodePositions]);
 
   // Check if node matches search
   const nodeMatchesSearch = useCallback((node: MindMapNode): boolean => {
@@ -1017,26 +1046,48 @@ export function MindMap({
         onNodeDoubleClick(node);
         lastClickRef.current = null;
       } else {
-        // Single click - select node
+        // Single click - select node and start drag
         onNodeSelect(node);
         setFocusedNodeId(node.id);
         lastClickRef.current = { nodeId: node.id, time: now };
+
+        // Start node drag
+        setDraggingNodeId(node.id);
+        setNodeDragStart({
+          nodeX: node.x,
+          nodeY: node.y,
+          mouseX: e.clientX,
+          mouseY: e.clientY,
+        });
       }
     } else {
       // Click on background - start panning
-      setIsDragging(true);
-      setDragStart({ x: e.clientX - transform.panX, y: e.clientY - transform.panY });
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - transform.panX, y: e.clientY - transform.panY });
       onNodeSelect(null);
       setFocusedNodeId(null);
     }
   }, [screenToCanvas, findNodeAtPoint, isClickOnOpenIcon, onOpenFile, onNodeDoubleClick, onNodeSelect, transform.panX, transform.panY]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isDragging) {
+    if (draggingNodeId && onNodePositionChange) {
+      // Dragging a node - calculate new position
+      const deltaX = (e.clientX - nodeDragStart.mouseX) / zoom;
+      const deltaY = (e.clientY - nodeDragStart.mouseY) / zoom;
+      const newX = nodeDragStart.nodeX + deltaX;
+      const newY = nodeDragStart.nodeY + deltaY;
+
+      onNodePositionChange(draggingNodeId, { x: newX, y: newY });
+
+      // Update cursor
+      if (canvasRef.current) {
+        canvasRef.current.style.cursor = 'grabbing';
+      }
+    } else if (isPanning) {
       setTransform(prev => ({
         ...prev,
-        panX: e.clientX - dragStart.x,
-        panY: e.clientY - dragStart.y,
+        panX: e.clientX - panStart.x,
+        panY: e.clientY - panStart.y,
       }));
     } else {
       const { x, y } = screenToCanvas(e.clientX, e.clientY);
@@ -1045,20 +1096,22 @@ export function MindMap({
 
       // Update cursor
       if (canvasRef.current) {
-        canvasRef.current.style.cursor = node ? 'pointer' : 'grab';
+        canvasRef.current.style.cursor = node ? 'grab' : 'default';
       }
     }
-  }, [isDragging, dragStart, screenToCanvas, findNodeAtPoint]);
+  }, [draggingNodeId, nodeDragStart, zoom, onNodePositionChange, isPanning, panStart, screenToCanvas, findNodeAtPoint]);
 
   const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
+    setDraggingNodeId(null);
+    setIsPanning(false);
     if (canvasRef.current) {
-      canvasRef.current.style.cursor = hoveredNodeId ? 'pointer' : 'grab';
+      canvasRef.current.style.cursor = hoveredNodeId ? 'grab' : 'default';
     }
   }, [hoveredNodeId]);
 
   const handleMouseLeave = useCallback(() => {
-    setIsDragging(false);
+    setDraggingNodeId(null);
+    setIsPanning(false);
     setHoveredNodeId(null);
   }, []);
 
@@ -1238,7 +1291,7 @@ export function MindMap({
         style={{
           width,
           height,
-          cursor: isDragging ? 'grabbing' : hoveredNodeId ? 'pointer' : 'grab',
+          cursor: draggingNodeId || isPanning ? 'grabbing' : hoveredNodeId ? 'grab' : 'default',
         }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}

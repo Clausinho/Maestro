@@ -25,6 +25,8 @@ import {
   Sliders,
   Focus,
   AlertCircle,
+  RotateCcw,
+  HelpCircle,
 } from 'lucide-react';
 import type { Theme } from '../../types';
 import { useLayerStack } from '../../contexts/LayerStackContext';
@@ -32,7 +34,7 @@ import { MODAL_PRIORITIES } from '../../constants/modalPriorities';
 import { Modal, ModalFooter } from '../ui/Modal';
 import { useDebouncedCallback } from '../../hooks/utils';
 import { buildGraphData, ProgressData, GraphNodeData, CachedExternalData } from './graphDataBuilder';
-import { MindMap, MindMapNode, MindMapLink, convertToMindMapData } from './MindMap';
+import { MindMap, MindMapNode, MindMapLink, convertToMindMapData, NodePositionOverride } from './MindMap';
 import { NodeContextMenu } from './NodeContextMenu';
 import { GraphLegend } from './GraphLegend';
 
@@ -146,6 +148,7 @@ export function DocumentGraphView({
   const containerRef = useRef<HTMLDivElement>(null);
   const graphContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const mindMapContainerRef = useRef<HTMLDivElement>(null);
   const [graphDimensions, setGraphDimensions] = useState({ width: 800, height: 600 });
 
   // Layer stack for escape handling
@@ -163,6 +166,13 @@ export function DocumentGraphView({
 
   // Track if legend is expanded for layer stack
   const [legendExpanded, setLegendExpanded] = useState(false);
+
+  // Node position overrides from user drag operations
+  // Persisted across modal close/reopen, cleared on focus/depth changes
+  const [nodePositions, setNodePositions] = useState<Map<string, NodePositionOverride>>(new Map());
+
+  // Track the focus/depth that the positions were created for
+  const positionsContextRef = useRef<{ focusFile: string | null; depth: number } | null>(null);
 
   /**
    * Handle escape - show confirmation modal
@@ -586,6 +596,48 @@ export function DocumentGraphView({
   }, [nodes, neighborDepth]);
 
   /**
+   * Handle node position change from drag operations
+   */
+  const handleNodePositionChange = useCallback((nodeId: string, position: NodePositionOverride) => {
+    setNodePositions(prev => {
+      const next = new Map(prev);
+      next.set(nodeId, position);
+      return next;
+    });
+  }, []);
+
+  /**
+   * Reset all node positions to algorithmic layout
+   */
+  const handleResetLayout = useCallback(() => {
+    setNodePositions(new Map());
+    positionsContextRef.current = null;
+  }, []);
+
+  /**
+   * Clear node positions only when focus changes.
+   * Preserve positions when depth changes (increase or decrease) or external links are toggled.
+   * Existing nodes keep their positions; new nodes get algorithmic positions.
+   * User can always hit "Reset Layout" to get a fresh layout.
+   */
+  useEffect(() => {
+    const currentContext = { focusFile: activeFocusFile, depth: neighborDepth };
+    const prevContext = positionsContextRef.current;
+
+    if (prevContext) {
+      const focusChanged = prevContext.focusFile !== currentContext.focusFile;
+
+      // Only clear positions if focus changed (recentering on a different document)
+      if (focusChanged) {
+        setNodePositions(new Map());
+      }
+    }
+
+    // Update context ref
+    positionsContextRef.current = currentContext;
+  }, [activeFocusFile, neighborDepth]);
+
+  /**
    * Handle open file from mind map (clicking open icon or pressing O key)
    */
   const handleOpenFile = useCallback((filePath: string) => {
@@ -593,6 +645,37 @@ export function DocumentGraphView({
       onDocumentOpen(filePath);
     }
   }, [onDocumentOpen]);
+
+  /**
+   * Handle search input escape key
+   * First Escape: clear search if there's content
+   * Second Escape (or first if empty): blur search and return focus to graph
+   */
+  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation(); // Prevent layer stack from handling
+      if (searchQuery) {
+        // Clear search query
+        setSearchQuery('');
+      } else {
+        // Blur search and focus the mind map container
+        searchInputRef.current?.blur();
+        mindMapContainerRef.current?.focus();
+      }
+    }
+  }, [searchQuery]);
+
+  /**
+   * Handle container keyboard shortcuts (Cmd+F for search)
+   */
+  const handleContainerKeyDown = useCallback((e: React.KeyboardEvent) => {
+    // Cmd+F or Ctrl+F to focus search
+    if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+      e.preventDefault();
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    }
+  }, []);
 
   if (!isOpen) return null;
 
@@ -724,6 +807,7 @@ export function DocumentGraphView({
           height: '90vh',
         }}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleContainerKeyDown}
       >
         {/* Header */}
         <div
@@ -777,6 +861,7 @@ export function DocumentGraphView({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
                 placeholder="Search documents..."
                 className="pl-8 pr-3 py-1.5 rounded text-sm outline-none transition-colors"
                 style={{
@@ -908,6 +993,24 @@ export function DocumentGraphView({
               <ExternalLink className="w-4 h-4" />
               External
             </button>
+
+            {/* Reset Layout Button - only show when positions have been modified */}
+            {nodePositions.size > 0 && (
+              <button
+                onClick={handleResetLayout}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors"
+                style={{
+                  backgroundColor: `${theme.colors.warning}20`,
+                  color: theme.colors.warning,
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = `${theme.colors.warning}30`)}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = `${theme.colors.warning}20`)}
+                title="Reset all node positions to algorithmic layout"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Reset Layout
+              </button>
+            )}
 
             {/* Refresh Button */}
             <button
@@ -1073,6 +1176,9 @@ export function DocumentGraphView({
               onNodeContextMenu={handleNodeContextMenu}
               onOpenFile={handleOpenFile}
               searchQuery={searchQuery}
+              nodePositions={nodePositions}
+              onNodePositionChange={handleNodePositionChange}
+              containerRef={mindMapContainerRef}
             />
           ) : (
             <div
@@ -1085,13 +1191,12 @@ export function DocumentGraphView({
             </div>
           )}
 
-          {/* Graph Legend */}
-          {!loading && !error && nodes.length > 0 && (
+          {/* Help/Legend Side Panel */}
+          {legendExpanded && !loading && !error && nodes.length > 0 && (
             <GraphLegend
               theme={theme}
               showExternalLinks={includeExternalLinks}
-              isExpanded={legendExpanded}
-              onExpandedChange={setLegendExpanded}
+              onClose={() => setLegendExpanded(false)}
             />
           )}
 
@@ -1120,6 +1225,25 @@ export function DocumentGraphView({
           }}
         >
           <div className="flex items-center gap-3">
+            {/* Help Button */}
+            <button
+              onClick={() => setLegendExpanded(!legendExpanded)}
+              className="flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors"
+              style={{
+                backgroundColor: legendExpanded ? `${theme.colors.accent}25` : `${theme.colors.accent}10`,
+                color: legendExpanded ? theme.colors.accent : theme.colors.textMain,
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = `${theme.colors.accent}30`)}
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.backgroundColor = legendExpanded
+                  ? `${theme.colors.accent}25`
+                  : `${theme.colors.accent}10`)
+              }
+              title={legendExpanded ? 'Close help panel' : 'Open help panel'}
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+              Help?
+            </button>
             <span>
               {searchQuery.trim() ? (
                 <>
@@ -1197,7 +1321,10 @@ export function DocumentGraphView({
       {showDepthSlider && (
         <div
           className="fixed inset-0 z-40"
-          onClick={() => setShowDepthSlider(false)}
+          onClick={(e) => {
+            e.stopPropagation(); // Prevent triggering modal close
+            setShowDepthSlider(false);
+          }}
         />
       )}
     </div>

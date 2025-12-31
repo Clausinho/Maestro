@@ -1079,6 +1079,11 @@ export function FilePreview({ file, onClose, theme, markdownEditMode, setMarkdow
       e.preventDefault();
       e.stopPropagation();
       onOpenFuzzySearch();
+    } else if (e.key === 'g' && (e.metaKey || e.ctrlKey) && e.shiftKey && isMarkdown && onOpenInGraph) {
+      // Cmd+Shift+G: Open Document Graph focused on this file (markdown files only)
+      e.preventDefault();
+      e.stopPropagation();
+      onOpenInGraph();
     }
   };
 
@@ -1184,7 +1189,7 @@ export function FilePreview({ file, onClose, theme, markdownEditMode, setMarkdow
                 onClick={onOpenInGraph}
                 className="p-2 rounded hover:bg-white/10 transition-colors"
                 style={{ color: theme.colors.textDim }}
-                title="View in Document Graph"
+                title="View in Document Graph (⌘⇧G)"
               >
                 <GitGraph className="w-4 h-4" />
               </button>

@@ -101,6 +101,10 @@ interface RightPanelProps {
   onOpenMarketplace?: () => void;
   /** Callback to open graph view focused on a specific file (relative path to session.cwd) */
   onFocusFileInGraph?: (relativePath: string) => void;
+  /** Path of the last opened document graph focus file (for quick re-open) */
+  lastGraphFocusFile?: string;
+  /** Callback to open the last document graph */
+  onOpenLastDocumentGraph?: () => void;
 }
 
 export const RightPanel = memo(forwardRef<RightPanelHandle, RightPanelProps>(function RightPanel(props, ref) {
@@ -122,7 +126,7 @@ export const RightPanel = memo(forwardRef<RightPanelHandle, RightPanelProps>(fun
     onJumpToAgentSession, onResumeSession,
     onOpenSessionAsTab, onOpenAboutModal, onFileClick,
     onOpenMarketplace,
-    onFocusFileInGraph
+    onFocusFileInGraph, lastGraphFocusFile, onOpenLastDocumentGraph
   } = props;
 
   const historyPanelRef = useRef<HistoryPanelHandle>(null);
@@ -259,7 +263,7 @@ export const RightPanel = memo(forwardRef<RightPanelHandle, RightPanelProps>(fun
   const autoRunSharedProps = {
     theme,
     sessionId: session.id,
-    sshRemoteId: session.sshRemoteId || (session.sessionSshRemoteConfig?.enabled ? session.sessionSshRemoteConfig?.remoteId : undefined) || undefined,
+    sshRemoteId: session.sshRemoteId || session.sessionSshRemoteConfig?.remoteId || undefined,
     folderPath: session.autoRunFolderPath || null,
     selectedFile: session.autoRunSelectedFile || null,
     documentList: autoRunDocumentList,
@@ -412,6 +416,8 @@ export const RightPanel = memo(forwardRef<RightPanelHandle, RightPanelProps>(fun
               showHiddenFiles={showHiddenFiles}
               setShowHiddenFiles={setShowHiddenFiles}
               onFocusFileInGraph={onFocusFileInGraph}
+              lastGraphFocusFile={lastGraphFocusFile}
+              onOpenLastDocumentGraph={onOpenLastDocumentGraph}
             />
           </div>
         )}

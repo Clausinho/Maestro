@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ChevronRight, ChevronDown, ChevronUp, Folder, RefreshCw, Check, Eye, EyeOff, Target, Copy, ExternalLink, Server } from 'lucide-react';
+import { ChevronRight, ChevronDown, ChevronUp, Folder, RefreshCw, Check, Eye, EyeOff, Target, Copy, ExternalLink, Server, GitBranch } from 'lucide-react';
 import type { Session, Theme, FocusArea } from '../types';
 import type { FileNode } from '../types/fileTree';
 import type { FileTreeChanges } from '../utils/fileExplorer';
@@ -64,6 +64,10 @@ interface FileExplorerPanelProps {
   setShowHiddenFiles: (value: boolean) => void;
   /** Callback to open graph view focused on a specific file (relative path to session.cwd) */
   onFocusFileInGraph?: (relativePath: string) => void;
+  /** Path of the last opened document graph focus file (for quick re-open) */
+  lastGraphFocusFile?: string;
+  /** Callback to open the last document graph */
+  onOpenLastDocumentGraph?: () => void;
 }
 
 function FileExplorerPanelInner(props: FileExplorerPanelProps) {
@@ -72,7 +76,7 @@ function FileExplorerPanelInner(props: FileExplorerPanelProps) {
     filteredFileTree, selectedFileIndex, setSelectedFileIndex, activeFocus, activeRightTab,
     previewFile, setActiveFocus, fileTreeFilterInputRef, toggleFolder, handleFileClick, expandAllFolders,
     collapseAllFolders, updateSessionWorkingDirectory, refreshFileTree, setSessions, onAutoRefreshChange, onShowFlash,
-    showHiddenFiles, setShowHiddenFiles, onFocusFileInGraph
+    showHiddenFiles, setShowHiddenFiles, onFocusFileInGraph, lastGraphFocusFile, onOpenLastDocumentGraph
   } = props;
 
   const { registerLayer, unregisterLayer, updateLayerHandler } = useLayerStack();
@@ -479,6 +483,17 @@ function FileExplorerPanelInner(props: FileExplorerPanelProps) {
           ><bdi>{session.projectRoot}</bdi></span>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
+          {/* Last Document Graph indicator */}
+          {lastGraphFocusFile && onOpenLastDocumentGraph && (
+            <button
+              onClick={onOpenLastDocumentGraph}
+              className="p-1 rounded hover:bg-white/10 transition-colors"
+              title="Open Last Document Graph"
+              style={{ color: theme.colors.accent }}
+            >
+              <GitBranch className="w-3.5 h-3.5" />
+            </button>
+          )}
           <button
             onClick={() => setShowHiddenFiles(!showHiddenFiles)}
             className="p-1 rounded hover:bg-white/10 transition-colors"

@@ -1,7 +1,7 @@
 /**
- * GraphLegend - Component explaining node types, edge types, and keyboard shortcuts in the Mind Map.
+ * GraphLegend - Side panel explaining node types, edge types, and keyboard shortcuts in the Mind Map.
  *
- * Displays a collapsible legend panel showing:
+ * Displays as a right-side sliding panel showing:
  * - Document nodes: Card-style nodes with title and description
  * - External link nodes: Smaller pill-shaped nodes with domain
  * - Internal edges: Solid lines connecting markdown documents
@@ -11,8 +11,8 @@
  * The legend is theme-aware and uses the same colors as the actual mind map elements.
  */
 
-import React, { useState, memo, useCallback } from 'react';
-import { ChevronDown, ChevronUp, AlertTriangle, ExternalLink } from 'lucide-react';
+import React, { memo } from 'react';
+import { X, AlertTriangle, ExternalLink } from 'lucide-react';
 import type { Theme } from '../../types';
 
 /**
@@ -23,12 +23,8 @@ export interface GraphLegendProps {
   theme: Theme;
   /** Whether external links are currently shown in the graph */
   showExternalLinks: boolean;
-  /** Controlled expanded state (if provided, component is controlled) */
-  isExpanded?: boolean;
-  /** Callback when expanded state changes (required for controlled mode) */
-  onExpandedChange?: (expanded: boolean) => void;
-  /** Initial expanded state for uncontrolled mode (default: false) */
-  defaultExpanded?: boolean;
+  /** Callback to close the panel */
+  onClose: () => void;
 }
 
 /**
@@ -95,6 +91,14 @@ const KEYBOARD_SHORTCUTS: KeyboardShortcutItem[] = [
   {
     keys: 'O',
     description: 'Open file in preview',
+  },
+  {
+    keys: '⌘F',
+    description: 'Focus search',
+  },
+  {
+    keys: 'Esc',
+    description: 'Close panel / modal',
   },
 ];
 
@@ -272,323 +276,311 @@ const KeyboardBadge = memo(function KeyboardBadge({
 });
 
 /**
- * GraphLegend component - Displays an explanation of mind map elements
+ * GraphLegend component - Displays as a right-side sliding panel
  */
 export const GraphLegend = memo(function GraphLegend({
   theme,
   showExternalLinks,
-  isExpanded: controlledExpanded,
-  onExpandedChange,
-  defaultExpanded = false,
+  onClose,
 }: GraphLegendProps) {
-  // Support both controlled and uncontrolled modes
-  const [uncontrolledExpanded, setUncontrolledExpanded] = useState(defaultExpanded);
-  const isControlled = controlledExpanded !== undefined;
-  const isExpanded = isControlled ? controlledExpanded : uncontrolledExpanded;
-
-  const toggleExpanded = useCallback(() => {
-    const newValue = !isExpanded;
-    if (onExpandedChange) {
-      onExpandedChange(newValue);
-    }
-    if (!isControlled) {
-      setUncontrolledExpanded(newValue);
-    }
-  }, [isExpanded, onExpandedChange, isControlled]);
-
   return (
     <div
-      className="graph-legend absolute rounded-lg overflow-hidden shadow-lg"
+      className="graph-legend absolute top-0 right-0 h-full overflow-y-auto shadow-xl animate-in slide-in-from-right duration-200"
       style={{
         backgroundColor: theme.colors.bgActivity,
-        border: `1px solid ${theme.colors.border}`,
-        maxWidth: 300,
-        zIndex: 10,
-        // Position at bottom center
-        bottom: 16,
-        left: '50%',
-        transform: 'translateX(-50%)',
+        borderLeft: `1px solid ${theme.colors.border}`,
+        width: 280,
+        zIndex: 20,
       }}
       role="region"
-      aria-label="Mind map legend"
+      aria-label="Help panel"
     >
-      {/* Header - Always visible */}
-      <button
-        onClick={toggleExpanded}
-        className="w-full flex items-center justify-between px-3 py-2 transition-colors"
+      {/* Header */}
+      <div
+        className="sticky top-0 flex items-center justify-between px-4 py-3 border-b"
         style={{
-          backgroundColor: `${theme.colors.accent}10`,
-          color: theme.colors.textMain,
+          backgroundColor: theme.colors.bgActivity,
+          borderColor: theme.colors.border,
         }}
-        aria-expanded={isExpanded}
-        aria-controls="legend-content"
       >
-        <span className="text-xs font-medium">Legend</span>
-        {isExpanded ? (
-          <ChevronDown size={14} style={{ color: theme.colors.textDim }} />
-        ) : (
-          <ChevronUp size={14} style={{ color: theme.colors.textDim }} />
-        )}
-      </button>
-
-      {/* Content - Collapsible */}
-      {isExpanded && (
-        <div
-          id="legend-content"
-          className="px-3 py-2 space-y-3"
-          style={{ borderTop: `1px solid ${theme.colors.border}` }}
+        <h3 className="text-sm font-medium" style={{ color: theme.colors.textMain }}>
+          Help
+        </h3>
+        <button
+          onClick={onClose}
+          className="p-1 rounded transition-colors"
+          style={{ color: theme.colors.textDim }}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = `${theme.colors.accent}20`)}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+          title="Close (Esc)"
         >
-          {/* Node Types Section */}
-          <div>
-            <h4
-              className="text-xs font-medium mb-2"
-              style={{ color: theme.colors.textDim }}
-            >
-              Node Types
-            </h4>
-            <div className="space-y-2">
-              {/* Document node */}
-              <div className="flex items-center gap-2">
-                <DocumentNodePreview theme={theme} />
-                <div className="flex-1 min-w-0">
-                  <span
-                    className="text-xs font-medium block"
-                    style={{ color: theme.colors.textMain }}
-                  >
-                    {NODE_ITEMS[0].label}
-                  </span>
-                  <span
-                    className="text-xs block truncate"
-                    style={{ color: theme.colors.textDim, opacity: 0.8 }}
-                  >
-                    {NODE_ITEMS[0].description}
-                  </span>
-                </div>
-              </div>
+          <X className="w-4 h-4" />
+        </button>
+      </div>
 
-              {/* External node - only show if external links are enabled */}
-              {showExternalLinks && (
-                <div className="flex items-center gap-2">
-                  <ExternalNodePreview theme={theme} />
-                  <div className="flex-1 min-w-0">
-                    <span
-                      className="text-xs font-medium block"
-                      style={{ color: theme.colors.textMain }}
-                    >
-                      {NODE_ITEMS[1].label}
-                    </span>
-                    <span
-                      className="text-xs block truncate"
-                      style={{ color: theme.colors.textDim, opacity: 0.8 }}
-                    >
-                      {NODE_ITEMS[1].description}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Edge Types Section */}
-          <div>
-            <h4
-              className="text-xs font-medium mb-2"
-              style={{ color: theme.colors.textDim }}
-            >
-              Connection Types
-            </h4>
-            <div className="space-y-2">
-              {/* Internal edge */}
-              <div className="flex items-center gap-2">
-                <EdgePreview theme={theme} type="internal" />
-                <div className="flex-1 min-w-0">
-                  <span
-                    className="text-xs font-medium block"
-                    style={{ color: theme.colors.textMain }}
-                  >
-                    {EDGE_ITEMS[0].label}
-                  </span>
-                  <span
-                    className="text-xs block truncate"
-                    style={{ color: theme.colors.textDim, opacity: 0.8 }}
-                  >
-                    {EDGE_ITEMS[0].description}
-                  </span>
-                </div>
-              </div>
-
-              {/* External edge - only show if external links are enabled */}
-              {showExternalLinks && (
-                <div className="flex items-center gap-2">
-                  <EdgePreview theme={theme} type="external" />
-                  <div className="flex-1 min-w-0">
-                    <span
-                      className="text-xs font-medium block"
-                      style={{ color: theme.colors.textMain }}
-                    >
-                      {EDGE_ITEMS[1].label}
-                    </span>
-                    <span
-                      className="text-xs block truncate"
-                      style={{ color: theme.colors.textDim, opacity: 0.8 }}
-                    >
-                      {EDGE_ITEMS[1].description}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Selection State Section */}
-          <div>
-            <h4
-              className="text-xs font-medium mb-2"
-              style={{ color: theme.colors.textDim }}
-            >
-              Selection
-            </h4>
-            <div className="space-y-2">
-              {/* Selected node preview */}
-              <div className="flex items-center gap-2">
-                <DocumentNodePreview theme={theme} selected />
-                <div className="flex-1 min-w-0">
-                  <span
-                    className="text-xs font-medium block"
-                    style={{ color: theme.colors.textMain }}
-                  >
-                    Selected Node
-                  </span>
-                  <span
-                    className="text-xs block truncate"
-                    style={{ color: theme.colors.textDim, opacity: 0.8 }}
-                  >
-                    Click or navigate to select
-                  </span>
-                </div>
-              </div>
-
-              {/* Highlighted edge preview */}
-              <div className="flex items-center gap-2">
-                <EdgePreview theme={theme} type="internal" highlighted />
-                <div className="flex-1 min-w-0">
-                  <span
-                    className="text-xs font-medium block"
-                    style={{ color: theme.colors.textMain }}
-                  >
-                    Connected Edge
-                  </span>
-                  <span
-                    className="text-xs block truncate"
-                    style={{ color: theme.colors.textDim, opacity: 0.8 }}
-                  >
-                    Edges to/from selected node
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Status Indicators Section */}
-          <div>
-            <h4
-              className="text-xs font-medium mb-2"
-              style={{ color: theme.colors.textDim }}
-            >
-              Status Indicators
-            </h4>
-            <div className="space-y-2">
-              {/* Broken links warning */}
-              <div className="flex items-center gap-2">
-                <div
-                  className="flex items-center justify-center rounded"
-                  style={{
-                    width: 36,
-                    height: 24,
-                    backgroundColor: '#f59e0b20',
-                  }}
-                  role="img"
-                  aria-label="Broken links warning indicator"
-                >
-                  <AlertTriangle size={14} style={{ color: '#f59e0b' }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span
-                    className="text-xs font-medium block"
-                    style={{ color: theme.colors.textMain }}
-                  >
-                    Broken Links
-                  </span>
-                  <span
-                    className="text-xs block truncate"
-                    style={{ color: theme.colors.textDim, opacity: 0.8 }}
-                  >
-                    Links to non-existent files
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Keyboard shortcuts */}
-          <div
-            className="pt-2"
-            style={{
-              borderTop: `1px solid ${theme.colors.border}`,
-            }}
+      {/* Content */}
+      <div className="px-4 py-3 space-y-4">
+        {/* Node Types Section */}
+        <div>
+          <h4
+            className="text-xs font-medium mb-2"
+            style={{ color: theme.colors.textDim }}
           >
-            <h4
-              className="text-xs font-medium mb-2"
-              style={{ color: theme.colors.textDim }}
-            >
-              Keyboard Shortcuts
-            </h4>
-            <div className="space-y-1.5">
-              {KEYBOARD_SHORTCUTS.map((shortcut) => (
-                <div
-                  key={shortcut.keys}
-                  className="flex items-center justify-between gap-2"
-                >
-                  <KeyboardBadge keys={shortcut.keys} theme={theme} />
-                  <span
-                    className="text-xs flex-1 text-right"
-                    style={{ color: theme.colors.textDim, opacity: 0.8 }}
-                  >
-                    {shortcut.description}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Mouse interaction hints */}
-          <div
-            className="pt-2 text-xs"
-            style={{
-              color: theme.colors.textDim,
-              borderTop: `1px solid ${theme.colors.border}`,
-              opacity: 0.7,
-            }}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-medium">Click</span>
-              <span>Select node</span>
-            </div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-medium">Double-click</span>
-              <span>Recenter view</span>
-            </div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-medium">Right-click</span>
-              <span>Context menu</span>
-            </div>
+            Node Types
+          </h4>
+          <div className="space-y-2">
+            {/* Document node */}
             <div className="flex items-center gap-2">
-              <span className="font-medium">Scroll</span>
-              <span>Zoom in/out</span>
+              <DocumentNodePreview theme={theme} />
+              <div className="flex-1 min-w-0">
+                <span
+                  className="text-xs font-medium block"
+                  style={{ color: theme.colors.textMain }}
+                >
+                  {NODE_ITEMS[0].label}
+                </span>
+                <span
+                  className="text-xs block truncate"
+                  style={{ color: theme.colors.textDim, opacity: 0.8 }}
+                >
+                  {NODE_ITEMS[0].description}
+                </span>
+              </div>
+            </div>
+
+            {/* External node - only show if external links are enabled */}
+            {showExternalLinks && (
+              <div className="flex items-center gap-2">
+                <ExternalNodePreview theme={theme} />
+                <div className="flex-1 min-w-0">
+                  <span
+                    className="text-xs font-medium block"
+                    style={{ color: theme.colors.textMain }}
+                  >
+                    {NODE_ITEMS[1].label}
+                  </span>
+                  <span
+                    className="text-xs block truncate"
+                    style={{ color: theme.colors.textDim, opacity: 0.8 }}
+                  >
+                    {NODE_ITEMS[1].description}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Edge Types Section */}
+        <div>
+          <h4
+            className="text-xs font-medium mb-2"
+            style={{ color: theme.colors.textDim }}
+          >
+            Connection Types
+          </h4>
+          <div className="space-y-2">
+            {/* Internal edge */}
+            <div className="flex items-center gap-2">
+              <EdgePreview theme={theme} type="internal" />
+              <div className="flex-1 min-w-0">
+                <span
+                  className="text-xs font-medium block"
+                  style={{ color: theme.colors.textMain }}
+                >
+                  {EDGE_ITEMS[0].label}
+                </span>
+                <span
+                  className="text-xs block truncate"
+                  style={{ color: theme.colors.textDim, opacity: 0.8 }}
+                >
+                  {EDGE_ITEMS[0].description}
+                </span>
+              </div>
+            </div>
+
+            {/* External edge - only show if external links are enabled */}
+            {showExternalLinks && (
+              <div className="flex items-center gap-2">
+                <EdgePreview theme={theme} type="external" />
+                <div className="flex-1 min-w-0">
+                  <span
+                    className="text-xs font-medium block"
+                    style={{ color: theme.colors.textMain }}
+                  >
+                    {EDGE_ITEMS[1].label}
+                  </span>
+                  <span
+                    className="text-xs block truncate"
+                    style={{ color: theme.colors.textDim, opacity: 0.8 }}
+                  >
+                    {EDGE_ITEMS[1].description}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Selection State Section */}
+        <div>
+          <h4
+            className="text-xs font-medium mb-2"
+            style={{ color: theme.colors.textDim }}
+          >
+            Selection
+          </h4>
+          <div className="space-y-2">
+            {/* Selected node preview */}
+            <div className="flex items-center gap-2">
+              <DocumentNodePreview theme={theme} selected />
+              <div className="flex-1 min-w-0">
+                <span
+                  className="text-xs font-medium block"
+                  style={{ color: theme.colors.textMain }}
+                >
+                  Selected Node
+                </span>
+                <span
+                  className="text-xs block truncate"
+                  style={{ color: theme.colors.textDim, opacity: 0.8 }}
+                >
+                  Click or navigate to select
+                </span>
+              </div>
+            </div>
+
+            {/* Highlighted edge preview */}
+            <div className="flex items-center gap-2">
+              <EdgePreview theme={theme} type="internal" highlighted />
+              <div className="flex-1 min-w-0">
+                <span
+                  className="text-xs font-medium block"
+                  style={{ color: theme.colors.textMain }}
+                >
+                  Connected Edge
+                </span>
+                <span
+                  className="text-xs block truncate"
+                  style={{ color: theme.colors.textDim, opacity: 0.8 }}
+                >
+                  Edges to/from selected node
+                </span>
+              </div>
             </div>
           </div>
         </div>
-      )}
+
+        {/* Status Indicators Section */}
+        <div>
+          <h4
+            className="text-xs font-medium mb-2"
+            style={{ color: theme.colors.textDim }}
+          >
+            Status Indicators
+          </h4>
+          <div className="space-y-2">
+            {/* Broken links warning */}
+            <div className="flex items-center gap-2">
+              <div
+                className="flex items-center justify-center rounded"
+                style={{
+                  width: 36,
+                  height: 24,
+                  backgroundColor: '#f59e0b20',
+                }}
+                role="img"
+                aria-label="Broken links warning indicator"
+              >
+                <AlertTriangle size={14} style={{ color: '#f59e0b' }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <span
+                  className="text-xs font-medium block"
+                  style={{ color: theme.colors.textMain }}
+                >
+                  Broken Links
+                </span>
+                <span
+                  className="text-xs block truncate"
+                  style={{ color: theme.colors.textDim, opacity: 0.8 }}
+                >
+                  Links to non-existent files
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Keyboard shortcuts */}
+        <div
+          className="pt-3"
+          style={{
+            borderTop: `1px solid ${theme.colors.border}`,
+          }}
+        >
+          <h4
+            className="text-xs font-medium mb-2"
+            style={{ color: theme.colors.textDim }}
+          >
+            Keyboard Shortcuts
+          </h4>
+          <div className="space-y-1.5">
+            {KEYBOARD_SHORTCUTS.map((shortcut) => (
+              <div
+                key={shortcut.keys}
+                className="flex items-center justify-between gap-2"
+              >
+                <KeyboardBadge keys={shortcut.keys} theme={theme} />
+                <span
+                  className="text-xs flex-1 text-right"
+                  style={{ color: theme.colors.textDim, opacity: 0.8 }}
+                >
+                  {shortcut.description}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Mouse interaction hints */}
+        <div
+          className="pt-3 text-xs"
+          style={{
+            color: theme.colors.textDim,
+            borderTop: `1px solid ${theme.colors.border}`,
+          }}
+        >
+          <h4
+            className="text-xs font-medium mb-2"
+            style={{ color: theme.colors.textDim }}
+          >
+            Mouse Actions
+          </h4>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Click</span>
+              <span style={{ opacity: 0.8 }}>Select node</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Double-click</span>
+              <span style={{ opacity: 0.8 }}>Recenter view</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Right-click</span>
+              <span style={{ opacity: 0.8 }}>Context menu</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Drag</span>
+              <span style={{ opacity: 0.8 }}>Reposition node</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Scroll</span>
+              <span style={{ opacity: 0.8 }}>Zoom in/out</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 });

@@ -791,6 +791,10 @@ export interface AppUtilityModalsProps {
   ghCliAvailable: boolean;
   onPublishGist?: () => void;
 
+  // Document Graph - quick re-open last graph
+  lastGraphFocusFile?: string;
+  onOpenLastDocumentGraph?: () => void;
+
   // LightboxModal
   lightboxImage: string | null;
   lightboxImages: string[];
@@ -960,6 +964,9 @@ export function AppUtilityModals({
   onPublishGist,
   // OpenSpec commands
   onInjectOpenSpecPrompt,
+  // Document Graph - quick re-open last graph
+  lastGraphFocusFile,
+  onOpenLastDocumentGraph,
   // LightboxModal
   lightboxImage,
   lightboxImages,
@@ -1105,6 +1112,8 @@ export function AppUtilityModals({
           onPublishGist={onPublishGist}
           onInjectOpenSpecPrompt={onInjectOpenSpecPrompt}
           onOpenPlaybookExchange={onOpenMarketplace}
+          lastGraphFocusFile={lastGraphFocusFile}
+          onOpenLastDocumentGraph={onOpenLastDocumentGraph}
         />
       )}
 
@@ -1147,7 +1156,7 @@ export function AppUtilityModals({
           onFolderSelected={onAutoRunFolderSelected}
           currentFolder={activeSession?.autoRunFolderPath}
           sessionName={activeSession?.name}
-          sshRemoteId={activeSession?.sshRemoteId || (activeSession?.sessionSshRemoteConfig?.enabled ? activeSession?.sessionSshRemoteConfig?.remoteId : undefined) || undefined}
+          sshRemoteId={activeSession?.sshRemoteId || activeSession?.sessionSshRemoteConfig?.remoteId || undefined}
           sshRemoteHost={activeSession?.sshRemote?.host}
         />
       )}
@@ -1809,6 +1818,9 @@ export interface AppModalsProps {
   onPublishGist?: () => void;
   // OpenSpec commands
   onInjectOpenSpecPrompt?: (prompt: string) => void;
+  // Document Graph - quick re-open last graph
+  lastGraphFocusFile?: string;
+  onOpenLastDocumentGraph?: () => void;
   lightboxImage: string | null;
   lightboxImages: string[];
   stagedImages: string[];
@@ -2092,6 +2104,9 @@ export function AppModals(props: AppModalsProps) {
     onPublishGist,
     // OpenSpec commands
     onInjectOpenSpecPrompt,
+    // Document Graph - quick re-open last graph
+    lastGraphFocusFile,
+    onOpenLastDocumentGraph,
     lightboxImage,
     lightboxImages,
     stagedImages,
@@ -2385,6 +2400,8 @@ export function AppModals(props: AppModalsProps) {
         ghCliAvailable={ghCliAvailable}
         onPublishGist={onPublishGist}
         onInjectOpenSpecPrompt={onInjectOpenSpecPrompt}
+        lastGraphFocusFile={lastGraphFocusFile}
+        onOpenLastDocumentGraph={onOpenLastDocumentGraph}
         lightboxImage={lightboxImage}
         lightboxImages={lightboxImages}
         stagedImages={stagedImages}

@@ -109,6 +109,9 @@ interface QuickActionsModalProps {
   onInjectOpenSpecPrompt?: (prompt: string) => void;
   // Playbook Exchange
   onOpenPlaybookExchange?: () => void;
+  // Document Graph - quick re-open last graph
+  lastGraphFocusFile?: string;
+  onOpenLastDocumentGraph?: () => void;
 }
 
 export function QuickActionsModal(props: QuickActionsModalProps) {
@@ -131,7 +134,8 @@ export function QuickActionsModal(props: QuickActionsModalProps) {
     onCloseAllTabs, onCloseOtherTabs, onCloseTabsLeft, onCloseTabsRight,
     isFilePreviewOpen, ghCliAvailable, onPublishGist,
     onInjectOpenSpecPrompt,
-    onOpenPlaybookExchange
+    onOpenPlaybookExchange,
+    lastGraphFocusFile, onOpenLastDocumentGraph
   } = props;
 
   const [search, setSearch] = useState('');
@@ -406,6 +410,16 @@ export function QuickActionsModal(props: QuickActionsModalProps) {
       subtext: 'Browse and import community playbooks',
       action: () => {
         onOpenPlaybookExchange();
+        setQuickActionOpen(false);
+      }
+    }] : []),
+    // Last Document Graph - quick re-open (only when a graph has been opened before)
+    ...(lastGraphFocusFile && onOpenLastDocumentGraph ? [{
+      id: 'lastDocumentGraph',
+      label: 'Last Document Graph',
+      subtext: `Re-open: ${lastGraphFocusFile}`,
+      action: () => {
+        onOpenLastDocumentGraph();
         setQuickActionOpen(false);
       }
     }] : []),

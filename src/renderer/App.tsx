@@ -429,6 +429,8 @@ function MaestroConsoleInner() {
   const [isGraphViewOpen, setIsGraphViewOpen] = useState(false);
   // File path to focus on when opening the Document Graph (relative to session.cwd)
   const [graphFocusFilePath, setGraphFocusFilePath] = useState<string | undefined>(undefined);
+  // Track the last opened document graph for quick re-open from command palette
+  const [lastGraphFocusFilePath, setLastGraphFocusFilePath] = useState<string | undefined>(undefined);
 
   // GitHub CLI availability (for gist publishing)
   const [ghCliAvailable, setGhCliAvailable] = useState(false);
@@ -8604,6 +8606,13 @@ function MaestroConsoleInner() {
         ghCliAvailable={ghCliAvailable}
         onPublishGist={() => setGistPublishModalOpen(true)}
         onInjectOpenSpecPrompt={handleInjectOpenSpecPrompt}
+        lastGraphFocusFile={lastGraphFocusFilePath}
+        onOpenLastDocumentGraph={() => {
+          if (lastGraphFocusFilePath) {
+            setGraphFocusFilePath(lastGraphFocusFilePath);
+            setIsGraphViewOpen(true);
+          }
+        }}
         lightboxImage={lightboxImage}
         lightboxImages={lightboxImages}
         stagedImages={stagedImages}
@@ -9644,6 +9653,7 @@ function MaestroConsoleInner() {
               ? previewFile.path.slice(activeSession.fullPath.length + 1)
               : previewFile.name;
             setGraphFocusFilePath(relativePath);
+            setLastGraphFocusFilePath(relativePath); // Track for "Last Document Graph" in command palette
             setIsGraphViewOpen(true);
           }
         }}
@@ -9750,7 +9760,15 @@ function MaestroConsoleInner() {
             }}
             onFocusFileInGraph={(relativePath: string) => {
               setGraphFocusFilePath(relativePath);
+              setLastGraphFocusFilePath(relativePath); // Track for "Last Document Graph" in command palette
               setIsGraphViewOpen(true);
+            }}
+            lastGraphFocusFile={lastGraphFocusFilePath}
+            onOpenLastDocumentGraph={() => {
+              if (lastGraphFocusFilePath) {
+                setGraphFocusFilePath(lastGraphFocusFilePath);
+                setIsGraphViewOpen(true);
+              }
             }}
           />
         </ErrorBoundary>
