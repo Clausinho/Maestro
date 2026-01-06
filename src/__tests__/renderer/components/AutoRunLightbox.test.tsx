@@ -50,6 +50,9 @@ vi.mock('lucide-react', () => ({
   FileText: ({ className, style }: { className?: string; style?: React.CSSProperties }) => (
     <svg data-testid="file-text-icon" className={className} style={style} />
   ),
+  AlertTriangle: ({ className, style }: { className?: string; style?: React.CSSProperties }) => (
+    <svg data-testid="alert-triangle-icon" className={className} style={style} />
+  ),
 }));
 
 // Mock navigator.clipboard at module level

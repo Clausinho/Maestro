@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Trash2 } from 'lucide-react';
+import { AlertTriangle, Trash2 } from 'lucide-react';
 import type { Theme } from '../types';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
 import { Modal, ModalFooter } from './ui/Modal';
@@ -49,12 +49,22 @@ export function PlaybookDeleteConfirmModal({
         focusTrap: 'strict',
       }}
     >
-      <p className="text-sm leading-relaxed" style={{ color: theme.colors.textMain }}>
-        Are you sure you want to delete "<strong>{playbookName}</strong>"?
-      </p>
-      <p className="text-xs mt-2" style={{ color: theme.colors.textDim }}>
-        This cannot be undone.
-      </p>
+      <div className="flex gap-4">
+        <div
+          className="flex-shrink-0 p-2 rounded-full h-fit"
+          style={{ backgroundColor: `${theme.colors.error}20` }}
+        >
+          <AlertTriangle className="w-5 h-5" style={{ color: theme.colors.error }} />
+        </div>
+        <div>
+          <p className="leading-relaxed" style={{ color: theme.colors.textMain }}>
+            Are you sure you want to delete "<strong>{playbookName}</strong>"?
+          </p>
+          <p className="text-sm mt-2" style={{ color: theme.colors.textDim }}>
+            This cannot be undone.
+          </p>
+        </div>
+      </div>
     </Modal>
   );
 }

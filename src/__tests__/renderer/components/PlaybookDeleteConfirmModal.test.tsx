@@ -10,6 +10,16 @@ import { PlaybookDeleteConfirmModal } from '../../../renderer/components/Playboo
 import { LayerStackProvider } from '../../../renderer/contexts/LayerStackContext';
 import type { Theme } from '../../../renderer/types';
 
+// Mock lucide-react
+vi.mock('lucide-react', () => ({
+  X: ({ className, style }: { className?: string; style?: React.CSSProperties }) => (
+    <svg data-testid="x-icon" className={className} style={style} />
+  ),
+  AlertTriangle: ({ className, style }: { className?: string; style?: React.CSSProperties }) => (
+    <svg data-testid="alert-triangle-icon" className={className} style={style} />
+  ),
+}));
+
 // Create a mock theme for testing
 const createMockTheme = (): Theme => ({
   id: 'test-theme',
@@ -67,7 +77,7 @@ describe('PlaybookDeleteConfirmModal', () => {
         </TestWrapper>
       );
 
-      expect(screen.getByText('Delete Playbook')).toBeInTheDocument();
+      expect(screen.getByText('Confirm Action')).toBeInTheDocument();
     });
 
     it('displays the playbook name in the message', () => {
@@ -144,7 +154,7 @@ describe('PlaybookDeleteConfirmModal', () => {
 
       const dialog = screen.getByRole('dialog');
       expect(dialog).toHaveAttribute('aria-modal', 'true');
-      expect(dialog).toHaveAttribute('aria-label', 'Delete Playbook');
+      expect(dialog).toHaveAttribute('aria-label', 'Confirm Action');
     });
   });
 
@@ -281,13 +291,13 @@ describe('PlaybookDeleteConfirmModal', () => {
         </TestWrapper>
       );
 
-      const title = screen.getByText('Delete Playbook');
+      const title = screen.getByText('Confirm Action');
       expect(title).toHaveStyle({
         color: mockTheme.colors.textMain,
       });
     });
 
-    it('applies error color to trash icon', () => {
+    it('applies error color to alert icon', () => {
       const { container } = render(
         <TestWrapper>
           <PlaybookDeleteConfirmModal
@@ -299,8 +309,8 @@ describe('PlaybookDeleteConfirmModal', () => {
         </TestWrapper>
       );
 
-      const trashIcon = screen.getByTestId('trash2-icon');
-      expect(trashIcon).toHaveStyle({
+      const alertIcon = screen.getByTestId('alert-triangle-icon');
+      expect(alertIcon).toHaveStyle({
         color: mockTheme.colors.error,
       });
     });
@@ -464,7 +474,7 @@ describe('PlaybookDeleteConfirmModal', () => {
       );
 
       // Should still render the modal
-      expect(screen.getByText('Delete Playbook')).toBeInTheDocument();
+      expect(screen.getByText('Confirm Action')).toBeInTheDocument();
     });
   });
 });

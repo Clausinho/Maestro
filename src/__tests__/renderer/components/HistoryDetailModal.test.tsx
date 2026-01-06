@@ -764,7 +764,8 @@ describe('HistoryDetailModal', () => {
 
       fireEvent.click(screen.getByTitle('Delete this history entry'));
 
-      expect(screen.getByText('Delete History Entry')).toBeInTheDocument();
+      // Modal now uses standardized "Confirm Action" title
+      expect(screen.getByText('Confirm Action')).toBeInTheDocument();
       expect(screen.getByText(/Are you sure you want to delete/)).toBeInTheDocument();
     });
 
@@ -1306,8 +1307,8 @@ describe('HistoryDetailModal', () => {
       const modalContent = container.querySelector('.w-\\[400px\\]');
       if (modalContent) {
         fireEvent.click(modalContent);
-        // Modal should still be open
-        expect(screen.getByText('Delete History Entry')).toBeInTheDocument();
+        // Modal should still be open - title is now "Confirm Action"
+        expect(screen.getByText('Confirm Action')).toBeInTheDocument();
       }
     });
   });

@@ -3232,7 +3232,7 @@ function MaestroConsoleInner() {
       }
     },
     onMergeComplete: (sourceTabId, result) => {
-      // For merge into existing tab, show toast and clear state
+      // For merge into existing tab, navigate to target and show toast
       if (activeSession && result.success && result.targetSessionId) {
         const tokenInfo = result.estimatedTokens
           ? ` (~${result.estimatedTokens.toLocaleString()} tokens)`
@@ -3241,12 +3241,21 @@ function MaestroConsoleInner() {
           ? ` Saved ~${result.tokensSaved.toLocaleString()} tokens.`
           : '';
 
+        // Navigate to the target session/tab so autoSendOnActivate will trigger
+        // This ensures the merged context is immediately sent to the agent
+        setActiveSessionId(result.targetSessionId);
+        if (result.targetTabId) {
+          const targetTabId = result.targetTabId; // Extract to satisfy TypeScript narrowing
+          setSessions(prev => prev.map(s => {
+            if (s.id !== result.targetSessionId) return s;
+            return { ...s, activeTabId: targetTabId };
+          }));
+        }
+
         addToast({
           type: 'success',
           title: 'Context Merged',
-          message: `"${result.sourceSessionName || 'Current Session'}" → "${result.targetSessionName || 'Selected Session'}"${tokenInfo}.${savedInfo} Context will be included with your next message.`,
-          sessionId: result.targetSessionId,
-          tabId: result.targetTabId,
+          message: `"${result.sourceSessionName || 'Current Session'}" → "${result.targetSessionName || 'Selected Session'}"${tokenInfo}.${savedInfo}`,
         });
 
         // Clear the merge state for the source tab
@@ -10610,9 +10619,8 @@ You are taking over this conversation. Based on the context above, provide a bri
 
           // Derive tab name from the subfolder where documents were saved
           // The subfolderName is stored in the wizard state after generation completes
-          // Format: "Wizard: Subfolder-Name" (e.g., "Wizard: Maestro-Marketing")
           const subfolderName = wizardState.subfolderName || '';
-          const tabName = subfolderName ? `Wizard: ${subfolderName}` : 'Wizard';
+          const tabName = subfolderName || 'Wizard';
 
           // Get the wizard's agentSessionId for tab context switching
           const wizardAgentSessionId = wizardState.agentSessionId;

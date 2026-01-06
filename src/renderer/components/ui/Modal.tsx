@@ -250,6 +250,14 @@ export function ModalFooter({
   confirmButtonRef,
   cancelButtonRef,
 }: ModalFooterProps) {
+  // Stop Enter key propagation to prevent parent handlers from triggering after modal closes
+  const handleKeyDown = (e: React.KeyboardEvent, action: () => void) => {
+    if (e.key === 'Enter') {
+      e.stopPropagation();
+      action();
+    }
+  };
+
   return (
     <>
       {showCancel && (
@@ -257,6 +265,7 @@ export function ModalFooter({
           ref={cancelButtonRef}
           type="button"
           onClick={onCancel}
+          onKeyDown={(e) => handleKeyDown(e, onCancel)}
           className="px-4 py-2 rounded border hover:bg-white/5 transition-colors outline-none focus:ring-2 focus:ring-offset-1"
           style={{
             borderColor: theme.colors.border,
@@ -270,6 +279,7 @@ export function ModalFooter({
         ref={confirmButtonRef}
         type="button"
         onClick={onConfirm}
+        onKeyDown={(e) => !confirmDisabled && handleKeyDown(e, onConfirm)}
         disabled={confirmDisabled}
         className={`px-4 py-2 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed outline-none focus:ring-2 focus:ring-offset-1 ${confirmClassName}`}
         style={{

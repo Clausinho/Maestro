@@ -19,6 +19,7 @@ import type { Theme } from '../../../renderer/types';
 // Mock lucide-react
 vi.mock('lucide-react', () => ({
   X: () => <svg data-testid="x-icon" />,
+  AlertTriangle: () => <svg data-testid="alert-triangle-icon" />,
 }));
 
 // Create a test theme

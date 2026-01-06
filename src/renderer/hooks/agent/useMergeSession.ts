@@ -820,8 +820,11 @@ export function useMergeSessionWithSessions(
           id: generateId(),
           timestamp: Date.now(),
           source: 'system',
-          text: `Context transferred from "${sourceName}"${options.groomContext ? ' (cleaned to reduce size)' : ''}. This context will be included with your next message to the AI.`,
+          text: `Context merged from "${sourceName}"${options.groomContext ? ' (cleaned to reduce size)' : ''}.`,
         };
+
+        // Prepare an introductory message to send with the merged context
+        const introMessage = `I'm merging context from another session ("${sourceName}") into this conversation. Please review the context below and let me know you're ready to continue.`;
 
         setSessions(prev => prev.map(session => {
           if (session.id !== result.targetSessionId) return session;
@@ -831,11 +834,14 @@ export function useMergeSessionWithSessions(
             aiTabs: session.aiTabs.map(tab => {
               if (tab.id !== result.targetTabId) return tab;
 
-              // Add a visible log entry and set pendingMergedContext to inject into the next AI message
+              // Add a visible log entry, set pendingMergedContext to inject into the AI message,
+              // and set autoSendOnActivate to immediately send the context to the agent
               return {
                 ...tab,
                 logs: [...tab.logs, mergeLogEntry],
                 pendingMergedContext: formattedMergedContext,
+                inputValue: introMessage,
+                autoSendOnActivate: true,
               };
             }),
           };

@@ -127,6 +127,67 @@ function RenameFileModal({ theme, node, value, setValue, error, onClose, onRenam
   );
 }
 
+/**
+ * DeleteFileModal - Confirmation modal for deleting files/folders in the file explorer
+ */
+interface DeleteFileModalProps {
+  theme: Theme;
+  node: FileNode;
+  itemCount?: { fileCount: number; folderCount: number };
+  isDeleting: boolean;
+  onClose: () => void;
+  onDelete: () => void;
+}
+
+function DeleteFileModal({ theme, node, itemCount, isDeleting, onClose, onDelete }: DeleteFileModalProps) {
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const isFolder = node.type === 'folder';
+
+  return (
+    <Modal
+      theme={theme}
+      title={isFolder ? 'Delete Folder' : 'Delete File'}
+      priority={MODAL_PRIORITIES.CONFIRM}
+      onClose={isDeleting ? () => {} : onClose}
+      headerIcon={<Trash2 className="w-4 h-4" style={{ color: theme.colors.error }} />}
+      initialFocusRef={cancelButtonRef}
+      footer={
+        <ModalFooter
+          theme={theme}
+          onCancel={onClose}
+          onConfirm={onDelete}
+          confirmLabel={isDeleting ? 'Deleting...' : 'Delete'}
+          confirmDisabled={isDeleting}
+          destructive
+          cancelButtonRef={cancelButtonRef}
+        />
+      }
+    >
+      <div className="flex gap-4">
+        <div
+          className="flex-shrink-0 p-2 rounded-full h-fit"
+          style={{ backgroundColor: `${theme.colors.error}20` }}
+        >
+          <AlertTriangle className="w-5 h-5" style={{ color: theme.colors.error }} />
+        </div>
+        <div>
+          <p style={{ color: theme.colors.textMain }}>
+            Are you sure you want to delete the {isFolder ? 'folder' : 'file'} "{node.name}"? This action cannot be undone.
+          </p>
+          {isFolder && itemCount && (
+            <p className="text-sm mt-3" style={{ color: theme.colors.warning }}>
+              This folder contains {itemCount.fileCount} file{itemCount.fileCount !== 1 ? 's' : ''}
+              {itemCount.folderCount > 0 && (
+                <> and {itemCount.folderCount} subfolder{itemCount.folderCount !== 1 ? 's' : ''}</>
+              )}.
+            </p>
+          )}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // Helper to format bytes into human-readable format
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -226,7 +287,6 @@ function FileExplorerPanelInner(props: FileExplorerPanelProps) {
     itemCount?: { fileCount: number; folderCount: number };
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const cancelButtonRef = useRef<HTMLButtonElement>(null);
 
   // Close context menu when clicking outside
   useClickOutside(contextMenuRef, () => {
@@ -471,13 +531,6 @@ function FileExplorerPanelInner(props: FileExplorerPanelProps) {
       setIsDeleting(false);
     }
   }, [deleteModal, refreshFileTree, session.id, onShowFlash, sshRemoteId]);
-
-  // Focus cancel button when delete modal opens
-  useEffect(() => {
-    if (deleteModal && cancelButtonRef.current) {
-      cancelButtonRef.current.focus();
-    }
-  }, [deleteModal]);
 
   // Close context menu on Escape key
   useEffect(() => {
@@ -1062,81 +1115,15 @@ function FileExplorerPanelInner(props: FileExplorerPanelProps) {
       )}
 
       {/* Delete Confirmation Modal */}
-      {deleteModal && createPortal(
-        <div
-          className="fixed inset-0 z-[10001] flex items-center justify-center"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-          onClick={() => !isDeleting && setDeleteModal(null)}
-        >
-          <div
-            className="rounded-lg shadow-xl border p-4 min-w-[320px] max-w-[400px]"
-            style={{
-              backgroundColor: theme.colors.bgSidebar,
-              borderColor: theme.colors.border,
-            }}
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape' && !isDeleting) {
-                setDeleteModal(null);
-              }
-            }}
-          >
-            <div className="flex items-start gap-3 mb-3">
-              <div
-                className="p-2 rounded-full"
-                style={{ backgroundColor: `${theme.colors.error}20` }}
-              >
-                <AlertTriangle className="w-5 h-5" style={{ color: theme.colors.error }} />
-              </div>
-              <div className="flex-1">
-                <h3
-                  className="text-sm font-medium"
-                  style={{ color: theme.colors.textMain }}
-                >
-                  Delete {deleteModal.node.type === 'folder' ? 'folder' : 'file'}?
-                </h3>
-                <p className="text-xs mt-1" style={{ color: theme.colors.textDim }}>
-                  <span className="font-medium" style={{ color: theme.colors.textMain }}>
-                    {deleteModal.node.name}
-                  </span>
-                  {' '}will be permanently deleted.
-                </p>
-                {deleteModal.node.type === 'folder' && deleteModal.itemCount && (
-                  <p className="text-xs mt-2" style={{ color: theme.colors.warning }}>
-                    This folder contains {deleteModal.itemCount.fileCount} file{deleteModal.itemCount.fileCount !== 1 ? 's' : ''}
-                    {deleteModal.itemCount.folderCount > 0 && (
-                      <> and {deleteModal.itemCount.folderCount} subfolder{deleteModal.itemCount.folderCount !== 1 ? 's' : ''}</>
-                    )}.
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 mt-4">
-              <button
-                ref={cancelButtonRef}
-                onClick={() => setDeleteModal(null)}
-                disabled={isDeleting}
-                className="px-3 py-1.5 rounded text-xs font-medium hover:bg-white/10 transition-colors"
-                style={{ color: theme.colors.textMain }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className="px-3 py-1.5 rounded text-xs font-medium transition-colors"
-                style={{
-                  backgroundColor: theme.colors.error,
-                  color: '#fff',
-                  opacity: isDeleting ? 0.6 : 1
-                }}
-              >
-                {isDeleting ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
+      {deleteModal && (
+        <DeleteFileModal
+          theme={theme}
+          node={deleteModal.node}
+          itemCount={deleteModal.itemCount}
+          isDeleting={isDeleting}
+          onClose={() => setDeleteModal(null)}
+          onDelete={handleDelete}
+        />
       )}
     </div>
   );

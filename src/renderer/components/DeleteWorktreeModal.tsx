@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Trash2, Loader2 } from 'lucide-react';
+import { AlertTriangle, Loader2, Trash2 } from 'lucide-react';
 import type { Theme, Session } from '../types';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
 import { Modal } from './ui/Modal';
@@ -51,13 +51,13 @@ export function DeleteWorktreeModal({
   return (
     <Modal
       theme={theme}
-      title="Remove Worktree"
+      title="Delete Worktree"
       priority={MODAL_PRIORITIES.CONFIRM}
       onClose={onClose}
+      headerIcon={<Trash2 className="w-4 h-4" style={{ color: theme.colors.error }} />}
       width={500}
       zIndex={10000}
       initialFocusRef={confirmButtonRef}
-      headerIcon={<Trash2 className="w-4 h-4" style={{ color: theme.colors.error }} />}
       footer={
         <div className="flex items-center gap-2">
           {isDeleting ? (
@@ -79,6 +79,7 @@ export function DeleteWorktreeModal({
               <button
                 type="button"
                 onClick={onClose}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onClose(); } }}
                 className="px-4 py-2 rounded border hover:bg-white/5 transition-colors outline-none focus:ring-2 focus:ring-offset-1"
                 style={{
                   borderColor: theme.colors.border,
@@ -91,6 +92,7 @@ export function DeleteWorktreeModal({
                 ref={confirmButtonRef}
                 type="button"
                 onClick={handleConfirm}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleConfirm(); } }}
                 className="px-4 py-2 rounded transition-colors outline-none focus:ring-2 focus:ring-offset-1"
                 style={{
                   backgroundColor: theme.colors.warning,
@@ -102,6 +104,7 @@ export function DeleteWorktreeModal({
               <button
                 type="button"
                 onClick={handleConfirmAndDelete}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleConfirmAndDelete(); } }}
                 className="px-4 py-2 rounded transition-colors outline-none focus:ring-2 focus:ring-offset-1 flex items-center justify-center gap-1.5 whitespace-nowrap"
                 style={{
                   backgroundColor: theme.colors.error,
@@ -115,35 +118,43 @@ export function DeleteWorktreeModal({
         </div>
       }
     >
-      <div className="space-y-3">
-        <p className="text-sm leading-relaxed" style={{ color: theme.colors.textMain }}>
-          Delete worktree session "<span className="font-semibold">{session.name}</span>"?
-        </p>
-        <div className="text-xs space-y-2" style={{ color: theme.colors.textDim }}>
-          <p>
-            <strong style={{ color: theme.colors.textMain }}>Remove:</strong> Removes the sub-agent from Maestro but keeps the git worktree directory on disk.
-          </p>
-          <p>
-            <strong style={{ color: theme.colors.textMain }}>Remove and Delete:</strong> Removes the sub-agent AND permanently deletes the worktree directory from disk.
-          </p>
+      <div className="flex gap-4">
+        <div
+          className="flex-shrink-0 p-2 rounded-full h-fit"
+          style={{ backgroundColor: `${theme.colors.error}20` }}
+        >
+          <AlertTriangle className="w-5 h-5" style={{ color: theme.colors.error }} />
         </div>
-        {session.cwd && (
-          <p
-            className="text-xs font-mono px-2 py-1.5 rounded truncate"
-            style={{
-              backgroundColor: theme.colors.bgActivity,
-              color: theme.colors.textDim,
-            }}
-            title={session.cwd}
-          >
-            {session.cwd}
+        <div className="space-y-3">
+          <p className="leading-relaxed" style={{ color: theme.colors.textMain }}>
+            Delete worktree session "<span className="font-semibold">{session.name}</span>"?
           </p>
-        )}
-        {error && (
-          <p className="text-xs" style={{ color: theme.colors.error }}>
-            {error}
-          </p>
-        )}
+          <div className="text-sm space-y-2" style={{ color: theme.colors.textDim }}>
+            <p>
+              <strong style={{ color: theme.colors.textMain }}>Remove:</strong> Removes the sub-agent from Maestro but keeps the git worktree directory on disk.
+            </p>
+            <p>
+              <strong style={{ color: theme.colors.textMain }}>Remove and Delete:</strong> Removes the sub-agent AND permanently deletes the worktree directory from disk.
+            </p>
+          </div>
+          {session.cwd && (
+            <p
+              className="text-xs font-mono px-2 py-1.5 rounded truncate"
+              style={{
+                backgroundColor: theme.colors.bgActivity,
+                color: theme.colors.textDim,
+              }}
+              title={session.cwd}
+            >
+              {session.cwd}
+            </p>
+          )}
+          {error && (
+            <p className="text-xs" style={{ color: theme.colors.error }}>
+              {error}
+            </p>
+          )}
+        </div>
       </div>
     </Modal>
   );

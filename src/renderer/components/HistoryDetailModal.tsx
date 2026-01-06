@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { X, Bot, User, Copy, Check, CheckCircle, XCircle, Trash2, Clock, Cpu, Zap, Play, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Bot, User, Copy, Check, CheckCircle, XCircle, Trash2, Clock, Cpu, Zap, Play, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 import type { Theme, HistoryEntry } from '../types';
 import type { FileNode } from '../types/fileTree';
 import { useLayerStack } from '../contexts/LayerStackContext';
@@ -520,9 +520,12 @@ export function HistoryDetailModal({
               className="p-4 border-b flex items-center justify-between"
               style={{ borderColor: theme.colors.border }}
             >
-              <h2 className="text-sm font-bold" style={{ color: theme.colors.textMain }}>
-                Delete History Entry
-              </h2>
+              <div className="flex items-center gap-2">
+                <Trash2 className="w-4 h-4" style={{ color: theme.colors.error }} />
+                <h2 className="text-sm font-bold" style={{ color: theme.colors.textMain }}>
+                  Delete History Entry
+                </h2>
+              </div>
               <button
                 onClick={() => setShowDeleteConfirm(false)}
                 style={{ color: theme.colors.textDim }}
@@ -531,12 +534,21 @@ export function HistoryDetailModal({
               </button>
             </div>
             <div className="p-6">
-              <p className="text-sm leading-relaxed" style={{ color: theme.colors.textMain }}>
-                Are you sure you want to delete this {entry.type === 'AUTO' ? 'auto' : 'user'} history entry? This action cannot be undone.
-              </p>
+              <div className="flex gap-4">
+                <div
+                  className="flex-shrink-0 p-2 rounded-full h-fit"
+                  style={{ backgroundColor: `${theme.colors.error}20` }}
+                >
+                  <AlertTriangle className="w-5 h-5" style={{ color: theme.colors.error }} />
+                </div>
+                <p className="leading-relaxed" style={{ color: theme.colors.textMain }}>
+                  Are you sure you want to delete this {entry.type === 'AUTO' ? 'auto' : 'user'} history entry? This action cannot be undone.
+                </p>
+              </div>
               <div className="mt-6 flex justify-end gap-2">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setShowDeleteConfirm(false); } }}
                   className="px-4 py-2 rounded border hover:bg-white/5 transition-colors"
                   style={{ borderColor: theme.colors.border, color: theme.colors.textMain }}
                 >
@@ -550,6 +562,16 @@ export function HistoryDetailModal({
                     }
                     setShowDeleteConfirm(false);
                     onClose();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.stopPropagation();
+                      if (onDelete) {
+                        onDelete(entry.id);
+                      }
+                      setShowDeleteConfirm(false);
+                      onClose();
+                    }
                   }}
                   className="px-4 py-2 rounded text-white outline-none focus:ring-2 focus:ring-offset-2"
                   style={{ backgroundColor: theme.colors.error }}

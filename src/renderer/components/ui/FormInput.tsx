@@ -113,6 +113,7 @@ export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
       // If not prevented and Enter was pressed, submit
       if (e.key === 'Enter' && !e.defaultPrevented && onSubmit && submitEnabled) {
         e.preventDefault();
+        e.stopPropagation(); // Prevent Enter from propagating to parent listeners after modal closes
         onSubmit();
       }
     };
