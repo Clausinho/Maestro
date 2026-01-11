@@ -71,10 +71,18 @@ Click **Create Agent** and Maestro will:
 ### Active Tab
 
 View your in-progress Symphony sessions:
-- Links to jump to the agent session
-- Progress indicators for current document
-- Links to draft PRs
-- Cancel/abort controls
+
+![Active Contributions](./screenshots/symphony-active.png)
+
+Each active contribution shows:
+- **Issue title and repository** — The GitHub issue being worked on
+- **Status badge** — Running, Paused, or Waiting
+- **Document progress** — Current document and total count
+- **Time elapsed** — How long the contribution has been running
+- **Token usage** — Input/output tokens and estimated cost
+- **Pause/Cancel controls** — Pause to review or cancel to abort
+
+Click **Check PR Status** to verify your draft PR on GitHub.
 
 ### History Tab
 
