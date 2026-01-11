@@ -225,11 +225,9 @@ export async function buildSshCommand(
     ...(remoteOptions.env || {}),
   };
 
-  // Determine the working directory:
-  // 1. Use remoteOptions.cwd if provided (command-specific)
-  // 2. Fall back to config.remoteWorkingDir if available
-  // 3. No cd if neither is specified
-  const effectiveCwd = remoteOptions.cwd || config.remoteWorkingDir;
+  // Use working directory from remoteOptions if provided
+  // No cd if not specified - agent will start in remote home directory
+  const effectiveCwd = remoteOptions.cwd;
 
   // Build the remote command string
   const remoteCommand = buildRemoteCommand({

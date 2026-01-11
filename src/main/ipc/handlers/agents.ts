@@ -6,6 +6,7 @@ import { execFileNoThrow } from '../../utils/execFile';
 import { logger } from '../../utils/logger';
 import { withIpcErrorLogging, requireDependency, CreateHandlerOptions } from '../../utils/ipcHandler';
 import { buildSshCommand, RemoteCommandOptions } from '../../utils/ssh-command-builder';
+import { stripAnsi } from '../../utils/stripAnsi';
 import { SshRemoteConfig } from '../../../shared/types';
 import { MaestroSettings } from './persistence';
 
@@ -134,8 +135,10 @@ async function detectAgentsRemote(sshRemote: SshRemoteConfig): Promise<any[]> {
         connectionSucceeded = true;
       }
 
-      const available = result.exitCode === 0 && result.stdout.trim().length > 0;
-      const path = available ? result.stdout.trim().split('\n')[0] : undefined;
+      // Strip ANSI/OSC escape sequences from output (shell integration sequences from interactive shells)
+      const cleanedOutput = stripAnsi(result.stdout);
+      const available = result.exitCode === 0 && cleanedOutput.trim().length > 0;
+      const path = available ? cleanedOutput.trim().split('\n')[0] : undefined;
 
       if (available) {
         logger.info(`Agent "${agentDef.name}" found on remote at: ${path}`, LOG_CONTEXT);

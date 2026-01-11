@@ -10,7 +10,6 @@ const createMockConfig = (overrides: Partial<SshRemoteConfig> = {}): SshRemoteCo
   port: 22,
   username: 'testuser',
   privateKeyPath: '/home/testuser/.ssh/id_rsa',
-  remoteWorkingDir: '/home/testuser/projects',
   enabled: true,
   ...overrides,
 });

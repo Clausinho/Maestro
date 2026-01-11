@@ -159,9 +159,8 @@ contextBridge.exposeInMainWorld('maestro', {
     },
     // SSH remote execution status
     // Emitted when a process starts executing via SSH on a remote host
-    // Includes remoteWorkingDir for session-wide SSH context (file explorer, git, auto run, etc.)
-    onSshRemote: (callback: (sessionId: string, sshRemote: { id: string; name: string; host: string; remoteWorkingDir?: string } | null) => void) => {
-      const handler = (_: any, sessionId: string, sshRemote: { id: string; name: string; host: string; remoteWorkingDir?: string } | null) => callback(sessionId, sshRemote);
+    onSshRemote: (callback: (sessionId: string, sshRemote: { id: string; name: string; host: string } | null) => void) => {
+      const handler = (_: any, sessionId: string, sshRemote: { id: string; name: string; host: string } | null) => callback(sessionId, sshRemote);
       ipcRenderer.on('process:ssh-remote', handler);
       return () => ipcRenderer.removeListener('process:ssh-remote', handler);
     },
@@ -642,7 +641,6 @@ contextBridge.exposeInMainWorld('maestro', {
       port?: number;
       username?: string;
       privateKeyPath?: string;
-      remoteWorkingDir?: string;
       remoteEnv?: Record<string, string>;
       enabled?: boolean;
     }) => ipcRenderer.invoke('ssh-remote:saveConfig', config),
@@ -657,7 +655,6 @@ contextBridge.exposeInMainWorld('maestro', {
       port: number;
       username: string;
       privateKeyPath: string;
-      remoteWorkingDir?: string;
       remoteEnv?: Record<string, string>;
       enabled: boolean;
     }, agentCommand?: string) => ipcRenderer.invoke('ssh-remote:test', configOrId, agentCommand),
@@ -1808,7 +1805,7 @@ export interface MaestroAPI {
     onSlashCommands: (callback: (sessionId: string, slashCommands: string[]) => void) => () => void;
     onThinkingChunk: (callback: (sessionId: string, content: string) => void) => () => void;
     onToolExecution: (callback: (sessionId: string, toolEvent: { toolName: string; state?: unknown; timestamp: number }) => void) => () => void;
-    onSshRemote: (callback: (sessionId: string, sshRemote: { id: string; name: string; host: string; remoteWorkingDir?: string } | null) => void) => () => void;
+    onSshRemote: (callback: (sessionId: string, sshRemote: { id: string; name: string; host: string } | null) => void) => () => void;
     onRemoteCommand: (callback: (sessionId: string, command: string) => void) => () => void;
     onRemoteSwitchMode: (callback: (sessionId: string, mode: 'ai' | 'terminal') => void) => () => void;
     onRemoteInterrupt: (callback: (sessionId: string) => void) => () => void;
@@ -2021,8 +2018,7 @@ export interface MaestroAPI {
       port?: number;
       username?: string;
       privateKeyPath?: string;
-      remoteWorkingDir?: string;
-      remoteEnv?: Record<string, string>;
+            remoteEnv?: Record<string, string>;
       enabled?: boolean;
     }) => Promise<{
       success: boolean;
@@ -2033,8 +2029,7 @@ export interface MaestroAPI {
         port: number;
         username: string;
         privateKeyPath: string;
-        remoteWorkingDir?: string;
-        remoteEnv?: Record<string, string>;
+                remoteEnv?: Record<string, string>;
         enabled: boolean;
       };
       error?: string;
@@ -2049,8 +2044,7 @@ export interface MaestroAPI {
         port: number;
         username: string;
         privateKeyPath: string;
-        remoteWorkingDir?: string;
-        remoteEnv?: Record<string, string>;
+                remoteEnv?: Record<string, string>;
         enabled: boolean;
       }>;
       error?: string;
@@ -2065,8 +2059,7 @@ export interface MaestroAPI {
         port: number;
         username: string;
         privateKeyPath: string;
-        remoteWorkingDir?: string;
-        remoteEnv?: Record<string, string>;
+                remoteEnv?: Record<string, string>;
         enabled: boolean;
       },
       agentCommand?: string

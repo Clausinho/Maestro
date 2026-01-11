@@ -273,29 +273,26 @@ describe('ssh-command-builder', () => {
       expect(result.args[portIndex + 1]).toBe('2222');
     });
 
-    it('uses remoteWorkingDir from config when no cwd in options', async () => {
-      const config = { ...baseConfig, remoteWorkingDir: '/opt/projects' };
-      const result = await buildSshCommand(config, {
+    it('uses cwd from options when provided', async () => {
+      const result = await buildSshCommand(baseConfig, {
         command: 'claude',
         args: ['--print'],
+        cwd: '/opt/projects',
       });
 
-      // The remote command should include cd to the remote working dir
+      // The remote command should include cd to the working dir
       const remoteCommand = result.args[result.args.length - 1];
       expect(remoteCommand).toContain("cd '/opt/projects'");
     });
 
-    it('prefers option cwd over config remoteWorkingDir', async () => {
-      const config = { ...baseConfig, remoteWorkingDir: '/opt/projects' };
-      const result = await buildSshCommand(config, {
+    it('does not include cd when no cwd is provided', async () => {
+      const result = await buildSshCommand(baseConfig, {
         command: 'claude',
-        args: [],
-        cwd: '/home/user/specific-project',
+        args: ['--print'],
       });
 
       const remoteCommand = result.args[result.args.length - 1];
-      expect(remoteCommand).toContain("cd '/home/user/specific-project'");
-      expect(remoteCommand).not.toContain('/opt/projects');
+      expect(remoteCommand).not.toContain('cd');
     });
 
     it('merges remote config env with option env', async () => {
@@ -318,7 +315,7 @@ describe('ssh-command-builder', () => {
       expect(remoteCommand).not.toContain("SHARED_VAR='config-value'");
     });
 
-    it('handles config without remoteEnv or remoteWorkingDir', async () => {
+    it('handles config without remoteEnv', async () => {
       const result = await buildSshCommand(baseConfig, {
         command: 'claude',
         args: ['--print', 'hello'],

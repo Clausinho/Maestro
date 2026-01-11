@@ -615,8 +615,7 @@ interface MaestroAPI {
       port?: number;
       username?: string;
       privateKeyPath?: string;
-      remoteWorkingDir?: string;
-      remoteEnv?: Record<string, string>;
+            remoteEnv?: Record<string, string>;
       enabled?: boolean;
     }) => Promise<{
       success: boolean;
@@ -627,8 +626,7 @@ interface MaestroAPI {
         port: number;
         username: string;
         privateKeyPath: string;
-        remoteWorkingDir?: string;
-        remoteEnv?: Record<string, string>;
+                remoteEnv?: Record<string, string>;
         enabled: boolean;
       };
       error?: string;
@@ -643,8 +641,7 @@ interface MaestroAPI {
         port: number;
         username: string;
         privateKeyPath: string;
-        remoteWorkingDir?: string;
-        remoteEnv?: Record<string, string>;
+                remoteEnv?: Record<string, string>;
         enabled: boolean;
       }>;
       error?: string;
@@ -659,8 +656,7 @@ interface MaestroAPI {
         port: number;
         username: string;
         privateKeyPath: string;
-        remoteWorkingDir?: string;
-        remoteEnv?: Record<string, string>;
+                remoteEnv?: Record<string, string>;
         enabled: boolean;
       },
       agentCommand?: string

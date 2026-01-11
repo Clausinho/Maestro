@@ -78,10 +78,9 @@ vi.mock('../../../../main/utils/ssh-command-builder', () => ({
     // Build the remote command parts
     const commandParts: string[] = [];
 
-    // Add cd if cwd or remoteWorkingDir is set
-    const effectiveCwd = remoteOptions.cwd || config.remoteWorkingDir;
-    if (effectiveCwd) {
-      commandParts.push(`cd '${effectiveCwd}'`);
+    // Add cd if cwd is set
+    if (remoteOptions.cwd) {
+      commandParts.push(`cd '${remoteOptions.cwd}'`);
     }
 
     // Add env vars if present
@@ -996,51 +995,6 @@ describe('process IPC handlers', () => {
           requiresPty: true, // Preserved when running locally
         })
       );
-    });
-
-    it('should use remoteWorkingDir from SSH config when available', async () => {
-      const sshRemoteWithWorkDir = {
-        ...mockSshRemote,
-        remoteWorkingDir: '/home/devuser/projects',
-      };
-
-      const mockAgent = {
-        id: 'claude-code',
-        requiresPty: false,
-      };
-
-      mockAgentDetector.getAgent.mockResolvedValue(mockAgent);
-      mockSettingsStore.get.mockImplementation((key, defaultValue) => {
-        if (key === 'sshRemotes') return [sshRemoteWithWorkDir];
-        return defaultValue;
-      });
-      mockProcessManager.spawn.mockReturnValue({ pid: 12345, success: true });
-
-      const handler = handlers.get('process:spawn');
-      await handler!({} as any, {
-        sessionId: 'session-1',
-        toolType: 'claude-code',
-        cwd: '/local/project', // Local cwd should be ignored when remoteWorkingDir is set
-        command: 'claude',
-        args: ['--print'],
-        // Session-level SSH config
-        sessionSshRemoteConfig: {
-          enabled: true,
-          remoteId: 'remote-1',
-        },
-      });
-
-      // The SSH command should use the remote working directory
-      expect(mockProcessManager.spawn).toHaveBeenCalledWith(
-        expect.objectContaining({
-          command: 'ssh',
-        })
-      );
-
-      // Check that the remote command includes the remote working directory
-      const spawnCall = mockProcessManager.spawn.mock.calls[0][0];
-      const remoteCommandArg = spawnCall.args[spawnCall.args.length - 1];
-      expect(remoteCommandArg).toContain('/home/devuser/projects');
     });
 
     it('should use local home directory as cwd when spawning SSH (fixes ENOENT for remote-only paths)', async () => {

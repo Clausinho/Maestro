@@ -108,7 +108,6 @@ export function registerSshRemoteHandlers(deps: SshRemoteHandlerDependencies): v
           port: config.port ?? 22,
           username: config.username || '',
           privateKeyPath: config.privateKeyPath || '',
-          remoteWorkingDir: config.remoteWorkingDir,
           remoteEnv: config.remoteEnv,
           enabled: config.enabled ?? true,
           useSshConfig: config.useSshConfig,

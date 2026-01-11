@@ -280,9 +280,6 @@ export interface SshRemoteConfig {
    */
   privateKeyPath: string;
 
-  /** Default working directory on remote (optional) */
-  remoteWorkingDir?: string;
-
   /** Environment variables to set on remote */
   remoteEnv?: Record<string, string>;
 

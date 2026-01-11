@@ -1810,10 +1810,9 @@ export class ProcessManager extends EventEmitter {
     }
 
     // Determine the working directory on the remote
-    // Priority: passed cwd (from session's remoteCwd) > remoteWorkingDir from SSH config
-    // The cwd parameter now contains the session's tracked remoteCwd which updates when user runs cd
-    // Fall back to home directory (~) if neither is set
-    const remoteCwd = cwd || sshConfig.remoteWorkingDir || '~';
+    // The cwd parameter contains the session's tracked remoteCwd which updates when user runs cd
+    // Fall back to home directory (~) if not set
+    const remoteCwd = cwd || '~';
 
     // Merge environment variables: SSH config's remoteEnv + shell env vars
     const mergedEnv: Record<string, string> = {

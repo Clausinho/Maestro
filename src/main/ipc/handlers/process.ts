@@ -265,8 +265,6 @@ export function registerProcessHandlers(deps: ProcessHandlerDependencies): void 
           }
 
           // Build the SSH command that wraps the agent execution
-          // The cwd is the local project path which may not exist on remote
-          // Remote should use remoteWorkingDir from SSH config if set
           //
           // Determine the command to run on the remote host:
           // 1. If user set a session-specific custom path, use that (they configured it for the remote)
@@ -277,9 +275,8 @@ export function registerProcessHandlers(deps: ProcessHandlerDependencies): void 
           const sshCommand = await buildSshCommand(sshResult.config, {
             command: remoteCommand,
             args: sshArgs,
-            // Use the local cwd - the SSH command builder will handle remote path resolution
-            // If SSH config has remoteWorkingDir, that takes precedence
-            cwd: sshResult.config.remoteWorkingDir ? undefined : config.cwd,
+            // Use the cwd from config - this is the project directory on the remote
+            cwd: config.cwd,
             // Pass custom environment variables to the remote command
             env: effectiveCustomEnvVars,
           });
@@ -352,7 +349,6 @@ export function registerProcessHandlers(deps: ProcessHandlerDependencies): void 
           id: sshRemoteUsed.id,
           name: sshRemoteUsed.name,
           host: sshRemoteUsed.host,
-          remoteWorkingDir: sshRemoteUsed.remoteWorkingDir,
         } : null;
         mainWindow.webContents.send('process:ssh-remote', config.sessionId, sshRemoteInfo);
       }
@@ -364,7 +360,6 @@ export function registerProcessHandlers(deps: ProcessHandlerDependencies): void 
           id: sshRemoteUsed.id,
           name: sshRemoteUsed.name,
           host: sshRemoteUsed.host,
-          remoteWorkingDir: sshRemoteUsed.remoteWorkingDir,
         } : undefined,
       };
     })

@@ -138,7 +138,6 @@ export function SshRemoteModal({
   const [port, setPort] = useState('22');
   const [username, setUsername] = useState('');
   const [privateKeyPath, setPrivateKeyPath] = useState('');
-  const [remoteWorkingDir, setRemoteWorkingDir] = useState('');
   const [envVars, setEnvVars] = useState<EnvVarEntry[]>([]);
   const [enabled, setEnabled] = useState(true);
   const [nextEnvVarId, setNextEnvVarId] = useState(0);
@@ -257,7 +256,6 @@ export function SshRemoteModal({
         setPort(String(initialConfig.port));
         setUsername(initialConfig.username);
         setPrivateKeyPath(initialConfig.privateKeyPath);
-        setRemoteWorkingDir(initialConfig.remoteWorkingDir || '');
         const entries = envVarsToArray(initialConfig.remoteEnv);
         setEnvVars(entries);
         setNextEnvVarId(entries.length);
@@ -272,7 +270,6 @@ export function SshRemoteModal({
         setPort('22');
         setUsername('');
         setPrivateKeyPath('');
-        setRemoteWorkingDir('');
         setEnvVars([]);
         setNextEnvVarId(0);
         setEnabled(true);
@@ -308,7 +305,6 @@ export function SshRemoteModal({
       port: parseInt(port, 10),
       username: username.trim(),
       privateKeyPath: privateKeyPath.trim(),
-      remoteWorkingDir: remoteWorkingDir.trim() || undefined,
       remoteEnv: Object.keys(envVarsToObject(envVars)).length > 0
         ? envVarsToObject(envVars)
         : undefined,
@@ -316,7 +312,7 @@ export function SshRemoteModal({
       useSshConfig,
       sshConfigHost,
     };
-  }, [initialConfig, name, host, port, username, privateKeyPath, remoteWorkingDir, envVars, enabled, useSshConfig, sshConfigHost]);
+  }, [initialConfig, name, host, port, username, privateKeyPath, envVars, enabled, useSshConfig, sshConfigHost]);
 
   // Handle selecting an SSH config host
   // This imports values as a template - user can edit freely and choose whether to use SSH config mode
@@ -697,17 +693,6 @@ export function SshRemoteModal({
           placeholder="~/.ssh/id_ed25519"
           monospace
           helperText="Leave empty to use SSH config or ssh-agent"
-        />
-
-        {/* Remote Working Directory (optional) */}
-        <FormInput
-          theme={theme}
-          label="Remote Working Directory (optional)"
-          value={remoteWorkingDir}
-          onChange={setRemoteWorkingDir}
-          placeholder="/home/user/projects"
-          monospace
-          helperText="Default directory on the remote host for agent execution"
         />
 
         {/* Environment Variables */}

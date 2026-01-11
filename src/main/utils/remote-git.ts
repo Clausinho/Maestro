@@ -21,7 +21,7 @@ const LOG_CONTEXT = '[RemoteGit]';
 export interface RemoteGitOptions {
   /** SSH remote configuration */
   sshRemote: SshRemoteConfig;
-  /** Working directory on the remote host (optional - uses sshRemote.remoteWorkingDir if not provided) */
+  /** Working directory on the remote host */
   remoteCwd?: string;
 }
 
@@ -51,10 +51,7 @@ export async function execGitRemote(
 ): Promise<ExecResult> {
   const { sshRemote, remoteCwd } = options;
 
-  // Determine the effective working directory on the remote
-  const effectiveCwd = remoteCwd || sshRemote.remoteWorkingDir;
-
-  if (!effectiveCwd) {
+  if (!remoteCwd) {
     logger.warn('No remote working directory specified for git command', LOG_CONTEXT);
   }
 
@@ -62,7 +59,7 @@ export async function execGitRemote(
   const remoteOptions: RemoteCommandOptions = {
     command: 'git',
     args,
-    cwd: effectiveCwd,
+    cwd: remoteCwd,
     // Pass any remote environment variables from the SSH config
     env: sshRemote.remoteEnv,
   };
@@ -72,7 +69,7 @@ export async function execGitRemote(
 
   logger.debug(`Executing remote git command: ${args.join(' ')}`, LOG_CONTEXT, {
     host: sshRemote.host,
-    cwd: effectiveCwd,
+    cwd: remoteCwd,
   });
 
   // Execute the SSH command
@@ -96,7 +93,7 @@ export async function execGitRemote(
  * @param args Git command arguments
  * @param localCwd Local working directory (used for local execution)
  * @param sshRemote Optional SSH remote configuration (triggers remote execution if provided)
- * @param remoteCwd Optional remote working directory (overrides sshRemote.remoteWorkingDir)
+ * @param remoteCwd Remote working directory (required for remote execution)
  * @returns Execution result
  */
 export async function execGit(

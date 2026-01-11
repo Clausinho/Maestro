@@ -2578,7 +2578,7 @@ function MaestroConsoleInner() {
     // Also populates session-wide SSH context (sshRemoteId, remoteCwd) for file explorer, git, auto run, etc.
     // IMPORTANT: When SSH connection is established, we also recheck isGitRepo since the initial
     // check may have failed or been done before SSH was ready.
-    const unsubscribeSshRemote = window.maestro.process.onSshRemote?.((sessionId: string, sshRemote: { id: string; name: string; host: string; remoteWorkingDir?: string } | null) => {
+    const unsubscribeSshRemote = window.maestro.process.onSshRemote?.((sessionId: string, sshRemote: { id: string; name: string; host: string } | null) => {
       // Parse sessionId to get actual session ID (format: {id}-ai-{tabId} or {id}-terminal)
       let actualSessionId: string;
       const aiTabMatch = sessionId.match(/^(.+)-ai-(.+)$/);
@@ -2590,7 +2590,7 @@ function MaestroConsoleInner() {
         actualSessionId = sessionId;
       }
 
-      // Update session with SSH remote info and session-wide SSH context
+      // Update session with SSH remote info
       setSessions(prev => prev.map(s => {
         if (s.id !== actualSessionId) return s;
         // Only update if the value actually changed (avoid unnecessary re-renders)
@@ -2600,9 +2600,7 @@ function MaestroConsoleInner() {
         return {
           ...s,
           sshRemote: sshRemote ?? undefined,
-          // Populate session-wide SSH context for all operations (file explorer, git, auto run, etc.)
           sshRemoteId: sshRemote?.id,
-          remoteCwd: sshRemote?.remoteWorkingDir,
         };
       }));
 
@@ -2614,7 +2612,7 @@ function MaestroConsoleInner() {
         // Only check if session hasn't been detected as git repo yet
         // (avoids redundant checks if SSH reconnects)
         if (session && !session.isGitRepo) {
-          const remoteCwd = sshRemote.remoteWorkingDir || session.sessionSshRemoteConfig?.workingDirOverride || session.cwd;
+          const remoteCwd = session.sessionSshRemoteConfig?.workingDirOverride || session.cwd;
           (async () => {
             try {
               const isGitRepo = await gitService.isRepo(remoteCwd, sshRemote.id);

@@ -67,20 +67,17 @@ const TEST_CWD = process.cwd();
  *
  * Optional:
  *   SSH_TEST_PORT       - SSH port (default: 22)
- *   SSH_TEST_REMOTE_CWD - Remote working directory (default: home directory)
  *   SSH_TEST_USE_CONFIG - Set to "true" to use ~/.ssh/config host patterns
  *
  * Example:
  *   SSH_TEST_HOST=pedtome SSH_TEST_USER=pedram SSH_TEST_KEY=~/.ssh/id_rsa \
- *   SSH_TEST_REMOTE_CWD=/Users/pedram/Projects/Podsidian SSH_TEST_USE_CONFIG=true \
- *   RUN_SSH_INTEGRATION_TESTS=true npm run test:integration
+ *   SSH_TEST_USE_CONFIG=true RUN_SSH_INTEGRATION_TESTS=true npm run test:integration
  */
 function getSshTestConfig(): SshRemoteConfig | null {
   const host = process.env.SSH_TEST_HOST;
   const username = process.env.SSH_TEST_USER || '';
   const privateKeyPath = process.env.SSH_TEST_KEY || '';
   const port = parseInt(process.env.SSH_TEST_PORT || '22', 10);
-  const remoteWorkingDir = process.env.SSH_TEST_REMOTE_CWD;
   const useSshConfig = process.env.SSH_TEST_USE_CONFIG === 'true';
 
   if (!host) {
@@ -100,7 +97,6 @@ function getSshTestConfig(): SshRemoteConfig | null {
     port,
     username,
     privateKeyPath,
-    remoteWorkingDir,
     enabled: true,
     useSshConfig,
     sshConfigHost: useSshConfig ? host : undefined,
@@ -684,7 +680,7 @@ function runProvider(
  * @param provider - Provider config
  * @param sshConfig - SSH remote configuration
  * @param args - Provider arguments
- * @param cwd - Remote working directory (optional, uses sshConfig.remoteWorkingDir if not provided)
+ * @param cwd - Remote working directory (optional, defaults to ~ on remote)
  * @param stdinContent - Optional content to write to stdin
  */
 async function runProviderViaSsh(
@@ -698,7 +694,7 @@ async function runProviderViaSsh(
   const sshCommand = await buildSshCommand(sshConfig, {
     command: provider.command,
     args,
-    cwd: cwd || sshConfig.remoteWorkingDir,
+    cwd,
   });
 
   console.log(`🌐 SSH Command: ${sshCommand.command} ${sshCommand.args.join(' ')}`);
@@ -1740,13 +1736,11 @@ Rules:
  *   SSH_TEST_USER       - SSH username (optional if using SSH config)
  *   SSH_TEST_KEY        - Path to SSH private key (optional if using SSH config)
  *   SSH_TEST_PORT       - SSH port (default: 22)
- *   SSH_TEST_REMOTE_CWD - Remote working directory
  *   SSH_TEST_USE_CONFIG - Set to "true" to use ~/.ssh/config
  *
  * Example:
  *   SSH_TEST_HOST=pedtome SSH_TEST_USER=pedram SSH_TEST_KEY=~/.ssh/id_rsa \
- *   SSH_TEST_REMOTE_CWD=/Users/pedram/Projects/Podsidian SSH_TEST_USE_CONFIG=true \
- *   RUN_SSH_INTEGRATION_TESTS=true npm run test:integration
+ *   SSH_TEST_USE_CONFIG=true RUN_SSH_INTEGRATION_TESTS=true npm run test:integration
  */
 describe.skipIf(SKIP_SSH_INTEGRATION)('SSH Provider Integration Tests', () => {
   let sshConfig: SshRemoteConfig | null = null;
@@ -1766,7 +1760,6 @@ describe.skipIf(SKIP_SSH_INTEGRATION)('SSH Provider Integration Tests', () => {
     console.log(`   User: ${sshConfig.username || '(from SSH config)'}`);
     console.log(`   Port: ${sshConfig.port}`);
     console.log(`   Key: ${sshConfig.privateKeyPath || '(from SSH config)'}`);
-    console.log(`   Remote CWD: ${sshConfig.remoteWorkingDir || '(default)'}`);
     console.log(`   Use SSH Config: ${sshConfig.useSshConfig}`);
 
     // Test SSH connection first
@@ -1801,7 +1794,6 @@ describe.skipIf(SKIP_SSH_INTEGRATION)('SSH Provider Integration Tests', () => {
       const sshCommand = await buildSshCommand(sshConfig, {
         command: 'pwd',
         args: [],
-        cwd: sshConfig.remoteWorkingDir,
       });
 
       const result = await new Promise<{ stdout: string; stderr: string; exitCode: number }>((resolve) => {
@@ -1994,59 +1986,6 @@ Reply with just the two numbers separated by a comma.`;
         expect(
           response?.includes('2') && response?.includes('4'),
           `${provider.name} should answer both questions (1+1=2, 2+2=4). Got: "${response}"`
-        ).toBe(true);
-      }, SSH_PROVIDER_TIMEOUT);
-
-      it('should execute in correct remote working directory', async () => {
-        if (!sshConfig || !sshConnectionOk) {
-          console.log('Skipping: SSH not configured or connection failed');
-          return;
-        }
-
-        if (!providerAvailableRemote) {
-          console.log(`Skipping: ${provider.name} not available on remote`);
-          return;
-        }
-
-        if (!sshConfig.remoteWorkingDir) {
-          console.log('Skipping: No remote working directory configured');
-          return;
-        }
-
-        // Ask the agent to read a file that should exist in the remote cwd
-        // or at least confirm the working directory
-        const prompt = 'What is the current working directory? Just tell me the path, nothing else.';
-        const args = provider.buildInitialArgs(prompt);
-
-        console.log(`\n🌐 Testing remote CWD for ${provider.name}`);
-        console.log(`📁 Expected CWD: ${sshConfig.remoteWorkingDir}`);
-
-        const result = await runProviderViaSsh(provider, sshConfig, args);
-
-        console.log(`📤 Exit code: ${result.exitCode}`);
-
-        // Check for auth errors on remote
-        if (hasRemoteAuthError(result.stdout)) {
-          console.log(`⚠️  Authentication error on remote - skipping remaining assertions`);
-          expect(provider.parseSessionId(result.stdout), 'Should still get session ID').toBeTruthy();
-          return;
-        }
-
-        expect(
-          provider.isSuccessful(result.stdout, result.exitCode),
-          `${provider.name} via SSH should succeed`
-        ).toBe(true);
-
-        const response = provider.parseResponse(result.stdout);
-        console.log(`💬 Response: ${response?.substring(0, 300)}`);
-        expect(response, `${provider.name} should return a response`).toBeTruthy();
-
-        // Response should mention the remote working directory
-        // (The agent might phrase it differently, so just check if the path appears)
-        const expectedPathPart = sshConfig.remoteWorkingDir.split('/').pop() || '';
-        expect(
-          response?.includes(expectedPathPart) || response?.includes(sshConfig.remoteWorkingDir),
-          `${provider.name} should be in remote CWD ${sshConfig.remoteWorkingDir}. Got: "${response}"`
         ).toBe(true);
       }, SSH_PROVIDER_TIMEOUT);
 

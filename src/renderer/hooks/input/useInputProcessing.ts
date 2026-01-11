@@ -431,8 +431,7 @@ export function useInputProcessing(deps: UseInputProcessingDeps): UseInputProces
       // Handle bare "cd" command - go to session's original directory (or remote working dir for SSH)
       if (trimmedInput === 'cd') {
         if (isRemoteSession) {
-          // For remote sessions, bare cd goes to remote working directory from SSH config
-          // We can't easily get the remote $HOME, so use the configured remoteWorkingDir or cwd
+          // For remote sessions, bare cd goes to the session's configured working directory
           remoteCwdChanged = true;
           newRemoteCwd = activeSession.sessionSshRemoteConfig?.workingDirOverride || activeSession.cwd;
         } else {
@@ -445,10 +444,8 @@ export function useInputProcessing(deps: UseInputProcessingDeps): UseInputProces
         const targetPath = cdMatch[1].trim().replace(/^['"]|['"]$/g, ''); // Remove quotes
         let candidatePath: string;
         if (targetPath === '~' || targetPath.startsWith('~/')) {
-          // For remote sessions, ~ should expand to remote home
-          // Since we can't easily get remote $HOME, use remoteWorkingDir as fallback
+          // For remote sessions, ~ should expand to session's base directory
           if (isRemoteSession) {
-            // Use remoteWorkingDir or fall back to /home/<username> pattern
             const basePath = activeSession.sessionSshRemoteConfig?.workingDirOverride || activeSession.cwd;
             if (targetPath === '~') {
               candidatePath = basePath;
