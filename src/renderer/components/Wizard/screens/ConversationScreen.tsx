@@ -685,7 +685,7 @@ export function ConversationScreen({
           directoryPath: state.directoryPath,
           projectName: state.agentName || 'My Project',
           existingDocs: existingDocs.length > 0 ? existingDocs : undefined,
-          sessionSshRemoteConfig: state.sessionSshRemoteConfig,
+          sshRemoteConfig: state.sessionSshRemoteConfig,
         });
 
 				if (mounted) {
@@ -813,6 +813,7 @@ export function ConversationScreen({
 					agentType: state.selectedAgent,
 					directoryPath: state.directoryPath,
 					projectName: state.agentName || 'My Project',
+          			sshRemoteConfig: state.sessionSshRemoteConfig,
 				});
 			}
 
@@ -1067,7 +1068,7 @@ export function ConversationScreen({
           directoryPath: state.directoryPath,
           projectName: state.agentName || 'My Project',
           existingDocs: existingDocs.length > 0 ? existingDocs : undefined,
-          sessionSshRemoteConfig: state.sessionSshRemoteConfig,
+          sshRemoteConfig: state.sessionSshRemoteConfig,
         });
       }
 

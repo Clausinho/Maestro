@@ -6326,6 +6326,7 @@ You are taking over this conversation. Based on the context above, provide a bri
 					customEnvVars: activeSession.customEnvVars,
 					customModel: activeSession.customModel,
 					customContextWindow: activeSession.customContextWindow,
+          			sessionSshRemoteConfig: activeSession.sessionSshRemoteConfig,
 				}
 			);
 

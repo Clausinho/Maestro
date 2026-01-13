@@ -37,8 +37,8 @@ export interface ConversationConfig {
   projectName: string;
   /** Existing Auto Run documents (when continuing from previous session) */
   existingDocs?: ExistingDocument[];
-  /** SSH remote configuration for remote agent execution */
-  sessionSshRemoteConfig?: {
+  /** SSH remote configuration (for remote execution) */
+  sshRemoteConfig?: {
     enabled: boolean;
     remoteId: string | null;
     workingDirOverride?: string;
@@ -118,8 +118,8 @@ interface ConversationSession {
   toolExecutionListenerCleanup?: () => void;
   /** Timeout ID for response timeout (for cleanup) */
   responseTimeoutId?: NodeJS.Timeout;
-  /** SSH remote configuration for remote execution */
-  sessionSshRemoteConfig?: {
+  /** SSH remote configuration (for remote execution) */
+  sshRemoteConfig?: {
     enabled: boolean;
     remoteId: string | null;
     workingDirOverride?: string;
@@ -174,7 +174,7 @@ class ConversationManager {
       isActive: true,
       systemPrompt,
       outputBuffer: '',
-      sessionSshRemoteConfig: config.sessionSshRemoteConfig,
+      sshRemoteConfig: config.sshRemoteConfig,
     };
 
     // Log conversation start
@@ -185,8 +185,8 @@ class ConversationManager {
       projectName: config.projectName,
       hasExistingDocs: !!config.existingDocs,
       existingDocsCount: config.existingDocs?.length || 0,
-      hasRemoteSsh: !!config.sessionSshRemoteConfig?.enabled,
-      remoteId: config.sessionSshRemoteConfig?.remoteId || null,
+      hasRemoteSsh: !!config.sshRemoteConfig?.enabled,
+      remoteId: config.sshRemoteConfig?.remoteId || null,
     });
 
 		return sessionId;
@@ -234,51 +234,16 @@ class ConversationManager {
 
     try {
       // Get the agent configuration
-      // Pass SSH remote ID if SSH is enabled for this session
-      const sshRemoteId = this.session.sessionSshRemoteConfig?.enabled
-        ? this.session.sessionSshRemoteConfig.remoteId
-        : undefined;
+      const agent = await window.maestro.agents.get(this.session.agentType);
 
-      wizardDebugLogger.log('info', 'Fetching agent configuration', {
-        agentType: this.session.agentType,
-        sessionId: this.session.sessionId,
-        hasRemoteSsh: !!this.session.sessionSshRemoteConfig?.enabled,
-        remoteId: this.session.sessionSshRemoteConfig?.remoteId || null,
-        passingSshRemoteId: sshRemoteId || null,
-      });
+      // For SSH remote sessions, skip the availability check since we're executing remotely
+      // The agent detector checks for binaries locally, but we need to execute on the remote host
+      const isRemoteSession = this.session.sshRemoteConfig?.enabled && this.session.sshRemoteConfig?.remoteId;
 
-      const agent = await window.maestro.agents.get(this.session.agentType, sshRemoteId || undefined);
-
-      // Log to main process (writes to maestro-debug.log on Windows)
-      console.log('[Wizard] Agent fetch result:', {
-        agentType: this.session.agentType,
-        agentExists: !!agent,
-        agentAvailable: agent?.available,
-        agentPath: agent?.path,
-        agentCommand: agent?.command,
-        hasRemoteSsh: !!this.session.sessionSshRemoteConfig?.enabled,
-      });
-
-      if (!agent || !agent.available) {
-        const error = `Agent ${this.session.agentType} is not available`;
-
-        // Log detailed info about why agent is unavailable
-        console.error('[Wizard] Agent not available - Details:', {
+      if (!agent) {
+        const error = `Agent ${this.session.agentType} configuration not found`;
+        wizardDebugLogger.log('error', 'Agent config not found', {
           agentType: this.session.agentType,
-          agentExists: !!agent,
-          agentAvailable: agent?.available,
-          agentPath: agent?.path,
-          agentError: (agent as any)?.error,
-          sessionSshConfig: this.session.sessionSshRemoteConfig,
-        });
-
-        wizardDebugLogger.log('error', 'Agent not available', {
-          agentType: this.session.agentType,
-          agent: agent ? {
-            available: agent.available,
-            path: agent.path,
-            error: (agent as any).error
-          } : null,
         });
         return {
           success: false,
@@ -286,7 +251,71 @@ class ConversationManager {
         };
       }
 
-      console.log('[Wizard] Agent is available, building prompt...');
+      // Only check availability for local sessions
+      if (!isRemoteSession && !agent.available) {
+        const error = `Agent ${this.session.agentType} is not available locally`;
+        wizardDebugLogger.log('error', 'Agent not available locally', {
+          agentType: this.session.agentType,
+          agent: {
+            available: agent.available,
+            path: agent.path,
+            command: agent.command,
+            customPath: (agent as any).customPath,
+          },
+        });
+        console.error('[Wizard] Agent not available locally:', {
+          agentType: this.session.agentType,
+          agentAvailable: agent.available,
+          agentPath: agent.path,
+          agentCommand: agent.command,
+          agentCustomPath: (agent as any)?.customPath,
+        });
+        return {
+          success: false,
+          error,
+        };
+      }
+
+      // Only check availability for local sessions
+      if (!isRemoteSession && !agent.available) {
+        const error = `Agent ${this.session.agentType} is not available locally`;
+        wizardDebugLogger.log('error', 'Agent not available locally', {
+          agentType: this.session.agentType,
+          agent: {
+            available: agent.available,
+            path: agent.path,
+            command: agent.command,
+            customPath: (agent as any).customPath,
+          },
+        });
+        console.error('[Wizard] Agent not available locally:', {
+          agentType: this.session.agentType,
+          agentAvailable: agent.available,
+          agentPath: agent.path,
+          agentCommand: agent.command,
+          agentCustomPath: (agent as any)?.customPath,
+        });
+        return {
+          success: false,
+          error,
+        };
+      }
+
+      // For remote sessions, log that we're skipping the availability check
+      if (isRemoteSession) {
+        wizardDebugLogger.log('info', 'Executing agent on SSH remote (skipping local availability check)', {
+          agentType: this.session.agentType,
+          remoteId: this.session.sshRemoteConfig?.remoteId,
+          agentCommand: agent.command,
+          agentPath: agent.path,
+          agentCustomPath: (agent as any).customPath,
+        });
+        console.log('[Wizard] Executing agent on SSH remote:', {
+          agentType: this.session.agentType,
+          remoteId: this.session.sshRemoteConfig?.remoteId,
+          agentCommand: agent.command,
+        });
+      }
 
 			// Build the full prompt with conversation context
 			const fullPrompt = this.buildPromptWithContext(userMessage, conversationHistory);
@@ -532,9 +561,23 @@ class ConversationManager {
 			// Each agent has different CLI structure for batch mode
 			const argsForSpawn = this.buildArgsForAgent(agent);
 
-			// Use the agent's resolved path if available, falling back to command name
-			// This is critical for packaged Electron apps where PATH may not include agent locations
-			const commandToUse = agent.path || agent.command;
+      // Use the agent's resolved path if available, falling back to command name
+      // This is critical for packaged Electron apps where PATH may not include agent locations
+      const commandToUse = agent.path || agent.command;
+
+      // Log spawn details to main process
+      console.log('[Wizard] Preparing to spawn agent process:', {
+        sessionId: this.session!.sessionId,
+        toolType: this.session!.agentType,
+        command: commandToUse,
+        agentPath: agent.path,
+        agentCommand: agent.command,
+        argsCount: argsForSpawn.length,
+        cwd: this.session!.directoryPath,
+        hasRemoteSsh: !!this.session!.sshRemoteConfig?.enabled,
+        remoteId: this.session!.sshRemoteConfig?.remoteId || null,
+        sshConfig: this.session!.sshRemoteConfig,
+      });
 
       wizardDebugLogger.log('spawn', 'Calling process.spawn', {
         sessionId: this.session!.sessionId,
@@ -543,8 +586,8 @@ class ConversationManager {
         agentCommand: agent.command,
         args: argsForSpawn,
         cwd: this.session!.directoryPath,
-        hasRemoteSsh: !!this.session!.sessionSshRemoteConfig?.enabled,
-        remoteId: this.session!.sessionSshRemoteConfig?.remoteId || null,
+        hasRemoteSsh: !!this.session!.sshRemoteConfig?.enabled,
+        remoteId: this.session!.sshRemoteConfig?.remoteId || null,
       });
 
       window.maestro.process
@@ -555,7 +598,8 @@ class ConversationManager {
           command: commandToUse,
           args: argsForSpawn,
           prompt: prompt,
-          sessionSshRemoteConfig: this.session!.sessionSshRemoteConfig,
+          // Pass SSH configuration for remote execution
+          sessionSshRemoteConfig: this.session!.sshRemoteConfig,
         })
         .then(() => {
           wizardDebugLogger.log('spawn', 'Agent process spawned successfully', {
