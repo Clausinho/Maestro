@@ -2247,6 +2247,22 @@ function MaestroConsoleInner() {
       batchedUpdater.updateContextUsage(actualSessionId, contextPercentage);
       batchedUpdater.updateCycleTokens(actualSessionId, usageStats.outputTokens);
 
+      // Persist context usage for Claude sessions so it survives app restart
+      // Only persist if we have a valid tab with an agent session ID
+      if (isClaudeUsage && tabId && sessionForUsage?.projectRoot) {
+        const tab = sessionForUsage.aiTabs?.find(t => t.id === tabId);
+        if (tab?.agentSessionId) {
+          // Fire and forget - don't await to avoid blocking the UI
+          window.maestro.claude.updateSessionContextUsage(
+            sessionForUsage.projectRoot,
+            tab.agentSessionId,
+            contextPercentage
+          ).catch(() => {
+            // Silently ignore errors - this is a best-effort persistence
+          });
+        }
+      }
+
       // Update persistent global stats (not batched - this is a separate concern)
       updateGlobalStatsRef.current({
         totalInputTokens: usageStats.inputTokens,
