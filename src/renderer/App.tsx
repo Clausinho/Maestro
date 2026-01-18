@@ -3,7 +3,8 @@ import React, {
 	useEffect,
 	useRef,
 	useMemo,
-	useCallback
+	useCallback,
+	useDeferredValue
 } from 'react';
 import { SettingsModal } from './components/SettingsModal';
 import { SessionList } from './components/SessionList';
@@ -4889,6 +4890,13 @@ You are taking over this conversation. Based on the context above, provide a bri
 
 	// Use local state for responsive typing - no session state update on every keystroke
 	const inputValue = isAiMode ? aiInputValueLocal : terminalInputValue;
+
+	// PERF: useDeferredValue allows React to defer re-renders of expensive components
+	// that consume the input value for filtering/preview purposes. InputArea uses inputValue
+	// directly for responsive typing, while non-critical consumers like slash command filtering
+	// and prompt composer can use the deferred value to avoid blocking keystrokes.
+	const deferredInputValue = useDeferredValue(inputValue);
+
 	// PERF: Memoize setInputValue to maintain stable reference - prevents child re-renders
 	// when this callback is passed as a prop. The conditional selection based on isAiMode
 	// was creating new function references on every render.
@@ -12858,7 +12866,7 @@ You are taking over this conversation. Based on the context above, provide a bri
 						activeGroupChatId
 							? groupChats.find(c => c.id === activeGroupChatId)
 									?.draftMessage || ''
-							: inputValue
+							: deferredInputValue
 					}
 					onPromptComposerSubmit={handlePromptComposerSubmit}
 					onPromptComposerSend={handlePromptComposerSend}
