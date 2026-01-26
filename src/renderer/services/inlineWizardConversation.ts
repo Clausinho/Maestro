@@ -263,7 +263,9 @@ export function startInlineWizardConversation(
 		systemPrompt,
 		isActive: true,
 		// Only pass SSH config if it is explicitly enabled to prevent false positives in process manager
-		sessionSshRemoteConfig: config.sessionSshRemoteConfig?.enabled ? config.sessionSshRemoteConfig : undefined,
+		sessionSshRemoteConfig: config.sessionSshRemoteConfig?.enabled
+			? config.sessionSshRemoteConfig
+			: undefined,
 	};
 }
 
@@ -453,57 +455,57 @@ function buildArgsForAgent(agent: any): string[] {
 			// The agent can read files to understand the project, but cannot write/edit
 			// This ensures the wizard conversation phase doesn't make code changes
 			if (!args.includes('--allowedTools')) {
-       		 // Split tools into separate arguments for better cross-platform compatibility (especially Windows)
+				// Split tools into separate arguments for better cross-platform compatibility (especially Windows)
 				args.push('--allowedTools', 'Read', 'Glob', 'Grep', 'LS');
 			}
 			return args;
 		}
 
-    case 'codex': {
-      // Codex requires exec batch mode with JSON output for wizard conversations
-      // Must include these explicitly since wizard pre-builds args before IPC handler
-      const args = [];
-      
-      // Add batch mode prefix: 'exec'
-      if (agent.batchModePrefix) {
-        args.push(...agent.batchModePrefix);
-      }
-      
-      // Add base args (if any)
-      args.push(...(agent.args || []));
-      
-      // Add batch mode args: '--dangerously-bypass-approvals-and-sandbox', '--skip-git-repo-check'
-      if (agent.batchModeArgs) {
-        args.push(...agent.batchModeArgs);
-      }
-      
-      // Add JSON output: '--json'
-      if (agent.jsonOutputArgs) {
-        args.push(...agent.jsonOutputArgs);
-      }
-      
-      return args;
-    }
-    
-    case 'opencode': {
-      // OpenCode requires 'run' batch mode with JSON output for wizard conversations
-      const args = [];
-      
-      // Add batch mode prefix: 'run'
-      if (agent.batchModePrefix) {
-        args.push(...agent.batchModePrefix);
-      }
-      
-      // Add base args (if any)
-      args.push(...(agent.args || []));
-      
-      // Add JSON output: '--format json'
-      if (agent.jsonOutputArgs) {
-        args.push(...agent.jsonOutputArgs);
-      }
-      
-      return args;
-    }
+		case 'codex': {
+			// Codex requires exec batch mode with JSON output for wizard conversations
+			// Must include these explicitly since wizard pre-builds args before IPC handler
+			const args = [];
+
+			// Add batch mode prefix: 'exec'
+			if (agent.batchModePrefix) {
+				args.push(...agent.batchModePrefix);
+			}
+
+			// Add base args (if any)
+			args.push(...(agent.args || []));
+
+			// Add batch mode args: '--dangerously-bypass-approvals-and-sandbox', '--skip-git-repo-check'
+			if (agent.batchModeArgs) {
+				args.push(...agent.batchModeArgs);
+			}
+
+			// Add JSON output: '--json'
+			if (agent.jsonOutputArgs) {
+				args.push(...agent.jsonOutputArgs);
+			}
+
+			return args;
+		}
+
+		case 'opencode': {
+			// OpenCode requires 'run' batch mode with JSON output for wizard conversations
+			const args = [];
+
+			// Add batch mode prefix: 'run'
+			if (agent.batchModePrefix) {
+				args.push(...agent.batchModePrefix);
+			}
+
+			// Add base args (if any)
+			args.push(...(agent.args || []));
+
+			// Add JSON output: '--format json'
+			if (agent.jsonOutputArgs) {
+				args.push(...agent.jsonOutputArgs);
+			}
+
+			return args;
+		}
 
 		default: {
 			return [...(agent.args || [])];
@@ -562,11 +564,21 @@ export async function sendWizardMessage(
 
 			// Set up timeout (5 minutes for complex prompts)
 			const timeoutId = setTimeout(() => {
-				console.log('[InlineWizard] TIMEOUT fired! Session:', session.sessionId);
+				logger.warn('Inline wizard response timeout', '[InlineWizardConversation]', {
+					sessionId: session.sessionId,
+					timeoutMs: 300000,
+				});
 				cleanupListeners();
 				// Kill the orphaned agent process to prevent resource leaks
 				window.maestro.process.kill(session.sessionId).catch((err) => {
-					console.warn('[InlineWizard] Failed to kill timed-out process:', err);
+					logger.warn(
+						'Failed to kill timed-out inline wizard process',
+						'[InlineWizardConversation]',
+						{
+							sessionId: session.sessionId,
+							error: (err as Error)?.message || 'Unknown error',
+						}
+					);
 				});
 				resolve({
 					success: false,
@@ -616,7 +628,10 @@ export async function sendWizardMessage(
 							try {
 								callbacks.onThinkingChunk!(content);
 							} catch (err) {
-								console.error('[InlineWizard] onThinkingChunk callback threw error:', err);
+								logger.error('onThinkingChunk callback threw error', '[InlineWizardConversation]', {
+									sessionId: session.sessionId,
+									error: (err as Error)?.message || 'Unknown error',
+								});
 							}
 						}
 					}
@@ -636,7 +651,11 @@ export async function sendWizardMessage(
 							try {
 								callbacks.onToolExecution!(toolEvent);
 							} catch (err) {
-								console.error('[InlineWizard] onToolExecution callback threw error:', err);
+								logger.error('onToolExecution callback threw error', '[InlineWizardConversation]', {
+									sessionId: session.sessionId,
+									toolName: toolEvent.toolName,
+									error: (err as Error)?.message || 'Unknown error',
+								});
 							}
 						}
 					}

@@ -29,20 +29,20 @@ import { wizardDebugLogger } from './phaseGenerator';
  * Configuration for starting a conversation
  */
 export interface ConversationConfig {
-  /** The agent type to use for the conversation */
-  agentType: ToolType;
-  /** The working directory for the agent */
-  directoryPath: string;
-  /** Project name (used in system prompt) */
-  projectName: string;
-  /** Existing Auto Run documents (when continuing from previous session) */
-  existingDocs?: ExistingDocument[];
-  /** SSH remote configuration (for remote execution) */
-  sshRemoteConfig?: {
-    enabled: boolean;
-    remoteId: string | null;
-    workingDirOverride?: string;
-  };
+	/** The agent type to use for the conversation */
+	agentType: ToolType;
+	/** The working directory for the agent */
+	directoryPath: string;
+	/** Project name (used in system prompt) */
+	projectName: string;
+	/** Existing Auto Run documents (when continuing from previous session) */
+	existingDocs?: ExistingDocument[];
+	/** SSH remote configuration (for remote execution) */
+	sshRemoteConfig?: {
+		enabled: boolean;
+		remoteId: string | null;
+		workingDirOverride?: string;
+	};
 }
 
 /**
@@ -90,40 +90,40 @@ export interface ConversationCallbacks {
  * State of an active conversation session
  */
 interface ConversationSession {
-  /** Unique session ID for this wizard conversation */
-  sessionId: string;
-  /** The agent type */
-  agentType: ToolType;
-  /** Working directory */
-  directoryPath: string;
-  /** Project name */
-  projectName: string;
-  /** Whether the agent process is active */
-  isActive: boolean;
-  /** System prompt used for this session */
-  systemPrompt: string;
-  /** Accumulated output buffer for parsing */
-  outputBuffer: string;
-  /** Resolve function for pending message */
-  pendingResolve?: (result: SendMessageResult) => void;
-  /** Callbacks for the conversation */
-  callbacks?: ConversationCallbacks;
-  /** Cleanup function for data listener */
-  dataListenerCleanup?: () => void;
-  /** Cleanup function for exit listener */
-  exitListenerCleanup?: () => void;
-  /** Cleanup function for thinking chunk listener */
-  thinkingListenerCleanup?: () => void;
-  /** Cleanup function for tool execution listener */
-  toolExecutionListenerCleanup?: () => void;
-  /** Timeout ID for response timeout (for cleanup) */
-  responseTimeoutId?: NodeJS.Timeout;
-  /** SSH remote configuration (for remote execution) */
-  sshRemoteConfig?: {
-    enabled: boolean;
-    remoteId: string | null;
-    workingDirOverride?: string;
-  };
+	/** Unique session ID for this wizard conversation */
+	sessionId: string;
+	/** The agent type */
+	agentType: ToolType;
+	/** Working directory */
+	directoryPath: string;
+	/** Project name */
+	projectName: string;
+	/** Whether the agent process is active */
+	isActive: boolean;
+	/** System prompt used for this session */
+	systemPrompt: string;
+	/** Accumulated output buffer for parsing */
+	outputBuffer: string;
+	/** Resolve function for pending message */
+	pendingResolve?: (result: SendMessageResult) => void;
+	/** Callbacks for the conversation */
+	callbacks?: ConversationCallbacks;
+	/** Cleanup function for data listener */
+	dataListenerCleanup?: () => void;
+	/** Cleanup function for exit listener */
+	exitListenerCleanup?: () => void;
+	/** Cleanup function for thinking chunk listener */
+	thinkingListenerCleanup?: () => void;
+	/** Cleanup function for tool execution listener */
+	toolExecutionListenerCleanup?: () => void;
+	/** Timeout ID for response timeout (for cleanup) */
+	responseTimeoutId?: NodeJS.Timeout;
+	/** SSH remote configuration (for remote execution) */
+	sshRemoteConfig?: {
+		enabled: boolean;
+		remoteId: string | null;
+		workingDirOverride?: string;
+	};
 }
 
 /**
@@ -166,28 +166,28 @@ class ConversationManager {
 			existingDocs: config.existingDocs,
 		});
 
-    this.session = {
-      sessionId,
-      agentType: config.agentType,
-      directoryPath: config.directoryPath,
-      projectName: config.projectName,
-      isActive: true,
-      systemPrompt,
-      outputBuffer: '',
-      sshRemoteConfig: config.sshRemoteConfig,
-    };
+		this.session = {
+			sessionId,
+			agentType: config.agentType,
+			directoryPath: config.directoryPath,
+			projectName: config.projectName,
+			isActive: true,
+			systemPrompt,
+			outputBuffer: '',
+			sshRemoteConfig: config.sshRemoteConfig,
+		};
 
-    // Log conversation start
-    wizardDebugLogger.log('info', 'Conversation started', {
-      sessionId,
-      agentType: config.agentType,
-      directoryPath: config.directoryPath,
-      projectName: config.projectName,
-      hasExistingDocs: !!config.existingDocs,
-      existingDocsCount: config.existingDocs?.length || 0,
-      hasRemoteSsh: !!config.sshRemoteConfig?.enabled,
-      remoteId: config.sshRemoteConfig?.remoteId || null,
-    });
+		// Log conversation start
+		wizardDebugLogger.log('info', 'Conversation started', {
+			sessionId,
+			agentType: config.agentType,
+			directoryPath: config.directoryPath,
+			projectName: config.projectName,
+			hasExistingDocs: !!config.existingDocs,
+			existingDocsCount: config.existingDocs?.length || 0,
+			hasRemoteSsh: !!config.sshRemoteConfig?.enabled,
+			remoteId: config.sshRemoteConfig?.remoteId || null,
+		});
 
 		return sessionId;
 	}
@@ -232,90 +232,58 @@ class ConversationManager {
 		// Notify sending
 		callbacks?.onSending?.();
 
-    try {
-      // Get the agent configuration
-      const agent = await window.maestro.agents.get(this.session.agentType);
+		try {
+			// Get the agent configuration
+			const agent = await window.maestro.agents.get(this.session.agentType);
 
-      // For SSH remote sessions, skip the availability check since we're executing remotely
-      // The agent detector checks for binaries locally, but we need to execute on the remote host
-      const isRemoteSession = this.session.sshRemoteConfig?.enabled && this.session.sshRemoteConfig?.remoteId;
+			// For SSH remote sessions, skip the availability check since we're executing remotely
+			// The agent detector checks for binaries locally, but we need to execute on the remote host
+			const isRemoteSession =
+				this.session.sshRemoteConfig?.enabled && this.session.sshRemoteConfig?.remoteId;
 
-      if (!agent) {
-        const error = `Agent ${this.session.agentType} configuration not found`;
-        wizardDebugLogger.log('error', 'Agent config not found', {
-          agentType: this.session.agentType,
-        });
-        return {
-          success: false,
-          error,
-        };
-      }
+			if (!agent) {
+				const error = `Agent ${this.session.agentType} configuration not found`;
+				wizardDebugLogger.log('error', 'Agent config not found', {
+					agentType: this.session.agentType,
+				});
+				return {
+					success: false,
+					error,
+				};
+			}
 
-      // Only check availability for local sessions
-      if (!isRemoteSession && !agent.available) {
-        const error = `Agent ${this.session.agentType} is not available locally`;
-        wizardDebugLogger.log('error', 'Agent not available locally', {
-          agentType: this.session.agentType,
-          agent: {
-            available: agent.available,
-            path: agent.path,
-            command: agent.command,
-            customPath: (agent as any).customPath,
-          },
-        });
-        console.error('[Wizard] Agent not available locally:', {
-          agentType: this.session.agentType,
-          agentAvailable: agent.available,
-          agentPath: agent.path,
-          agentCommand: agent.command,
-          agentCustomPath: (agent as any)?.customPath,
-        });
-        return {
-          success: false,
-          error,
-        };
-      }
+			// Only check availability for local sessions
+			if (!isRemoteSession && !agent.available) {
+				const error = `Agent ${this.session.agentType} is not available locally`;
+				wizardDebugLogger.log('error', 'Agent not available locally', {
+					agentType: this.session.agentType,
+					agent: {
+						available: agent.available,
+						path: agent.path,
+						command: agent.command,
+						customPath: (agent as any).customPath,
+					},
+				});
+				return {
+					success: false,
+					error,
+				};
+			}
 
-      // Only check availability for local sessions
-      if (!isRemoteSession && !agent.available) {
-        const error = `Agent ${this.session.agentType} is not available locally`;
-        wizardDebugLogger.log('error', 'Agent not available locally', {
-          agentType: this.session.agentType,
-          agent: {
-            available: agent.available,
-            path: agent.path,
-            command: agent.command,
-            customPath: (agent as any).customPath,
-          },
-        });
-        console.error('[Wizard] Agent not available locally:', {
-          agentType: this.session.agentType,
-          agentAvailable: agent.available,
-          agentPath: agent.path,
-          agentCommand: agent.command,
-          agentCustomPath: (agent as any)?.customPath,
-        });
-        return {
-          success: false,
-          error,
-        };
-      }
-
-      // For remote sessions, log that we're skipping the availability check
-      if (isRemoteSession) {
-        wizardDebugLogger.log('info', 'Executing agent on SSH remote (skipping local availability check)', {
-          agentType: this.session.agentType,
-          remoteId: this.session.sshRemoteConfig?.remoteId,
-          agentCommand: agent.command,
-          agentPath: agent.path,
-          agentCustomPath: (agent as any).customPath,
-        });
-        console.log('[Wizard] Executing agent on SSH remote:', {
-          agentType: this.session.agentType,
-          remoteId: this.session.sshRemoteConfig?.remoteId,
-          agentCommand: agent.command,
-        });
-      }
+			// For remote sessions, log that we're skipping the availability check
+			if (isRemoteSession) {
+				wizardDebugLogger.log(
+					'info',
+					'Executing agent on SSH remote (skipping local availability check)',
+					{
+						agentType: this.session.agentType,
+						remoteId: this.session.sshRemoteConfig?.remoteId,
+						agentCommand: agent.command,
+						agentPath: agent.path,
+						agentCustomPath: (agent as any).customPath,
+					}
+				);
+			}
 
 			// Build the full prompt with conversation context
 			const fullPrompt = this.buildPromptWithContext(userMessage, conversationHistory);
@@ -404,8 +372,6 @@ class ConversationManager {
 		}
 
 		return new Promise<SendMessageResult>((resolve) => {
-			console.log('[Wizard] Setting up listeners for session:', this.session!.sessionId);
-
 			wizardDebugLogger.log('spawn', 'Setting up agent spawn', {
 				sessionId: this.session!.sessionId,
 				agentId: agent.id,
@@ -416,12 +382,6 @@ class ConversationManager {
 
 			// Set up timeout (20 minutes for wizard's complex prompts - large codebases need time)
 			const timeoutId = setTimeout(() => {
-				console.log(
-					'[Wizard] TIMEOUT fired! Session:',
-					this.session?.sessionId,
-					'Buffer length:',
-					this.session?.outputBuffer?.length
-				);
 				wizardDebugLogger.log('timeout', 'Response timeout after 20 minutes', {
 					sessionId: this.session?.sessionId,
 					outputBufferLength: this.session?.outputBuffer?.length || 0,
@@ -480,13 +440,13 @@ class ConversationManager {
 			// Set up exit listener
 			this.session!.exitListenerCleanup = window.maestro.process.onExit(
 				(sessionId: string, code: number) => {
-					console.log('[Wizard] Exit event received:', {
+					wizardDebugLogger.log('exit', 'Exit event received', {
 						receivedId: sessionId,
 						expectedId: this.session?.sessionId,
 						code,
 					});
 					if (sessionId === this.session?.sessionId) {
-						console.log('[Wizard] Session ID matched! Processing exit...');
+						wizardDebugLogger.log('exit', 'Session ID matched, processing exit', { sessionId });
 						// Clear timeout since we got a response
 						clearTimeout(timeoutId);
 						if (this.session) {
@@ -498,7 +458,12 @@ class ConversationManager {
 
 						if (code === 0) {
 							const parsedResponse = this.parseAgentOutput();
-							console.log('[Wizard] Parsed response:', parsedResponse);
+							wizardDebugLogger.log('data', 'Parsed agent response', {
+								parseSuccess: parsedResponse.parseSuccess,
+								hasStructured: !!parsedResponse.structured,
+								confidence: parsedResponse.structured?.confidence,
+								ready: parsedResponse.structured?.ready,
+							});
 							wizardDebugLogger.log('exit', `Agent exited successfully (code 0)`, {
 								sessionId,
 								outputBufferLength: this.session?.outputBuffer?.length || 0,
@@ -515,7 +480,11 @@ class ConversationManager {
 							const detectedError = detectWizardError(rawOutput);
 
 							if (detectedError) {
-								console.log('[Wizard] Detected provider error:', detectedError);
+								wizardDebugLogger.log('error', 'Detected provider error', {
+									errorType: detectedError.type,
+									errorTitle: detectedError.title,
+									errorMessage: detectedError.message,
+								});
 								wizardDebugLogger.log('exit', `Agent exited with provider error (code ${code})`, {
 									sessionId,
 									exitCode: code,
@@ -549,7 +518,10 @@ class ConversationManager {
 							}
 						}
 					} else {
-						console.log('[Wizard] Session ID mismatch, ignoring exit event');
+						wizardDebugLogger.log('exit', 'Session ID mismatch, ignoring exit event', {
+							receivedId: sessionId,
+							expectedId: this.session?.sessionId,
+						});
 					}
 				}
 			);
@@ -561,67 +533,65 @@ class ConversationManager {
 			// Each agent has different CLI structure for batch mode
 			const argsForSpawn = this.buildArgsForAgent(agent);
 
-      // Use the agent's resolved path if available, falling back to command name
-      // This is critical for packaged Electron apps where PATH may not include agent locations
-      const commandToUse = agent.path || agent.command;
+			// Use the agent's resolved path if available, falling back to command name
+			// This is critical for packaged Electron apps where PATH may not include agent locations
+			const commandToUse = agent.path || agent.command;
 
-      // Log spawn details to main process
-      console.log('[Wizard] Preparing to spawn agent process:', {
-        sessionId: this.session!.sessionId,
-        toolType: this.session!.agentType,
-        command: commandToUse,
-        agentPath: agent.path,
-        agentCommand: agent.command,
-        argsCount: argsForSpawn.length,
-        cwd: this.session!.directoryPath,
-        hasRemoteSsh: !!this.session!.sshRemoteConfig?.enabled,
-        remoteId: this.session!.sshRemoteConfig?.remoteId || null,
-        sshConfig: this.session!.sshRemoteConfig,
-      });
+			// Log spawn details to main process
+			wizardDebugLogger.log('spawn', 'Preparing to spawn agent process', {
+				sessionId: this.session!.sessionId,
+				toolType: this.session!.agentType,
+				command: commandToUse,
+				agentPath: agent.path,
+				agentCommand: agent.command,
+				argsCount: argsForSpawn.length,
+				cwd: this.session!.directoryPath,
+				hasRemoteSsh: !!this.session!.sshRemoteConfig?.enabled,
+				remoteId: this.session!.sshRemoteConfig?.remoteId || null,
+			});
 
-      wizardDebugLogger.log('spawn', 'Calling process.spawn', {
-        sessionId: this.session!.sessionId,
-        command: commandToUse,
-        agentPath: agent.path,
-        agentCommand: agent.command,
-        args: argsForSpawn,
-        cwd: this.session!.directoryPath,
-        hasRemoteSsh: !!this.session!.sshRemoteConfig?.enabled,
-        remoteId: this.session!.sshRemoteConfig?.remoteId || null,
-      });
+			wizardDebugLogger.log('spawn', 'Calling process.spawn', {
+				sessionId: this.session!.sessionId,
+				command: commandToUse,
+				agentPath: agent.path,
+				agentCommand: agent.command,
+				args: argsForSpawn,
+				cwd: this.session!.directoryPath,
+				hasRemoteSsh: !!this.session!.sshRemoteConfig?.enabled,
+				remoteId: this.session!.sshRemoteConfig?.remoteId || null,
+			});
 
-      window.maestro.process
-        .spawn({
-          sessionId: this.session!.sessionId,
-          toolType: this.session!.agentType,
-          cwd: this.session!.directoryPath,
-          command: commandToUse,
-          args: argsForSpawn,
-          prompt: prompt,
-          // Pass SSH configuration for remote execution
-          sessionSshRemoteConfig: this.session!.sshRemoteConfig,
-        })
-        .then(() => {
-          wizardDebugLogger.log('spawn', 'Agent process spawned successfully', {
-            sessionId: this.session?.sessionId,
-          });
-          // Notify that we're receiving
-          this.session?.callbacks?.onReceiving?.();
-        })
-        .catch((error: Error) => {
-          wizardDebugLogger.log('error', 'Failed to spawn agent process', {
-            sessionId: this.session?.sessionId,
-            error: error.message,
-          });
-          this.cleanupListeners();
-          resolve({
-            success: false,
-            error: `Failed to spawn agent: ${error.message}`,
-          });
-        });
-    });
-  }
-
+			window.maestro.process
+				.spawn({
+					sessionId: this.session!.sessionId,
+					toolType: this.session!.agentType,
+					cwd: this.session!.directoryPath,
+					command: commandToUse,
+					args: argsForSpawn,
+					prompt: prompt,
+					// Pass SSH configuration for remote execution
+					sessionSshRemoteConfig: this.session!.sshRemoteConfig,
+				})
+				.then(() => {
+					wizardDebugLogger.log('spawn', 'Agent process spawned successfully', {
+						sessionId: this.session?.sessionId,
+					});
+					// Notify that we're receiving
+					this.session?.callbacks?.onReceiving?.();
+				})
+				.catch((error: Error) => {
+					wizardDebugLogger.log('error', 'Failed to spawn agent process', {
+						sessionId: this.session?.sessionId,
+						error: error.message,
+					});
+					this.cleanupListeners();
+					resolve({
+						success: false,
+						error: `Failed to spawn agent: ${error.message}`,
+					});
+				});
+		});
+	}
 
 	/**
 	 * Build CLI args for the agent based on its type and capabilities.
@@ -652,51 +622,51 @@ class ConversationManager {
 				return args;
 			}
 
-      case 'codex': {
-        // Codex requires exec batch mode with JSON output for wizard conversations
-        // Must include these explicitly since wizard pre-builds args before IPC handler
-        const args = [];
-        
-        // Add batch mode prefix: 'exec'
-        if (agent.batchModePrefix) {
-          args.push(...agent.batchModePrefix);
-        }
-        
-        // Add base args (if any)
-        args.push(...(agent.args || []));
-        
-        // Add batch mode args: '--dangerously-bypass-approvals-and-sandbox', '--skip-git-repo-check'
-        if (agent.batchModeArgs) {
-          args.push(...agent.batchModeArgs);
-        }
-        
-        // Add JSON output: '--json'
-        if (agent.jsonOutputArgs) {
-          args.push(...agent.jsonOutputArgs);
-        }
-        
-        return args;
-      }
-      
-      case 'opencode': {
-        // OpenCode requires 'run' batch mode with JSON output for wizard conversations
-        const args = [];
-        
-        // Add batch mode prefix: 'run'
-        if (agent.batchModePrefix) {
-          args.push(...agent.batchModePrefix);
-        }
-        
-        // Add base args (if any)
-        args.push(...(agent.args || []));
-        
-        // Add JSON output: '--format json'
-        if (agent.jsonOutputArgs) {
-          args.push(...agent.jsonOutputArgs);
-        }
-        
-        return args;
-      }
+			case 'codex': {
+				// Codex requires exec batch mode with JSON output for wizard conversations
+				// Must include these explicitly since wizard pre-builds args before IPC handler
+				const args = [];
+
+				// Add batch mode prefix: 'exec'
+				if (agent.batchModePrefix) {
+					args.push(...agent.batchModePrefix);
+				}
+
+				// Add base args (if any)
+				args.push(...(agent.args || []));
+
+				// Add batch mode args: '--dangerously-bypass-approvals-and-sandbox', '--skip-git-repo-check'
+				if (agent.batchModeArgs) {
+					args.push(...agent.batchModeArgs);
+				}
+
+				// Add JSON output: '--json'
+				if (agent.jsonOutputArgs) {
+					args.push(...agent.jsonOutputArgs);
+				}
+
+				return args;
+			}
+
+			case 'opencode': {
+				// OpenCode requires 'run' batch mode with JSON output for wizard conversations
+				const args = [];
+
+				// Add batch mode prefix: 'run'
+				if (agent.batchModePrefix) {
+					args.push(...agent.batchModePrefix);
+				}
+
+				// Add base args (if any)
+				args.push(...(agent.args || []));
+
+				// Add JSON output: '--format json'
+				if (agent.jsonOutputArgs) {
+					args.push(...agent.jsonOutputArgs);
+				}
+
+				return args;
+			}
 
 			default: {
 				// For unknown agents, use base args
@@ -719,18 +689,23 @@ class ConversationManager {
 		}
 
 		const output = this.session.outputBuffer;
-		console.log('[Wizard] Raw output buffer length:', output.length);
-		console.log('[Wizard] Raw output preview (last 500):', output.slice(-500));
+		wizardDebugLogger.log('data', 'Raw output buffer details', {
+			bufferLength: output.length,
+			bufferPreview: output.slice(-500),
+		});
 
 		// Try to extract the result from stream-json format
 		const extractedResult = this.extractResultFromStreamJson(output);
 		const textToParse = extractedResult || output;
 
-		console.log('[Wizard] Extracted result:', extractedResult ? 'YES' : 'NO (using raw)');
-		console.log('[Wizard] Text to parse:', textToParse.slice(0, 300));
+		wizardDebugLogger.log('data', 'Stream JSON extraction result', {
+			extracted: !!extractedResult,
+			textToParseLength: textToParse.length,
+			textToParsePreview: textToParse.slice(0, 300),
+		});
 
 		const parsed = parseStructuredOutput(textToParse);
-		console.log('[Wizard] Parse result:', {
+		wizardDebugLogger.log('data', 'Parse result', {
 			parseSuccess: parsed.parseSuccess,
 			hasStructured: !!parsed.structured,
 			confidence: parsed.structured?.confidence,
