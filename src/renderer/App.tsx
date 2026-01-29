@@ -4478,8 +4478,13 @@ You are taking over this conversation. Based on the context above, provide a bri
 					aiOnly: true, // Agent commands are only available in AI mode
 				}))
 			: [];
+		// Filter built-in slash commands by agent type (if specified)
+		const currentAgentType = activeSession?.toolType;
+		const filteredSlashCommands = slashCommands.filter(
+			(cmd) => !cmd.agentTypes || (currentAgentType && cmd.agentTypes.includes(currentAgentType))
+		);
 		return [
-			...slashCommands,
+			...filteredSlashCommands,
 			...customCommandsAsSlash,
 			...speckitCommandsAsSlash,
 			...openspecCommandsAsSlash,
@@ -4490,6 +4495,7 @@ You are taking over this conversation. Based on the context above, provide a bri
 		speckitCommands,
 		openspecCommands,
 		activeSession?.agentCommands,
+		activeSession?.toolType,
 		hasActiveSessionCapability,
 	]);
 
@@ -6508,6 +6514,91 @@ You are taking over this conversation. Based on the context above, provide a bri
 		addToast,
 	]);
 
+	// Handler for the built-in /skills command (Claude Code only)
+	// Lists available skills from .claude/skills/ directories
+	const handleSkillsCommand = useCallback(async () => {
+		if (!activeSession) {
+			console.warn('[handleSkillsCommand] No active session');
+			return;
+		}
+
+		if (activeSession.toolType !== 'claude-code') {
+			console.warn('[handleSkillsCommand] Skills command only available for Claude Code');
+			return;
+		}
+
+		const activeTab = getActiveTab(activeSession);
+		if (!activeTab) {
+			console.warn('[handleSkillsCommand] No active tab');
+			return;
+		}
+
+		try {
+			// Fetch skills from the IPC handler
+			const skills = await window.maestro.claude.getSkills(activeSession.projectRoot);
+
+			// Format skills as a markdown table
+			let skillsMessage: string;
+			if (skills.length === 0) {
+				skillsMessage =
+					'**No skills found**\n\nNo Claude Code skills were found in this project.\n\nTo add skills, create `.claude/skills/<skill-name>/skill.md` files in your project.';
+			} else {
+				const formatTokenCount = (tokens: number): string => {
+					if (tokens >= 1000) {
+						return `~${(tokens / 1000).toFixed(1)}k tokens`;
+					}
+					return `~${tokens} tokens`;
+				};
+
+				const projectSkills = skills.filter((s) => s.source === 'project');
+				const userSkills = skills.filter((s) => s.source === 'user');
+
+				const lines: string[] = ['**Skills**', `${skills.length} skills`, ''];
+
+				if (projectSkills.length > 0) {
+					lines.push('**Project skills** (`.claude/skills`)');
+					for (const skill of projectSkills) {
+						lines.push(`- **${skill.name}** · ${formatTokenCount(skill.tokenCount)}`);
+						if (skill.description && skill.description !== 'No description') {
+							lines.push(`  ${skill.description}`);
+						}
+					}
+					lines.push('');
+				}
+
+				if (userSkills.length > 0) {
+					lines.push('**User skills** (`~/.claude/skills`)');
+					for (const skill of userSkills) {
+						lines.push(`- **${skill.name}** · ${formatTokenCount(skill.tokenCount)}`);
+						if (skill.description && skill.description !== 'No description') {
+							lines.push(`  ${skill.description}`);
+						}
+					}
+				}
+
+				skillsMessage = lines.join('\n');
+			}
+
+			// Add the skills listing as a system log entry
+			const skillsLog: LogEntry = {
+				id: generateId(),
+				timestamp: Date.now(),
+				source: 'system',
+				text: skillsMessage,
+			};
+			addLogToActiveTab(activeSession.id, skillsLog);
+		} catch (error) {
+			console.error('[handleSkillsCommand] Error:', error);
+			const errorLog: LogEntry = {
+				id: generateId(),
+				timestamp: Date.now(),
+				source: 'system',
+				text: `Error listing skills: ${(error as Error).message}`,
+			};
+			addLogToActiveTab(activeSession.id, errorLog);
+		}
+	}, [activeSession, addLogToActiveTab]);
+
 	// Handler for the built-in /wizard command
 	// Starts the inline wizard for creating/iterating on Auto Run documents
 	const handleWizardCommand = useCallback(
@@ -6676,6 +6767,7 @@ You are taking over this conversation. Based on the context above, provide a bri
 		onWizardCommand: handleWizardCommand,
 		onWizardSendMessage: sendWizardMessageWithThinking,
 		isWizardActive: isWizardActiveForCurrentTab,
+		onSkillsCommand: handleSkillsCommand,
 	});
 
 	// Auto-send context when a tab with autoSendOnActivate becomes active

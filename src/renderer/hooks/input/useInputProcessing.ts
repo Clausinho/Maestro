@@ -68,6 +68,8 @@ export interface UseInputProcessingDeps {
 	onWizardSendMessage?: (content: string) => Promise<void>;
 	/** Whether the wizard is currently active for the active tab */
 	isWizardActive?: boolean;
+	/** Handler for the /skills built-in command (lists Claude Code skills) */
+	onSkillsCommand?: () => Promise<void>;
 }
 
 /**
@@ -122,6 +124,7 @@ export function useInputProcessing(deps: UseInputProcessingDeps): UseInputProces
 		onWizardCommand,
 		onWizardSendMessage,
 		isWizardActive,
+		onSkillsCommand,
 	} = deps;
 
 	// Ref for the processInput function so external code can access the latest version
@@ -179,6 +182,26 @@ export function useInputProcessing(deps: UseInputProcessingDeps): UseInputProces
 
 					// Execute the wizard command handler with the argument text
 					onWizardCommand(args);
+					return;
+				}
+
+				// Handle built-in /skills command (only in AI mode, only for Claude Code sessions)
+				// This lists available Claude Code skills for the current project
+				if (
+					!isTerminalMode &&
+					commandText === '/skills' &&
+					onSkillsCommand &&
+					activeSession.toolType === 'claude-code'
+				) {
+					setInputValue('');
+					setSlashCommandOpen(false);
+					syncAiInputToSession('');
+					if (inputRef.current) inputRef.current.style.height = 'auto';
+
+					// Execute the skills command handler asynchronously
+					onSkillsCommand().catch((error) => {
+						console.error('[processInput] /skills command failed:', error);
+					});
 					return;
 				}
 

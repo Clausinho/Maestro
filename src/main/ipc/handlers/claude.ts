@@ -1556,6 +1556,120 @@ export function registerClaudeHandlers(deps: ClaudeHandlerDependencies): void {
 		)
 	);
 
+	// ============ Get Skills ============
+
+	const SKILLS_LOG_CONTEXT = '[ClaudeSkills]';
+
+	ipcMain.handle(
+		'claude:getSkills',
+		withIpcErrorLogging(
+			handlerOpts('getSkills', SKILLS_LOG_CONTEXT),
+			async (projectPath: string) => {
+				const homeDir = os.homedir();
+				const skills: Array<{
+					name: string;
+					description: string;
+					tokenCount: number;
+					source: 'project' | 'user';
+				}> = [];
+
+				/**
+				 * Parses a skill.md file to extract name, description, and token count.
+				 * Skills use YAML frontmatter with 'name' and 'description' fields.
+				 */
+				const parseSkillFile = async (
+					filePath: string,
+					skillDirName: string,
+					source: 'project' | 'user'
+				): Promise<{
+					name: string;
+					description: string;
+					tokenCount: number;
+					source: 'project' | 'user';
+				} | null> => {
+					try {
+						const content = await fs.readFile(filePath, 'utf-8');
+						const lines = content.split('\n');
+
+						let name = skillDirName; // Default to directory name
+						let description = 'No description';
+						let inFrontmatter = false;
+						let frontmatterContent = '';
+
+						// Parse YAML frontmatter
+						for (const line of lines) {
+							const trimmed = line.trim();
+							if (trimmed === '---') {
+								if (!inFrontmatter) {
+									inFrontmatter = true;
+									continue;
+								} else {
+									// End of frontmatter
+									break;
+								}
+							}
+							if (inFrontmatter) {
+								frontmatterContent += line + '\n';
+							}
+						}
+
+						// Extract name and description from frontmatter (simple YAML parsing)
+						const nameMatch = frontmatterContent.match(/^name:\s*(.+)$/m);
+						const descMatch = frontmatterContent.match(/^description:\s*(.+)$/m);
+
+						if (nameMatch) {
+							name = nameMatch[1].trim().replace(/^["']|["']$/g, '');
+						}
+						if (descMatch) {
+							description = descMatch[1].trim().replace(/^["']|["']$/g, '');
+						}
+
+						// Approximate token count: ~4 characters per token
+						const tokenCount = Math.round(content.length / 4);
+
+						return { name, description, tokenCount, source };
+					} catch {
+						return null;
+					}
+				};
+
+				/**
+				 * Scans a skills directory for skill.md files
+				 */
+				const scanSkillsDir = async (dir: string, source: 'project' | 'user') => {
+					try {
+						const entries = await fs.readdir(dir, { withFileTypes: true });
+						for (const entry of entries) {
+							if (entry.isDirectory()) {
+								const skillPath = path.join(dir, entry.name, 'skill.md');
+								const skill = await parseSkillFile(skillPath, entry.name, source);
+								if (skill) {
+									skills.push(skill);
+								}
+							}
+						}
+					} catch {
+						// Directory doesn't exist or isn't readable
+					}
+				};
+
+				// 1. Project-level skills
+				const projectSkillsDir = path.join(projectPath, '.claude', 'skills');
+				await scanSkillsDir(projectSkillsDir, 'project');
+
+				// 2. User-level skills (if Claude supports this location)
+				const userSkillsDir = path.join(homeDir, '.claude', 'skills');
+				await scanSkillsDir(userSkillsDir, 'user');
+
+				logger.info(
+					`Found ${skills.length} Claude skills for project: ${projectPath}`,
+					SKILLS_LOG_CONTEXT
+				);
+				return skills;
+			}
+		)
+	);
+
 	// ============ Session Origins ============
 
 	ipcMain.handle(

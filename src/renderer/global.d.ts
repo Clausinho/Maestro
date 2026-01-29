@@ -1071,6 +1071,14 @@ interface MaestroAPI {
 				description: string;
 			}>
 		>;
+		getSkills: (projectPath: string) => Promise<
+			Array<{
+				name: string;
+				description: string;
+				tokenCount: number;
+				source: 'project' | 'user';
+			}>
+		>;
 		registerSessionOrigin: (
 			projectPath: string,
 			agentSessionId: string,
