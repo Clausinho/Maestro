@@ -1136,7 +1136,10 @@ export function NewInstanceModal({
 							}
 							onSshRemoteConfigChange={(config) => {
 								setAgentSshRemoteConfigs((prev) => {
-									const newConfigs = { ...prev, _pending_: config };
+									const newConfigs: Record<string, AgentSshRemoteConfig> = {
+										...prev,
+										_pending_: config,
+									};
 									if (selectedAgent) {
 										newConfigs[selectedAgent] = config;
 									}

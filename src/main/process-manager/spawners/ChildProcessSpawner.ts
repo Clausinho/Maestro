@@ -14,6 +14,7 @@ import { ExitHandler } from '../handlers/ExitHandler';
 import { buildChildProcessEnv } from '../utils/envBuilder';
 import { saveImageToTempFile } from '../utils/imageUtils';
 import { buildStreamJsonMessage } from '../utils/streamJsonBuilder';
+import { escapeArgsForShell, isPowerShellShell } from '../utils/shellEscape';
 
 /**
  * Handles spawning of child processes (non-PTY).
@@ -178,46 +179,18 @@ export class ChildProcessSpawner {
 					{ command: spawnCommand }
 				);
 
-				// Check if we're using PowerShell (for SSH commands to avoid cmd.exe 8191 char limit)
-				const isPowerShell =
-					typeof config.shell === 'string' && config.shell.toLowerCase().includes('powershell');
+				// Use the shell escape utility for proper argument escaping
+				const shellPath = typeof config.shell === 'string' ? config.shell : undefined;
+				spawnArgs = escapeArgsForShell(finalArgs, shellPath);
 
-				if (isPowerShell) {
-					// Escape arguments for PowerShell (supports longer command lines than cmd.exe)
-					spawnArgs = finalArgs.map((arg) => {
-						const needsQuoting = /[ &|<>^%!()"\n\r#?*`$]/.test(arg) || arg.length > 100;
-						if (needsQuoting) {
-							// PowerShell escaping: wrap in single quotes, escape single quotes by doubling
-							const escaped = arg.replace(/'/g, "''");
-							return `'${escaped}'`;
-						}
-						return arg;
-					});
-					logger.info('[ProcessManager] Escaped args for PowerShell', 'ProcessManager', {
-						originalArgsCount: finalArgs.length,
-						escapedArgsCount: spawnArgs.length,
-						escapedPromptArgLength: spawnArgs[spawnArgs.length - 1]?.length,
-						escapedPromptArgPreview: spawnArgs[spawnArgs.length - 1]?.substring(0, 200),
-						argsModified: finalArgs.some((arg, i) => arg !== spawnArgs[i]),
-					});
-				} else {
-					// Escape arguments for cmd.exe when using shell
-					spawnArgs = finalArgs.map((arg) => {
-						const needsQuoting = /[ &|<>^%!()"\n\r#?*]/.test(arg) || arg.length > 100;
-						if (needsQuoting) {
-							const escaped = arg.replace(/"/g, '""').replace(/\^/g, '^^');
-							return `"${escaped}"`;
-						}
-						return arg;
-					});
-					logger.info('[ProcessManager] Escaped args for Windows shell', 'ProcessManager', {
-						originalArgsCount: finalArgs.length,
-						escapedArgsCount: spawnArgs.length,
-						escapedPromptArgLength: spawnArgs[spawnArgs.length - 1]?.length,
-						escapedPromptArgPreview: spawnArgs[spawnArgs.length - 1]?.substring(0, 200),
-						argsModified: finalArgs.some((arg, i) => arg !== spawnArgs[i]),
-					});
-				}
+				const shellType = isPowerShellShell(shellPath) ? 'PowerShell' : 'cmd.exe';
+				logger.info(`[ProcessManager] Escaped args for ${shellType}`, 'ProcessManager', {
+					originalArgsCount: finalArgs.length,
+					escapedArgsCount: spawnArgs.length,
+					escapedPromptArgLength: spawnArgs[spawnArgs.length - 1]?.length,
+					escapedPromptArgPreview: spawnArgs[spawnArgs.length - 1]?.substring(0, 200),
+					argsModified: finalArgs.some((arg, i) => arg !== spawnArgs[i]),
+				});
 			}
 
 			// Determine shell option to pass to child_process.spawn.

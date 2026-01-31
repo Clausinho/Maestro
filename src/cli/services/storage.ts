@@ -22,16 +22,16 @@ function getConfigDir(): string {
 	const home = os.homedir();
 
 	if (platform === 'darwin') {
-		return path.posix.join(home, 'Library', 'Application Support', 'Maestro');
+		return path.join(home, 'Library', 'Application Support', 'Maestro');
 	} else if (platform === 'win32') {
-		return path.posix.join(
-			process.env.APPDATA || path.posix.join(home, 'AppData', 'Roaming'),
+		return path.join(
+			process.env.APPDATA || path.join(home, 'AppData', 'Roaming'),
 			'Maestro'
 		);
 	} else {
 		// Linux and others
-		return path.posix.join(
-			process.env.XDG_CONFIG_HOME || path.posix.join(home, '.config'),
+		return path.join(
+			process.env.XDG_CONFIG_HOME || path.join(home, '.config'),
 			'Maestro'
 		);
 	}
@@ -42,7 +42,7 @@ function getConfigDir(): string {
  * Returns undefined if file doesn't exist
  */
 function readStoreFile<T>(filename: string): T | undefined {
-	const filePath = path.posix.join(getConfigDir(), filename);
+	const filePath = path.join(getConfigDir(), filename);
 
 	try {
 		const content = fs.readFileSync(filePath, 'utf-8');
@@ -101,7 +101,7 @@ export function readGroups(): Group[] {
  * Check if migration to per-session history format has been completed
  */
 function hasMigrated(): boolean {
-	const markerPath = path.posix.join(getConfigDir(), 'history-migrated.json');
+	const markerPath = path.join(getConfigDir(), 'history-migrated.json');
 	return fs.existsSync(markerPath);
 }
 
@@ -109,7 +109,7 @@ function hasMigrated(): boolean {
  * Get the history directory path
  */
 function getHistoryDir(): string {
-	return path.posix.join(getConfigDir(), 'history');
+	return path.join(getConfigDir(), 'history');
 }
 
 /**
@@ -117,7 +117,7 @@ function getHistoryDir(): string {
  */
 function getSessionHistoryPath(sessionId: string): string {
 	const safeId = sanitizeSessionId(sessionId);
-	return path.posix.join(getHistoryDir(), `${safeId}.json`);
+	return path.join(getHistoryDir(), `${safeId}.json`);
 }
 
 /**
