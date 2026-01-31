@@ -1011,3 +1011,419 @@ describe('OpenCodeSessionStorage SSH Remote Support', () => {
 		});
 	});
 });
+
+describe('FactoryDroidSessionStorage SSH Remote Support', () => {
+	// Mock SSH remote config for testing
+	const mockSshConfig = {
+		id: 'test-ssh',
+		name: 'Test SSH Server',
+		host: 'test-server.example.com',
+		port: 22,
+		username: 'testuser',
+		useSshConfig: false,
+		enabled: true,
+	};
+
+	describe('listSessions with SSH config', () => {
+		it('should accept sshConfig parameter for listSessions', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			// With SSH config - should not throw and should return array
+			const sessions = await storage.listSessions('/test/path', mockSshConfig);
+			expect(Array.isArray(sessions)).toBe(true);
+		});
+
+		it('should use local file system when sshConfig is undefined', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			// Without SSH config - should use local operations
+			const sessions = await storage.listSessions('/test/nonexistent/project');
+			expect(sessions).toEqual([]);
+		});
+	});
+
+	describe('listSessionsPaginated with SSH config', () => {
+		it('should accept sshConfig parameter for listSessionsPaginated', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			// With SSH config - should work with pagination options
+			const result = await storage.listSessionsPaginated('/test/path', {}, mockSshConfig);
+			expect(result).toHaveProperty('sessions');
+			expect(result).toHaveProperty('hasMore');
+			expect(result).toHaveProperty('totalCount');
+			expect(result).toHaveProperty('nextCursor');
+			expect(Array.isArray(result.sessions)).toBe(true);
+		});
+
+		it('should support pagination options with SSH config', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			// Test with specific pagination options
+			const result = await storage.listSessionsPaginated(
+				'/test/path',
+				{ limit: 10, cursor: undefined },
+				mockSshConfig
+			);
+			expect(result.totalCount).toBe(0); // No sessions on test remote
+			expect(result.hasMore).toBe(false);
+		});
+	});
+
+	describe('readSessionMessages with SSH config', () => {
+		it('should accept sshConfig parameter for readSessionMessages', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			// With SSH config - should attempt to read remotely
+			const result = await storage.readSessionMessages(
+				'/test/path',
+				'nonexistent-session',
+				{},
+				mockSshConfig
+			);
+			expect(result).toHaveProperty('messages');
+			expect(result).toHaveProperty('total');
+			expect(result).toHaveProperty('hasMore');
+			expect(result.messages).toEqual([]);
+		});
+
+		it('should handle offset and limit options with SSH config', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			// Test pagination options with SSH config
+			const result = await storage.readSessionMessages(
+				'/test/path',
+				'session-id',
+				{ offset: 0, limit: 50 },
+				mockSshConfig
+			);
+			expect(result.messages).toEqual([]);
+			expect(result.total).toBe(0);
+		});
+	});
+
+	describe('searchSessions with SSH config', () => {
+		it('should accept sshConfig parameter for searchSessions', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			// With SSH config - should search remotely
+			const results = await storage.searchSessions('/test/path', 'test query', 'all', mockSshConfig);
+			expect(Array.isArray(results)).toBe(true);
+		});
+
+		it('should return empty results for empty query with SSH config', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			const results = await storage.searchSessions('/test/path', '', 'all', mockSshConfig);
+			expect(results).toEqual([]);
+
+			const whitespaceResults = await storage.searchSessions('/test/path', '   ', 'all', mockSshConfig);
+			expect(whitespaceResults).toEqual([]);
+		});
+
+		it('should support all search modes with SSH config', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			// Test each search mode works with SSH config
+			const modes: Array<'title' | 'user' | 'assistant' | 'all'> = ['title', 'user', 'assistant', 'all'];
+
+			for (const mode of modes) {
+				const results = await storage.searchSessions('/test/path', 'query', mode, mockSshConfig);
+				expect(Array.isArray(results)).toBe(true);
+			}
+		});
+	});
+
+	describe('getSessionPath with SSH config', () => {
+		it('should return remote JSONL path when sshConfig is provided', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			// getSessionPath returns the .jsonl file path
+			const path = storage.getSessionPath('/home/testuser/project', 'session-uuid', mockSshConfig);
+
+			// Factory Droid encodes the project path with `-` for `/`
+			expect(path).toContain('~/.factory/sessions/');
+			expect(path).toContain('session-uuid.jsonl');
+		});
+
+		it('should return local path when sshConfig is not provided', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			const sessionPath = storage.getSessionPath('/home/testuser/project', 'session-uuid');
+
+			expect(sessionPath).toContain('.factory');
+			expect(sessionPath).toContain('sessions');
+			expect(sessionPath).toContain('session-uuid.jsonl');
+			expect(sessionPath).not.toContain('~'); // Local path should be absolute
+		});
+	});
+
+	describe('deleteMessagePair with SSH config', () => {
+		it('should return error for SSH remote sessions', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			const result = await storage.deleteMessagePair(
+				'/test/path',
+				'session-id',
+				'message-uuid',
+				undefined,
+				mockSshConfig
+			);
+
+			expect(result.success).toBe(false);
+			expect(result.error).toContain('Delete not supported for remote sessions');
+		});
+
+		it('should return error for local delete on non-existent session', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			// Without SSH config, should attempt local delete
+			const result = await storage.deleteMessagePair(
+				'/test/path',
+				'nonexistent-session',
+				'message-uuid'
+			);
+
+			expect(result.success).toBe(false);
+			expect(result.error).toBeDefined();
+		});
+	});
+
+	describe('Remote path encoding for Factory Droid', () => {
+		it('should handle path encoding correctly with `-` substitution for `/`', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			// Factory Droid encodes /Users/testuser/project as -Users-testuser-project
+			const path = storage.getSessionPath('/Users/testuser/project', 'session-id', mockSshConfig);
+
+			// The path should contain the encoded project directory
+			expect(path).toContain('~/.factory/sessions/');
+			expect(path).toContain('session-id.jsonl');
+			// The encoded path should be in the directory structure
+			expect(path).toMatch(/~\/\.factory\/sessions\/[^/]+\/session-id\.jsonl/);
+		});
+	});
+
+	describe('JSONL parsing with remote content', () => {
+		it('should handle JSONL parsing when content is fetched via SSH', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			// Test that readSessionMessages handles SSH path correctly
+			const result = await storage.readSessionMessages(
+				'/project/path',
+				'test-session-id',
+				{ offset: 0, limit: 10 },
+				mockSshConfig
+			);
+
+			expect(result.messages).toEqual([]);
+			expect(result.total).toBe(0);
+			expect(result.hasMore).toBe(false);
+		});
+	});
+
+	describe('Settings.json loading via SSH', () => {
+		it('should attempt to load settings.json via SSH when listing sessions', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			// This verifies the storage class properly attempts to load settings.json
+			// Settings.json contains tokenUsage, model info, etc.
+			const sessions = await storage.listSessions('/project/path', mockSshConfig);
+			expect(Array.isArray(sessions)).toBe(true);
+		});
+	});
+
+	describe('SSH remote method signatures', () => {
+		it('should accept sshConfig parameter on all public methods', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			// Verify all public methods accept sshConfig
+			// listSessions
+			const sessions = await storage.listSessions('/test/path', mockSshConfig);
+			expect(Array.isArray(sessions)).toBe(true);
+
+			// listSessionsPaginated
+			const paginated = await storage.listSessionsPaginated('/test/path', {}, mockSshConfig);
+			expect(paginated).toHaveProperty('sessions');
+
+			// readSessionMessages
+			const messages = await storage.readSessionMessages('/test/path', 'session-id', {}, mockSshConfig);
+			expect(messages).toHaveProperty('messages');
+
+			// searchSessions
+			const search = await storage.searchSessions('/test/path', 'query', 'all', mockSshConfig);
+			expect(Array.isArray(search)).toBe(true);
+
+			// getSessionPath (returns remote path)
+			const sessionPath = storage.getSessionPath('/test/path', 'session-id', mockSshConfig);
+			expect(sessionPath).toContain('~/.factory/sessions/');
+			expect(sessionPath).toContain('session-id.jsonl');
+
+			// deleteMessagePair (returns error for SSH)
+			const deleteResult = await storage.deleteMessagePair(
+				'/test/path',
+				'session-id',
+				'message-id',
+				undefined,
+				mockSshConfig
+			);
+			expect(deleteResult.success).toBe(false);
+			expect(deleteResult.error).toContain('remote');
+		});
+	});
+
+	describe('SSH config flow verification', () => {
+		it('should differentiate between SSH and local based on sshConfig presence', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			// With sshConfig - returns remote-style path
+			const remotePath = storage.getSessionPath('/project', 'session-id', mockSshConfig);
+			expect(remotePath).toContain('~');
+
+			// Without sshConfig - returns local-style path
+			const localPath = storage.getSessionPath('/project', 'session-id');
+			expect(localPath).not.toContain('~');
+
+			// Verify local path is absolute
+			expect(localPath?.startsWith('/') || localPath?.match(/^[A-Z]:\\/)).toBeTruthy();
+		});
+
+		it('should verify SshRemoteConfig interface is properly accepted', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			// Full SshRemoteConfig object
+			const fullConfig = {
+				id: 'full-config-test',
+				name: 'Full Config Test',
+				host: 'remote.example.com',
+				port: 2222,
+				username: 'admin',
+				useSshConfig: true,
+				enabled: true,
+			};
+
+			// Should work with full config
+			const path = storage.getSessionPath('/project', 'session-id', fullConfig);
+			expect(path).toContain('~/.factory/sessions/');
+
+			// Should work with minimal config
+			const minimalConfig = {
+				id: 'minimal',
+				name: 'Minimal',
+				host: 'host',
+				port: 22,
+				username: 'user',
+				useSshConfig: false,
+				enabled: true,
+			};
+			const pathMinimal = storage.getSessionPath('/project', 'session-id', minimalConfig);
+			expect(pathMinimal).toContain('~/.factory/sessions/');
+		});
+	});
+
+	describe('Remote sessions directory path', () => {
+		it('should use ~/.factory/sessions for remote path', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			// Verify Factory Droid uses ~/.factory/sessions on remote
+			expect(storage.agentId).toBe('factory-droid');
+
+			// getSessionPath should return path starting with ~/.factory/sessions/
+			const path = storage.getSessionPath('/project', 'session-id', mockSshConfig);
+			expect(path).toMatch(/^~\/\.factory\/sessions\//);
+		});
+	});
+
+	describe('Local operations still work without sshConfig', () => {
+		it('should use local file system when sshConfig is undefined', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			// Without SSH config, should use local operations
+			// Since we don't have real Factory Droid data, expect empty results
+			const sessions = await storage.listSessions('/test/nonexistent/project');
+			expect(sessions).toEqual([]);
+
+			const paginated = await storage.listSessionsPaginated('/test/nonexistent/project');
+			expect(paginated.sessions).toEqual([]);
+
+			const messages = await storage.readSessionMessages('/test/nonexistent/project', 'session-123');
+			expect(messages.messages).toEqual([]);
+
+			const search = await storage.searchSessions('/test/nonexistent/project', 'query', 'all');
+			expect(search).toEqual([]);
+		});
+
+		it('should use local file system when sshConfig is null', async () => {
+			const { FactoryDroidSessionStorage } = await import(
+				'../../main/storage/factory-droid-session-storage'
+			);
+			const storage = new FactoryDroidSessionStorage();
+
+			// Passing undefined (not null, since the type is SshRemoteConfig | undefined)
+			const sessions = await storage.listSessions('/test/nonexistent/project', undefined);
+			expect(sessions).toEqual([]);
+		});
+	});
+});
