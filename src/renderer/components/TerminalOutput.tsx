@@ -498,6 +498,9 @@ const LogItemComponent = memo(
 									safeStr(toolInput.pattern) ||
 									safeStr(toolInput.file_path) ||
 									safeStr(toolInput.query) ||
+									safeStr(toolInput.description) || // Task tool
+									safeStr(toolInput.prompt) || // Task tool fallback
+									safeStr(toolInput.task_id) || // TaskOutput tool
 									null
 								: null;
 

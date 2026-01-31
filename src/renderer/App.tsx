@@ -6476,6 +6476,11 @@ You are taking over this conversation. Based on the context above, provide a bri
 				const group = groups.find((g) => g.id === activeSession.groupId);
 				const groupName = group?.name || 'Ungrouped';
 
+				// Calculate elapsed time since last synopsis (or tab creation if no previous synopsis)
+				const elapsedTimeMs = activeTab.lastSynopsisTime
+					? synopsisTime - activeTab.lastSynopsisTime
+					: synopsisTime - activeTab.createdAt;
+
 				// Add to history
 				addHistoryEntry({
 					type: 'AUTO',
@@ -6486,6 +6491,7 @@ You are taking over this conversation. Based on the context above, provide a bri
 					projectPath: activeSession.cwd,
 					sessionName: activeTab.name || undefined,
 					usageStats: result.usageStats,
+					elapsedTimeMs,
 				});
 
 				// Update the pending log with success AND set lastSynopsisTime
