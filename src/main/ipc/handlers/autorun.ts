@@ -1059,11 +1059,12 @@ export function registerAutorunHandlers(
 
 	// Create a working copy of a document for reset-on-completion loops
 	// Working copies are stored in /Runs/ subdirectory with format: {name}-{timestamp}-loop-{N}.md
+	// Supports SSH remote execution via optional sshRemoteId parameter
 	ipcMain.handle(
 		'autorun:createWorkingCopy',
 		createIpcHandler(
 			handlerOpts('createWorkingCopy'),
-			async (folderPath: string, filename: string, loopNumber: number) => {
+			async (folderPath: string, filename: string, loopNumber: number, sshRemoteId?: string) => {
 				// Reject obvious traversal attempts
 				if (filename.includes('..')) {
 					throw new Error('Invalid filename');
@@ -1078,6 +1079,57 @@ export function registerAutorunHandlers(
 				const docName = pathParts[pathParts.length - 1];
 				const subDir = pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : '';
 
+				// Generate working copy filename: {name}-{timestamp}-loop-{N}.md
+				const timestamp = Date.now();
+				const workingCopyName = `${docName}-${timestamp}-loop-${loopNumber}.md`;
+
+				// Return the relative path (without .md for consistency with other APIs)
+				const relativePath = subDir
+					? `Runs/${subDir}/${workingCopyName.slice(0, -3)}`
+					: `Runs/${workingCopyName.slice(0, -3)}`;
+
+				// SSH remote: dispatch to remote operations
+				if (sshRemoteId) {
+					const sshConfig = getSshRemoteById(settingsStore, sshRemoteId);
+					if (!sshConfig) {
+						throw new Error(`SSH remote not found: ${sshRemoteId}`);
+					}
+
+					// Construct remote paths (use forward slashes)
+					const remoteSourcePath = `${folderPath}/${fullFilename}`;
+					const remoteRunsDir = subDir
+						? `${folderPath}/Runs/${subDir}`
+						: `${folderPath}/Runs`;
+					const remoteWorkingCopyPath = `${remoteRunsDir}/${workingCopyName}`;
+
+					logger.debug(
+						`${LOG_CONTEXT} createWorkingCopy via SSH: ${remoteSourcePath} -> ${remoteWorkingCopyPath}`,
+						LOG_CONTEXT
+					);
+
+					// Read source file from remote
+					const readResult = await readFileRemote(remoteSourcePath, sshConfig);
+					if (!readResult.success || readResult.data === undefined) {
+						throw new Error(readResult.error || 'Source file not found');
+					}
+
+					// Create Runs directory on remote (with subdirectory if needed)
+					const mkdirResult = await mkdirRemote(remoteRunsDir, sshConfig, true);
+					if (!mkdirResult.success) {
+						throw new Error(mkdirResult.error || 'Failed to create Runs directory');
+					}
+
+					// Write working copy to remote
+					const writeResult = await writeFileRemote(remoteWorkingCopyPath, readResult.data, sshConfig);
+					if (!writeResult.success) {
+						throw new Error(writeResult.error || 'Failed to write working copy');
+					}
+
+					logger.info(`Created remote Auto Run working copy: ${relativePath}`, LOG_CONTEXT);
+					return { workingCopyPath: relativePath, originalPath: baseName };
+				}
+
+				// Local: Construct paths
 				const sourcePath = path.join(folderPath, fullFilename);
 
 				// Validate source path is within folder
@@ -1098,9 +1150,6 @@ export function registerAutorunHandlers(
 					: path.join(folderPath, 'Runs');
 				await fs.mkdir(runsDir, { recursive: true });
 
-				// Generate working copy filename: {name}-{timestamp}-loop-{N}.md
-				const timestamp = Date.now();
-				const workingCopyName = `${docName}-${timestamp}-loop-${loopNumber}.md`;
 				const workingCopyPath = path.join(runsDir, workingCopyName);
 
 				// Validate working copy path is within folder
@@ -1110,11 +1159,6 @@ export function registerAutorunHandlers(
 
 				// Copy the source to working copy
 				await fs.copyFile(sourcePath, workingCopyPath);
-
-				// Return the relative path (without .md for consistency with other APIs)
-				const relativePath = subDir
-					? `Runs/${subDir}/${workingCopyName.slice(0, -3)}`
-					: `Runs/${workingCopyName.slice(0, -3)}`;
 
 				logger.info(`Created Auto Run working copy: ${relativePath}`, LOG_CONTEXT);
 				return { workingCopyPath: relativePath, originalPath: baseName };
