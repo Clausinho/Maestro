@@ -9,7 +9,7 @@
  * this service exports stateless functions that work with the useInlineWizard hook's state.
  */
 
-import type { ToolType } from '../types';
+import type { ToolType, ProcessConfig } from '../types';
 import type { InlineWizardMessage } from '../hooks/useInlineWizard';
 import type { ExistingDocument as BaseExistingDocument } from '../utils/existingDocsDetector';
 import { logger } from '../utils/logger';
@@ -548,18 +548,54 @@ export async function sendWizardMessage(
 	try {
 		// Get the agent configuration
 		const agent = await window.maestro.agents.get(session.agentType);
-		if (!agent || !agent.available) {
+		// For SSH remote sessions, skip local availability checks since agent may be remote
+		const isRemoteSession = session.sessionSshRemoteConfig?.enabled;
+		if (!agent && !isRemoteSession) {
+			return {
+				success: false,
+				error: `Agent ${session.agentType} is not available`,
+			};
+		}
+		if (agent && !agent.available && !isRemoteSession) {
 			return {
 				success: false,
 				error: `Agent ${session.agentType} is not available`,
 			};
 		}
 
+		logger.info(
+			`Sending wizard message for remote execution: ${isRemoteSession}`,
+			'[InlineWizardConversation]',
+			{
+				sessionId: session.sessionId,
+				agentType: session.agentType,
+				isRemote: isRemoteSession,
+				promptLength: buildPromptWithContext(session, userMessage, conversationHistory).length,
+				agentAvailable: agent?.available ?? false,
+			}
+		);
+
 		// Build the full prompt with conversation context
 		const fullPrompt = buildPromptWithContext(session, userMessage, conversationHistory);
 
 		// Build args for the agent
-		const argsForSpawn = buildArgsForAgent(agent);
+		const argsForSpawn = agent ? buildArgsForAgent(agent) : [];
+
+		// On Windows, use sendPromptViaStdin to bypass cmd.exe ~8KB command line length limit
+		const sendViaStdin = process.platform === 'win32';
+		if (sendViaStdin && !argsForSpawn.includes('--input-format')) {
+			// Add --input-format stream-json when using stdin with stream-json compatible agents
+			if (session.agentType === 'claude-code' || session.agentType === 'codex') {
+				argsForSpawn.push('--input-format', 'stream-json');
+			}
+		}
+
+		logger.info(`Using stdin for Windows: ${sendViaStdin}`, '[InlineWizardConversation]', {
+			sessionId: session.sessionId,
+			platform: process.platform,
+			promptLength: fullPrompt.length,
+			sendViaStdin,
+		});
 
 		// Spawn agent and collect output
 		const result = await new Promise<InlineWizardSendResult>((resolve) => {
@@ -712,19 +748,23 @@ export async function sendWizardMessage(
 				}
 			);
 
-			// Use the agent's resolved path if available, falling back to command name
+			// Use the agent's resolved path if available, falling back to command name or agent type
 			// This is critical for packaged Electron apps where PATH may not include agent locations
-			const commandToUse = agent.path || agent.command;
+			// For remote sessions, we use the agent type name since the agent is installed on the remote host
+			const commandToUse = agent?.path || agent?.command || session.agentType;
 
 			// Spawn the agent process
 			logger.info(`Spawning wizard agent process`, '[InlineWizardConversation]', {
 				sessionId: session.sessionId,
 				agentType: session.agentType,
 				command: commandToUse,
-				agentPath: agent.path,
-				agentCommand: agent.command,
+				agentPath: agent?.path,
+				agentCommand: agent?.command,
 				cwd: session.directoryPath,
 				historyLength: conversationHistory.length,
+				sendViaStdin,
+				hasAgent: !!agent,
+				isRemote: isRemoteSession,
 			});
 
 			window.maestro.process
@@ -735,9 +775,10 @@ export async function sendWizardMessage(
 					command: commandToUse,
 					args: argsForSpawn,
 					prompt: fullPrompt,
+					sendPromptViaStdin: sendViaStdin,
 					// Pass SSH config for remote execution
 					sessionSshRemoteConfig: session.sessionSshRemoteConfig,
-				})
+				} as ProcessConfig)
 				.then(() => {
 					callbacks?.onReceiving?.();
 				})

@@ -586,7 +586,7 @@ export function useInlineWizard(): UseInlineWizardReturn {
 
 				// Step 4: Initialize conversation session (only for 'new' or 'iterate' modes)
 				// Only allow wizard for agents that support structured output
-				const supportedWizardAgents: ToolType[] = ['claude-code', 'codex'];
+				const supportedWizardAgents: ToolType[] = ['claude-code', 'codex', 'opencode'];
 				if (
 					(mode === 'new' || mode === 'iterate') &&
 					agentType &&
@@ -699,7 +699,7 @@ export function useInlineWizard(): UseInlineWizardReturn {
 	const sendMessage = useCallback(
 		async (content: string, callbacks?: ConversationCallbacks): Promise<void> => {
 			// Only allow wizard for agents that support structured output
-			const supportedWizardAgents: ToolType[] = ['claude-code', 'codex'];
+			const supportedWizardAgents: ToolType[] = ['claude-code', 'codex', 'opencode'];
 
 			// Get the tab ID from the current state, ensure currentTabId is set for visibility
 			const tabId = currentTabId || 'default';
@@ -1192,6 +1192,7 @@ export function useInlineWizard(): UseInlineWizardReturn {
 					goal: currentState.goal || undefined,
 					autoRunFolderPath: effectiveAutoRunFolderPath,
 					sessionId: currentState.sessionId || undefined,
+					sessionSshRemoteConfig: currentState.sessionSshRemoteConfig,
 					callbacks: {
 						onStart: () => {
 							console.log('[useInlineWizard] Document generation started');
