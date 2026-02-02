@@ -22,7 +22,9 @@ export interface NotificationShowResponse {
  */
 export interface NotificationCommandResponse {
 	success: boolean;
-	ttsId?: number; // Legacy name kept for backward compatibility
+	notificationId?: number;
+	/** @deprecated Use notificationId instead */
+	ttsId?: number;
 	error?: string;
 }
 
@@ -59,6 +61,14 @@ export function createNotificationApi() {
 		 * @param handler - Callback when a notification command completes
 		 * @returns Cleanup function to unsubscribe
 		 */
+		onCommandCompleted: (handler: (notificationId: number) => void): (() => void) => {
+			const wrappedHandler = (_event: Electron.IpcRendererEvent, notificationId: number) =>
+				handler(notificationId);
+			ipcRenderer.on('notification:commandCompleted', wrappedHandler);
+			return () => ipcRenderer.removeListener('notification:commandCompleted', wrappedHandler);
+		},
+
+		/** @deprecated Use onCommandCompleted instead */
 		onTtsCompleted: (handler: (notificationId: number) => void): (() => void) => {
 			const wrappedHandler = (_event: Electron.IpcRendererEvent, notificationId: number) =>
 				handler(notificationId);

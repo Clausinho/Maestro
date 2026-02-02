@@ -1,5 +1,8 @@
 /**
  * Tests for notifications preload API
+ *
+ * IMPORTANT: Custom notification commands have NO WHITELIST and NO VALIDATION.
+ * Users have full control to specify ANY command, ANY path, ANY arguments.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -47,8 +50,14 @@ describe('Notification Preload API', () => {
 		});
 	});
 
-	describe('speak', () => {
-		it('should invoke notification:speak with text', async () => {
+	/**
+	 * Custom notification command tests - NO WHITELIST, ANY COMMAND ALLOWED
+	 *
+	 * The speak() method executes a custom command with text piped to stdin.
+	 * There is NO validation or whitelist - users can specify ANY command.
+	 */
+	describe('speak - custom notification command (NO WHITELIST)', () => {
+		it('should invoke notification:speak with text and default command', async () => {
 			mockInvoke.mockResolvedValue({ success: true, ttsId: 123 });
 
 			const result = await api.speak('Hello world');
@@ -57,16 +66,17 @@ describe('Notification Preload API', () => {
 			expect(result).toEqual({ success: true, ttsId: 123 });
 		});
 
-		it('should invoke notification:speak with custom command', async () => {
+		it('should accept ANY command - no whitelist restriction', async () => {
 			mockInvoke.mockResolvedValue({ success: true, ttsId: 456 });
 
-			const result = await api.speak('Hello', 'espeak');
+			// Any command works - not just whitelisted TTS tools
+			const result = await api.speak('Hello', 'my-custom-tool');
 
-			expect(mockInvoke).toHaveBeenCalledWith('notification:speak', 'Hello', 'espeak');
+			expect(mockInvoke).toHaveBeenCalledWith('notification:speak', 'Hello', 'my-custom-tool');
 			expect(result.ttsId).toBe(456);
 		});
 
-		it('should accept complex command chains with pipes', async () => {
+		it('should accept complex command chains with pipes (shell pipeline)', async () => {
 			mockInvoke.mockResolvedValue({ success: true, ttsId: 789 });
 
 			const complexCommand = 'tee ~/log.txt | say';
@@ -76,14 +86,26 @@ describe('Notification Preload API', () => {
 			expect(result.ttsId).toBe(789);
 		});
 
-		it('should accept commands with full paths and arguments', async () => {
+		it('should accept ANY absolute path with ANY arguments', async () => {
 			mockInvoke.mockResolvedValue({ success: true, ttsId: 111 });
 
+			// Full paths to custom binaries are allowed
 			const fullPathCommand =
 				'/Users/pedram/go/bin/fabric --pattern ped_summarize_conversational --model gpt-5-mini';
 			const result = await api.speak('Test', fullPathCommand);
 
 			expect(mockInvoke).toHaveBeenCalledWith('notification:speak', 'Test', fullPathCommand);
+			expect(result.success).toBe(true);
+		});
+
+		it('should accept non-TTS commands like curl, tee, cat, etc.', async () => {
+			mockInvoke.mockResolvedValue({ success: true, ttsId: 222 });
+
+			// Non-TTS commands are equally valid
+			const curlCommand = 'curl -X POST -d @- https://webhook.example.com';
+			const result = await api.speak('notification payload', curlCommand);
+
+			expect(mockInvoke).toHaveBeenCalledWith('notification:speak', 'notification payload', curlCommand);
 			expect(result.success).toBe(true);
 		});
 	});
@@ -99,7 +121,7 @@ describe('Notification Preload API', () => {
 		});
 	});
 
-	describe('onTtsCompleted', () => {
+	describe('onCommandCompleted (legacy: onTtsCompleted)', () => {
 		it('should register event listener and return cleanup function', () => {
 			const callback = vi.fn();
 
@@ -109,7 +131,7 @@ describe('Notification Preload API', () => {
 			expect(typeof cleanup).toBe('function');
 		});
 
-		it('should call callback when event is received', () => {
+		it('should call callback when notification command completes', () => {
 			const callback = vi.fn();
 			let registeredHandler: (event: unknown, notificationId: number) => void;
 
