@@ -2665,6 +2665,7 @@ describe('FileTab overlay menu', () => {
 		editMode: false,
 		editContent: undefined,
 		createdAt: Date.now(),
+		lastModified: Date.now(),
 	};
 
 	const unifiedTabs = [
@@ -3109,6 +3110,7 @@ describe('Unified tabs drag and drop', () => {
 		editMode: false,
 		editContent: undefined,
 		createdAt: Date.now(),
+		lastModified: Date.now(),
 	};
 
 	const fileTab2: FilePreviewTab = {
@@ -3122,6 +3124,7 @@ describe('Unified tabs drag and drop', () => {
 		editMode: false,
 		editContent: undefined,
 		createdAt: Date.now() + 1,
+		lastModified: Date.now() + 1,
 	};
 
 	// Unified tabs: AI, File, AI, File
@@ -3655,6 +3658,7 @@ describe('Unified active tab styling consistency', () => {
 			editMode: false,
 			editContent: undefined,
 			createdAt: Date.now(),
+			lastModified: Date.now(),
 		};
 
 		const unifiedTabs = [
@@ -3723,6 +3727,7 @@ describe('Unified active tab styling consistency', () => {
 			editMode: false,
 			editContent: undefined,
 			createdAt: Date.now(),
+			lastModified: Date.now(),
 		};
 
 		const unifiedTabs = [
@@ -3768,6 +3773,7 @@ describe('Unified active tab styling consistency', () => {
 			editMode: false,
 			editContent: undefined,
 			createdAt: Date.now(),
+			lastModified: Date.now(),
 		};
 
 		const unifiedTabs = [
@@ -3823,6 +3829,7 @@ describe('File tab content and SSH support', () => {
 			editMode: false,
 			editContent: undefined,
 			createdAt: Date.now(),
+			lastModified: Date.now(),
 		};
 
 		const unifiedTabs = [
@@ -3864,6 +3871,7 @@ describe('File tab content and SSH support', () => {
 			editMode: false,
 			editContent: undefined,
 			createdAt: Date.now(),
+			lastModified: Date.now(),
 			sshRemoteId: 'ssh-remote-123', // SSH remote ID for re-fetching
 			isLoading: false,
 		};
@@ -3908,6 +3916,7 @@ describe('File tab content and SSH support', () => {
 			editMode: false,
 			editContent: undefined,
 			createdAt: Date.now(),
+			lastModified: 0, // Not yet loaded
 			sshRemoteId: 'ssh-remote-456',
 			isLoading: true, // Currently loading content
 		};
@@ -3954,6 +3963,7 @@ describe('File tab content and SSH support', () => {
 			editMode: true,
 			editContent: editedContent, // Has unsaved edits
 			createdAt: Date.now(),
+			lastModified: Date.now(),
 		};
 
 		const unifiedTabs = [

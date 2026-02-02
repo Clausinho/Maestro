@@ -555,6 +555,9 @@ function MaestroConsoleInner() {
 
 		// Tab naming settings
 		automaticTabNamingEnabled,
+
+		// File tab refresh settings
+		fileTabAutoRefreshEnabled,
 	} = settings;
 
 	// --- KEYBOARD SHORTCUT HELPERS ---
@@ -3647,12 +3650,14 @@ function MaestroConsoleInner() {
 	const speckitCommandsRef = useRef(speckitCommands);
 	const openspecCommandsRef = useRef(openspecCommands);
 	const automaticTabNamingEnabledRef = useRef(automaticTabNamingEnabled);
+	const fileTabAutoRefreshEnabledRef = useRef(fileTabAutoRefreshEnabled);
 	addToastRef.current = addToast;
 	updateGlobalStatsRef.current = updateGlobalStats;
 	customAICommandsRef.current = customAICommands;
 	speckitCommandsRef.current = speckitCommands;
 	openspecCommandsRef.current = openspecCommands;
 	automaticTabNamingEnabledRef.current = automaticTabNamingEnabled;
+	fileTabAutoRefreshEnabledRef.current = fileTabAutoRefreshEnabled;
 
 	// Note: spawnBackgroundSynopsisRef and spawnAgentWithPromptRef are now provided by useAgentExecution hook
 	// Note: addHistoryEntryRef is now provided by useAgentSessionManagement hook
@@ -5161,7 +5166,7 @@ You are taking over this conversation. Based on the context above, provide a bri
 	 * For SSH remote files, pass sshRemoteId so content can be re-fetched if needed.
 	 */
 	const handleOpenFileTab = useCallback(
-		(file: { path: string; name: string; content: string; sshRemoteId?: string }) => {
+		(file: { path: string; name: string; content: string; sshRemoteId?: string; lastModified?: number }) => {
 			setSessions((prev) =>
 				prev.map((s) => {
 					if (s.id !== activeSessionIdRef.current) return s;
@@ -5169,10 +5174,15 @@ You are taking over this conversation. Based on the context above, provide a bri
 					// Check if a tab with this path already exists
 					const existingTab = s.filePreviewTabs.find((tab) => tab.path === file.path);
 					if (existingTab) {
-						// Tab exists - update content if provided (e.g., after re-fetch) and select it
+						// Tab exists - update content and lastModified if provided (e.g., after re-fetch) and select it
 						const updatedTabs = s.filePreviewTabs.map((tab) =>
 							tab.id === existingTab.id
-								? { ...tab, content: file.content, isLoading: false }
+								? {
+										...tab,
+										content: file.content,
+										lastModified: file.lastModified ?? tab.lastModified,
+										isLoading: false,
+									}
 								: tab
 						);
 						return {
@@ -5203,6 +5213,7 @@ You are taking over this conversation. Based on the context above, provide a bri
 						editMode: false,
 						editContent: undefined,
 						createdAt: Date.now(),
+						lastModified: file.lastModified ?? Date.now(), // Use file mtime or current time as fallback
 						sshRemoteId: file.sshRemoteId,
 						isLoading: false, // Content is already loaded when this is called
 					};
@@ -5280,6 +5291,7 @@ You are taking over this conversation. Based on the context above, provide a bri
 				editMode: false,
 				editContent: undefined,
 				createdAt: Date.now(),
+				lastModified: 0, // Will be populated after fetch
 				sshRemoteId,
 				isLoading: true, // Show loading state
 			};
@@ -5299,10 +5311,15 @@ You are taking over this conversation. Based on the context above, provide a bri
 				})
 			);
 
-			// Fetch content asynchronously
+			// Fetch content and stat asynchronously
 			try {
-				const content = await window.maestro.fs.readFile(file.path, sshRemoteId);
-				// Update the tab with loaded content
+				const [content, stat] = await Promise.all([
+					window.maestro.fs.readFile(file.path, sshRemoteId),
+					window.maestro.fs.stat(file.path, sshRemoteId),
+				]);
+				// Parse lastModified from stat (modifiedAt is an ISO string)
+				const lastModified = stat?.modifiedAt ? new Date(stat.modifiedAt).getTime() : Date.now();
+				// Update the tab with loaded content and lastModified
 				setSessions((prev) =>
 					prev.map((s) => {
 						if (s.id !== currentSession.id) return s;
@@ -5310,7 +5327,7 @@ You are taking over this conversation. Based on the context above, provide a bri
 							...s,
 							filePreviewTabs: s.filePreviewTabs.map((tab) =>
 								tab.id === newTabId
-									? { ...tab, content, isLoading: false }
+									? { ...tab, content, lastModified, isLoading: false }
 									: tab
 							),
 						};
@@ -5434,16 +5451,22 @@ You are taking over this conversation. Based on the context above, provide a bri
 	/**
 	 * Select a file preview tab. This sets the file tab as active.
 	 * activeTabId is preserved to track the last active AI tab for when the user switches back.
+	 * If fileTabAutoRefreshEnabled setting is true, checks if file has changed on disk and refreshes content.
 	 */
-	const handleSelectFileTab = useCallback((tabId: string) => {
+	const handleSelectFileTab = useCallback(async (tabId: string) => {
+		const currentSession = sessionsRef.current.find(
+			(s) => s.id === activeSessionIdRef.current
+		);
+		if (!currentSession) return;
+
+		// Verify the file tab exists
+		const fileTab = currentSession.filePreviewTabs.find((tab) => tab.id === tabId);
+		if (!fileTab) return;
+
+		// Set the tab as active immediately
 		setSessions((prev) =>
 			prev.map((s) => {
 				if (s.id !== activeSessionIdRef.current) return s;
-
-				// Verify the file tab exists
-				const fileTab = s.filePreviewTabs.find((tab) => tab.id === tabId);
-				if (!fileTab) return s;
-
 				return {
 					...s,
 					activeFileTabId: tabId,
@@ -5451,6 +5474,38 @@ You are taking over this conversation. Based on the context above, provide a bri
 				};
 			})
 		);
+
+		// If auto-refresh is enabled and tab has pending edits, skip refresh to avoid losing changes
+		if (fileTabAutoRefreshEnabledRef.current && !fileTab.editContent) {
+			try {
+				// Get the current file stat to check if it has changed
+				const stat = await window.maestro.fs.stat(fileTab.path, fileTab.sshRemoteId);
+				if (!stat || !stat.modifiedAt) return;
+
+				const currentMtime = new Date(stat.modifiedAt).getTime();
+
+				// If file has been modified since we last loaded it, refresh content
+				if (currentMtime > fileTab.lastModified) {
+					const content = await window.maestro.fs.readFile(fileTab.path, fileTab.sshRemoteId);
+					setSessions((prev) =>
+						prev.map((s) => {
+							if (s.id !== activeSessionIdRef.current) return s;
+							return {
+								...s,
+								filePreviewTabs: s.filePreviewTabs.map((tab) =>
+									tab.id === tabId
+										? { ...tab, content, lastModified: currentMtime }
+										: tab
+								),
+							};
+						})
+					);
+				}
+			} catch (error) {
+				// Silently ignore refresh errors - the tab still shows previous content
+				console.debug('[handleSelectFileTab] Auto-refresh failed:', error);
+			}
+		}
 	}, []);
 
 	/**
