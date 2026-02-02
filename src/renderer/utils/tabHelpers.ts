@@ -1,7 +1,18 @@
 // Tab helper functions for AI multi-tab support
 // These helpers manage AITab state within Maestro sessions
 
-import { Session, AITab, ClosedTab, LogEntry, UsageStats, ToolType, ThinkingMode } from '../types';
+import {
+	Session,
+	AITab,
+	ClosedTab,
+	ClosedTabEntry,
+	FilePreviewTab,
+	UnifiedTabRef,
+	LogEntry,
+	UsageStats,
+	ToolType,
+	ThinkingMode,
+} from '../types';
 import { generateId } from './ids';
 
 /**
@@ -302,12 +313,26 @@ export function closeTab(
 		? session.closedTabHistory || []
 		: [closedTab, ...(session.closedTabHistory || [])].slice(0, MAX_CLOSED_TAB_HISTORY);
 
+	// Also remove from unifiedTabOrder to keep AI and file tabs in sync
+	const updatedUnifiedTabOrder = (session.unifiedTabOrder || []).filter(
+		(ref) => !(ref.type === 'ai' && ref.id === tabId)
+	);
+
+	// If we created a fresh tab, add it to unifiedTabOrder at the end
+	let finalUnifiedTabOrder = updatedUnifiedTabOrder;
+	if (session.aiTabs.length === 1 && updatedTabs.length === 1 && updatedTabs[0].id !== tabId) {
+		// A fresh tab was created to replace the closed one
+		const freshTabRef: UnifiedTabRef = { type: 'ai', id: updatedTabs[0].id };
+		finalUnifiedTabOrder = [...updatedUnifiedTabOrder, freshTabRef];
+	}
+
 	// Create updated session
 	const updatedSession: Session = {
 		...session,
 		aiTabs: updatedTabs,
 		activeTabId: newActiveTabId,
 		closedTabHistory: updatedHistory,
+		unifiedTabOrder: finalUnifiedTabOrder,
 	};
 
 	return {
@@ -404,6 +429,329 @@ export function reopenClosedTab(session: Session): ReopenTabResult | null {
 		},
 		wasDuplicate: false,
 	};
+}
+
+/**
+ * Result of closing a file tab - contains the closed tab entry and updated session.
+ */
+export interface CloseFileTabResult {
+	closedTabEntry: ClosedTabEntry; // The closed tab data with unified index
+	session: Session; // Updated session with tab removed
+}
+
+/**
+ * Close a file preview tab and add it to the unified closed tab history.
+ * When the closed tab was active, selects the next tab in unifiedTabOrder.
+ *
+ * @param session - The Maestro session containing the file tab
+ * @param tabId - The ID of the file tab to close
+ * @returns Object containing the closed tab entry and updated session, or null if tab not found
+ *
+ * @example
+ * const result = closeFileTab(session, 'file-tab-123');
+ * if (result) {
+ *   const { closedTabEntry, session: updatedSession } = result;
+ *   console.log(`Closed file tab at unified index ${closedTabEntry.unifiedIndex}`);
+ * }
+ */
+export function closeFileTab(session: Session, tabId: string): CloseFileTabResult | null {
+	if (!session || !session.filePreviewTabs || session.filePreviewTabs.length === 0) {
+		return null;
+	}
+
+	// Find the tab to close
+	const tabToClose = session.filePreviewTabs.find((tab) => tab.id === tabId);
+	if (!tabToClose) {
+		return null;
+	}
+
+	// Find the position in unifiedTabOrder
+	const unifiedIndex = session.unifiedTabOrder.findIndex(
+		(ref) => ref.type === 'file' && ref.id === tabId
+	);
+
+	// Create closed tab entry
+	const closedTabEntry: ClosedTabEntry = {
+		type: 'file',
+		tab: { ...tabToClose },
+		unifiedIndex: unifiedIndex !== -1 ? unifiedIndex : session.unifiedTabOrder.length,
+		closedAt: Date.now(),
+	};
+
+	// Remove from filePreviewTabs
+	const updatedFilePreviewTabs = session.filePreviewTabs.filter((tab) => tab.id !== tabId);
+
+	// Remove from unifiedTabOrder
+	const updatedUnifiedTabOrder = session.unifiedTabOrder.filter(
+		(ref) => !(ref.type === 'file' && ref.id === tabId)
+	);
+
+	// Determine new active tab if we closed the active file tab
+	let newActiveFileTabId = session.activeFileTabId;
+	let newActiveTabId = session.activeTabId;
+
+	if (session.activeFileTabId === tabId) {
+		// This was the active tab - find the next tab in unifiedTabOrder
+		if (updatedUnifiedTabOrder.length > 0 && unifiedIndex !== -1) {
+			// Try to select the tab at the same position (or previous if at end)
+			const newIndex = Math.min(unifiedIndex, updatedUnifiedTabOrder.length - 1);
+			const nextTabRef = updatedUnifiedTabOrder[newIndex];
+
+			if (nextTabRef.type === 'file') {
+				// Next tab is a file tab
+				newActiveFileTabId = nextTabRef.id;
+			} else {
+				// Next tab is an AI tab - switch to it
+				newActiveTabId = nextTabRef.id;
+				newActiveFileTabId = null;
+			}
+		} else if (updatedUnifiedTabOrder.length > 0) {
+			// Fallback: just select the first available tab
+			const firstTabRef = updatedUnifiedTabOrder[0];
+			if (firstTabRef.type === 'file') {
+				newActiveFileTabId = firstTabRef.id;
+			} else {
+				newActiveTabId = firstTabRef.id;
+				newActiveFileTabId = null;
+			}
+		} else {
+			// No tabs left - shouldn't happen as AI tabs should always exist
+			newActiveFileTabId = null;
+		}
+	}
+
+	// Add to unified closed tab history
+	const updatedUnifiedHistory = [
+		closedTabEntry,
+		...(session.unifiedClosedTabHistory || []),
+	].slice(0, MAX_CLOSED_TAB_HISTORY);
+
+	return {
+		closedTabEntry,
+		session: {
+			...session,
+			filePreviewTabs: updatedFilePreviewTabs,
+			unifiedTabOrder: updatedUnifiedTabOrder,
+			activeFileTabId: newActiveFileTabId,
+			activeTabId: newActiveTabId,
+			unifiedClosedTabHistory: updatedUnifiedHistory,
+		},
+	};
+}
+
+/**
+ * Add an AI tab to the unified closed tab history.
+ * This should be called when closing an AI tab to enable Cmd+Shift+T for all tab types.
+ * Note: This only adds to the unified history - the existing closeTab function already
+ * handles the legacy closedTabHistory for backwards compatibility.
+ *
+ * @param session - The Maestro session
+ * @param aiTab - The AI tab being closed
+ * @param unifiedIndex - The tab's position in unifiedTabOrder
+ * @returns Updated session with the tab added to unified history
+ */
+export function addAiTabToUnifiedHistory(
+	session: Session,
+	aiTab: AITab,
+	unifiedIndex: number
+): Session {
+	const closedTabEntry: ClosedTabEntry = {
+		type: 'ai',
+		tab: { ...aiTab },
+		unifiedIndex,
+		closedAt: Date.now(),
+	};
+
+	const updatedUnifiedHistory = [
+		closedTabEntry,
+		...(session.unifiedClosedTabHistory || []),
+	].slice(0, MAX_CLOSED_TAB_HISTORY);
+
+	return {
+		...session,
+		unifiedClosedTabHistory: updatedUnifiedHistory,
+	};
+}
+
+/**
+ * Result of reopening a tab from unified closed tab history.
+ */
+export interface ReopenUnifiedClosedTabResult {
+	tabType: 'ai' | 'file'; // Type of tab that was reopened
+	tabId: string; // ID of the restored or existing tab
+	session: Session; // Updated session with tab restored/selected
+	wasDuplicate: boolean; // True if we switched to an existing tab instead of restoring
+}
+
+/**
+ * Reopen the most recently closed tab from the unified closed tab history.
+ * Handles both AI tabs and file preview tabs with appropriate duplicate detection:
+ * - For AI tabs: checks if a tab with the same agentSessionId already exists
+ * - For file tabs: checks if a tab with the same path already exists
+ *
+ * The tab is restored at its original unified index position if possible.
+ * The reopened tab becomes the active tab.
+ *
+ * @param session - The Maestro session
+ * @returns Object containing the reopened tab info and updated session, or null if no closed tabs exist
+ *
+ * @example
+ * const result = reopenUnifiedClosedTab(session);
+ * if (result) {
+ *   const { tabType, tabId, session: updatedSession, wasDuplicate } = result;
+ *   if (wasDuplicate) {
+ *     console.log(`Switched to existing ${tabType} tab ${tabId}`);
+ *   } else {
+ *     console.log(`Restored ${tabType} tab ${tabId} from history`);
+ *   }
+ * }
+ */
+export function reopenUnifiedClosedTab(session: Session): ReopenUnifiedClosedTabResult | null {
+	// Check if there's anything in the unified history
+	if (!session.unifiedClosedTabHistory || session.unifiedClosedTabHistory.length === 0) {
+		// Fall back to legacy closedTabHistory for backwards compatibility
+		const legacyResult = reopenClosedTab(session);
+		if (legacyResult) {
+			return {
+				tabType: 'ai',
+				tabId: legacyResult.tab.id,
+				session: legacyResult.session,
+				wasDuplicate: legacyResult.wasDuplicate,
+			};
+		}
+		return null;
+	}
+
+	// Pop the most recently closed tab from unified history
+	const [closedEntry, ...remainingHistory] = session.unifiedClosedTabHistory;
+
+	if (closedEntry.type === 'ai') {
+		// Restoring an AI tab
+		const tabToRestore = closedEntry.tab;
+
+		// Check for duplicate: does a tab with the same agentSessionId already exist?
+		if (tabToRestore.agentSessionId !== null) {
+			const existingTab = session.aiTabs.find(
+				(tab) => tab.agentSessionId === tabToRestore.agentSessionId
+			);
+
+			if (existingTab) {
+				// Duplicate found - switch to existing tab instead of restoring
+				return {
+					tabType: 'ai',
+					tabId: existingTab.id,
+					session: {
+						...session,
+						activeTabId: existingTab.id,
+						activeFileTabId: null,
+						unifiedClosedTabHistory: remainingHistory,
+					},
+					wasDuplicate: true,
+				};
+			}
+		}
+
+		// No duplicate - restore the tab
+		const restoredTab: AITab = {
+			...tabToRestore,
+			id: generateId(),
+		};
+
+		// Calculate insert position in aiTabs based on unified index
+		// Find where this tab should go in unifiedTabOrder
+		const targetUnifiedIndex = Math.min(closedEntry.unifiedIndex, session.unifiedTabOrder.length);
+
+		// Count how many AI tabs come before this position
+		let aiTabsBeforeIndex = 0;
+		for (let i = 0; i < targetUnifiedIndex && i < session.unifiedTabOrder.length; i++) {
+			if (session.unifiedTabOrder[i].type === 'ai') {
+				aiTabsBeforeIndex++;
+			}
+		}
+		const insertIndex = Math.min(aiTabsBeforeIndex, session.aiTabs.length);
+
+		const updatedAiTabs = [
+			...session.aiTabs.slice(0, insertIndex),
+			restoredTab,
+			...session.aiTabs.slice(insertIndex),
+		];
+
+		// Insert into unifiedTabOrder at the original position
+		const newTabRef: UnifiedTabRef = { type: 'ai', id: restoredTab.id };
+		const updatedUnifiedTabOrder = [
+			...session.unifiedTabOrder.slice(0, targetUnifiedIndex),
+			newTabRef,
+			...session.unifiedTabOrder.slice(targetUnifiedIndex),
+		];
+
+		return {
+			tabType: 'ai',
+			tabId: restoredTab.id,
+			session: {
+				...session,
+				aiTabs: updatedAiTabs,
+				activeTabId: restoredTab.id,
+				activeFileTabId: null,
+				unifiedTabOrder: updatedUnifiedTabOrder,
+				unifiedClosedTabHistory: remainingHistory,
+			},
+			wasDuplicate: false,
+		};
+	} else {
+		// Restoring a file tab
+		const tabToRestore = closedEntry.tab;
+
+		// Check for duplicate: does a tab with the same path already exist?
+		const existingTab = session.filePreviewTabs.find((tab) => tab.path === tabToRestore.path);
+
+		if (existingTab) {
+			// Duplicate found - switch to existing tab instead of restoring
+			return {
+				tabType: 'file',
+				tabId: existingTab.id,
+				session: {
+					...session,
+					activeFileTabId: existingTab.id,
+					unifiedClosedTabHistory: remainingHistory,
+				},
+				wasDuplicate: true,
+			};
+		}
+
+		// No duplicate - restore the tab
+		const restoredTab: FilePreviewTab = {
+			...tabToRestore,
+			id: generateId(),
+			// Clear any unsaved edit content since we're restoring from history
+			editContent: undefined,
+			editMode: false,
+		};
+
+		// Add to filePreviewTabs
+		const updatedFilePreviewTabs = [...session.filePreviewTabs, restoredTab];
+
+		// Insert into unifiedTabOrder at the original position
+		const targetUnifiedIndex = Math.min(closedEntry.unifiedIndex, session.unifiedTabOrder.length);
+		const newTabRef: UnifiedTabRef = { type: 'file', id: restoredTab.id };
+		const updatedUnifiedTabOrder = [
+			...session.unifiedTabOrder.slice(0, targetUnifiedIndex),
+			newTabRef,
+			...session.unifiedTabOrder.slice(targetUnifiedIndex),
+		];
+
+		return {
+			tabType: 'file',
+			tabId: restoredTab.id,
+			session: {
+				...session,
+				filePreviewTabs: updatedFilePreviewTabs,
+				activeFileTabId: restoredTab.id,
+				unifiedTabOrder: updatedUnifiedTabOrder,
+				unifiedClosedTabHistory: remainingHistory,
+			},
+			wasDuplicate: false,
+		};
+	}
 }
 
 /**
@@ -1010,6 +1358,7 @@ export function createMergedSession(
 		filePreviewTabs: [],
 		activeFileTabId: null,
 		unifiedTabOrder: [{ type: 'ai' as const, id: tabId }],
+		unifiedClosedTabHistory: [],
 	};
 
 	return { session, tabId };

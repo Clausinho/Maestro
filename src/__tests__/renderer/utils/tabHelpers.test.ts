@@ -6,6 +6,9 @@
  * - createTab
  * - closeTab (including skipHistory option for wizard tabs)
  * - reopenClosedTab
+ * - closeFileTab
+ * - addAiTabToUnifiedHistory
+ * - reopenUnifiedClosedTab
  * - setActiveTab
  * - getWriteModeTab
  * - getBusyTabs
@@ -26,6 +29,9 @@ import {
 	createTab,
 	closeTab,
 	reopenClosedTab,
+	closeFileTab,
+	addAiTabToUnifiedHistory,
+	reopenUnifiedClosedTab,
 	setActiveTab,
 	getWriteModeTab,
 	getBusyTabs,
@@ -40,7 +46,7 @@ import {
 	hasActiveWizard,
 } from '../../../renderer/utils/tabHelpers';
 import type { LogEntry } from '../../../renderer/types';
-import type { Session, AITab, ClosedTab, FilePreviewTab } from '../../../renderer/types';
+import type { Session, AITab, ClosedTab, ClosedTabEntry, FilePreviewTab } from '../../../renderer/types';
 
 // Mock the generateId function to return predictable IDs
 vi.mock('../../../renderer/utils/ids', () => ({
@@ -79,6 +85,7 @@ function createMockSession(overrides: Partial<Session> = {}): Session {
 		filePreviewTabs: [],
 		activeFileTabId: null,
 		unifiedTabOrder: [],
+		unifiedClosedTabHistory: [],
 		...overrides,
 	};
 }
@@ -1683,6 +1690,256 @@ describe('tabHelpers', () => {
 				},
 			});
 			expect(hasActiveWizard(tab)).toBe(true);
+		});
+	});
+
+	// closeFileTab tests
+	describe('closeFileTab', () => {
+		it('returns null for empty session', () => {
+			const session = createMockSession({
+				filePreviewTabs: [],
+			});
+			expect(closeFileTab(session, 'nonexistent')).toBeNull();
+		});
+
+		it('returns null for non-existent tab', () => {
+			const fileTab = createMockFileTab({ id: 'file-1' });
+			const session = createMockSession({
+				filePreviewTabs: [fileTab],
+				unifiedTabOrder: [{ type: 'file', id: 'file-1' }],
+			});
+			expect(closeFileTab(session, 'nonexistent')).toBeNull();
+		});
+
+		it('closes file tab and adds to unified history', () => {
+			const fileTab = createMockFileTab({ id: 'file-1', path: '/test/myfile.ts' });
+			const aiTab = createMockTab({ id: 'ai-1' });
+			const session = createMockSession({
+				aiTabs: [aiTab],
+				activeTabId: 'ai-1',
+				filePreviewTabs: [fileTab],
+				activeFileTabId: 'file-1',
+				unifiedTabOrder: [
+					{ type: 'ai', id: 'ai-1' },
+					{ type: 'file', id: 'file-1' },
+				],
+				unifiedClosedTabHistory: [],
+			});
+
+			const result = closeFileTab(session, 'file-1');
+
+			expect(result).not.toBeNull();
+			expect(result!.closedTabEntry.type).toBe('file');
+			expect(result!.closedTabEntry.tab.path).toBe('/test/myfile.ts');
+			expect(result!.closedTabEntry.unifiedIndex).toBe(1);
+			expect(result!.session.filePreviewTabs).toHaveLength(0);
+			expect(result!.session.unifiedTabOrder).toHaveLength(1);
+			expect(result!.session.unifiedClosedTabHistory).toHaveLength(1);
+			// Should switch to AI tab when file tab is closed
+			expect(result!.session.activeFileTabId).toBeNull();
+			expect(result!.session.activeTabId).toBe('ai-1');
+		});
+
+		it('selects next file tab when closing active file tab', () => {
+			const fileTab1 = createMockFileTab({ id: 'file-1' });
+			const fileTab2 = createMockFileTab({ id: 'file-2' });
+			const aiTab = createMockTab({ id: 'ai-1' });
+			const session = createMockSession({
+				aiTabs: [aiTab],
+				activeTabId: 'ai-1',
+				filePreviewTabs: [fileTab1, fileTab2],
+				activeFileTabId: 'file-1',
+				unifiedTabOrder: [
+					{ type: 'file', id: 'file-1' },
+					{ type: 'file', id: 'file-2' },
+					{ type: 'ai', id: 'ai-1' },
+				],
+			});
+
+			const result = closeFileTab(session, 'file-1');
+
+			expect(result).not.toBeNull();
+			expect(result!.session.activeFileTabId).toBe('file-2');
+		});
+	});
+
+	// addAiTabToUnifiedHistory tests
+	describe('addAiTabToUnifiedHistory', () => {
+		it('adds AI tab to unified closed history', () => {
+			const aiTab = createMockTab({ id: 'ai-1', agentSessionId: 'session-123' });
+			const session = createMockSession({
+				unifiedClosedTabHistory: [],
+			});
+
+			const result = addAiTabToUnifiedHistory(session, aiTab, 0);
+
+			expect(result.unifiedClosedTabHistory).toHaveLength(1);
+			expect(result.unifiedClosedTabHistory[0].type).toBe('ai');
+			expect(result.unifiedClosedTabHistory[0].tab.agentSessionId).toBe('session-123');
+			expect(result.unifiedClosedTabHistory[0].unifiedIndex).toBe(0);
+		});
+
+		it('prepends to existing history', () => {
+			const existingEntry = {
+				type: 'file' as const,
+				tab: createMockFileTab({ id: 'old-file' }),
+				unifiedIndex: 1,
+				closedAt: Date.now() - 1000,
+			};
+			const aiTab = createMockTab({ id: 'ai-new' });
+			const session = createMockSession({
+				unifiedClosedTabHistory: [existingEntry],
+			});
+
+			const result = addAiTabToUnifiedHistory(session, aiTab, 0);
+
+			expect(result.unifiedClosedTabHistory).toHaveLength(2);
+			expect(result.unifiedClosedTabHistory[0].type).toBe('ai');
+			expect(result.unifiedClosedTabHistory[1].type).toBe('file');
+		});
+	});
+
+	// reopenUnifiedClosedTab tests
+	describe('reopenUnifiedClosedTab', () => {
+		it('returns null when unified history is empty', () => {
+			const session = createMockSession({
+				unifiedClosedTabHistory: [],
+				closedTabHistory: [],
+			});
+			expect(reopenUnifiedClosedTab(session)).toBeNull();
+		});
+
+		it('reopens file tab from unified history', () => {
+			const aiTab = createMockTab({ id: 'ai-1' });
+			const closedFileTab = createMockFileTab({ id: 'closed-file', path: '/test/closed.ts' });
+			const closedEntry = {
+				type: 'file' as const,
+				tab: closedFileTab,
+				unifiedIndex: 1,
+				closedAt: Date.now(),
+			};
+			const session = createMockSession({
+				aiTabs: [aiTab],
+				activeTabId: 'ai-1',
+				filePreviewTabs: [],
+				activeFileTabId: null,
+				unifiedTabOrder: [{ type: 'ai', id: 'ai-1' }],
+				unifiedClosedTabHistory: [closedEntry],
+			});
+
+			const result = reopenUnifiedClosedTab(session);
+
+			expect(result).not.toBeNull();
+			expect(result!.tabType).toBe('file');
+			expect(result!.wasDuplicate).toBe(false);
+			expect(result!.session.filePreviewTabs).toHaveLength(1);
+			expect(result!.session.filePreviewTabs[0].path).toBe('/test/closed.ts');
+			expect(result!.session.activeFileTabId).toBe(result!.tabId);
+			expect(result!.session.unifiedClosedTabHistory).toHaveLength(0);
+		});
+
+		it('reopens AI tab from unified history', () => {
+			const existingAiTab = createMockTab({ id: 'ai-existing' });
+			const closedAiTab = createMockTab({ id: 'ai-closed', agentSessionId: 'session-456' });
+			const closedEntry = {
+				type: 'ai' as const,
+				tab: closedAiTab,
+				unifiedIndex: 0,
+				closedAt: Date.now(),
+			};
+			const session = createMockSession({
+				aiTabs: [existingAiTab],
+				activeTabId: 'ai-existing',
+				unifiedTabOrder: [{ type: 'ai', id: 'ai-existing' }],
+				unifiedClosedTabHistory: [closedEntry],
+			});
+
+			const result = reopenUnifiedClosedTab(session);
+
+			expect(result).not.toBeNull();
+			expect(result!.tabType).toBe('ai');
+			expect(result!.wasDuplicate).toBe(false);
+			expect(result!.session.aiTabs).toHaveLength(2);
+			expect(result!.session.activeTabId).toBe(result!.tabId);
+			expect(result!.session.activeFileTabId).toBeNull();
+		});
+
+		it('switches to existing file tab when duplicate found', () => {
+			const existingFileTab = createMockFileTab({ id: 'file-existing', path: '/test/same.ts' });
+			const closedFileTab = createMockFileTab({ id: 'file-closed', path: '/test/same.ts' });
+			const closedEntry = {
+				type: 'file' as const,
+				tab: closedFileTab,
+				unifiedIndex: 1,
+				closedAt: Date.now(),
+			};
+			const session = createMockSession({
+				aiTabs: [createMockTab({ id: 'ai-1' })],
+				activeTabId: 'ai-1',
+				filePreviewTabs: [existingFileTab],
+				activeFileTabId: null,
+				unifiedTabOrder: [
+					{ type: 'ai', id: 'ai-1' },
+					{ type: 'file', id: 'file-existing' },
+				],
+				unifiedClosedTabHistory: [closedEntry],
+			});
+
+			const result = reopenUnifiedClosedTab(session);
+
+			expect(result).not.toBeNull();
+			expect(result!.tabType).toBe('file');
+			expect(result!.wasDuplicate).toBe(true);
+			expect(result!.tabId).toBe('file-existing');
+			expect(result!.session.filePreviewTabs).toHaveLength(1); // No new tab created
+			expect(result!.session.activeFileTabId).toBe('file-existing');
+		});
+
+		it('switches to existing AI tab when duplicate found', () => {
+			const existingAiTab = createMockTab({ id: 'ai-existing', agentSessionId: 'session-same' });
+			const closedAiTab = createMockTab({ id: 'ai-closed', agentSessionId: 'session-same' });
+			const closedEntry = {
+				type: 'ai' as const,
+				tab: closedAiTab,
+				unifiedIndex: 0,
+				closedAt: Date.now(),
+			};
+			const session = createMockSession({
+				aiTabs: [existingAiTab],
+				activeTabId: 'ai-existing',
+				unifiedTabOrder: [{ type: 'ai', id: 'ai-existing' }],
+				unifiedClosedTabHistory: [closedEntry],
+			});
+
+			const result = reopenUnifiedClosedTab(session);
+
+			expect(result).not.toBeNull();
+			expect(result!.tabType).toBe('ai');
+			expect(result!.wasDuplicate).toBe(true);
+			expect(result!.tabId).toBe('ai-existing');
+			expect(result!.session.aiTabs).toHaveLength(1); // No new tab created
+		});
+
+		it('falls back to legacy closedTabHistory when unified is empty', () => {
+			const closedAiTab = createMockTab({ id: 'legacy-closed', agentSessionId: 'legacy-session' });
+			const closedEntry: ClosedTab = {
+				tab: closedAiTab,
+				index: 0,
+				closedAt: Date.now(),
+			};
+			const session = createMockSession({
+				aiTabs: [createMockTab({ id: 'ai-1' })],
+				activeTabId: 'ai-1',
+				unifiedTabOrder: [{ type: 'ai', id: 'ai-1' }],
+				unifiedClosedTabHistory: [],
+				closedTabHistory: [closedEntry],
+			});
+
+			const result = reopenUnifiedClosedTab(session);
+
+			expect(result).not.toBeNull();
+			expect(result!.tabType).toBe('ai');
+			expect(result!.wasDuplicate).toBe(false);
 		});
 	});
 });

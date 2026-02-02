@@ -535,8 +535,8 @@ export function useMainKeyboardHandler(): UseMainKeyboardHandlerReturn {
 				}
 				if (ctx.isTabShortcut(e, 'reopenClosedTab')) {
 					e.preventDefault();
-					// Reopen the most recently closed tab, or switch to existing if duplicate
-					const result = ctx.reopenClosedTab(ctx.activeSession);
+					// Reopen the most recently closed tab (AI or file), or switch to existing if duplicate
+					const result = ctx.reopenUnifiedClosedTab(ctx.activeSession);
 					if (result) {
 						ctx.setSessions((prev: Session[]) =>
 							prev.map((s: Session) => (s.id === ctx.activeSession!.id ? result.session : s))

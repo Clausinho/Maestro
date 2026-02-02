@@ -166,6 +166,9 @@ import {
 	createTab,
 	closeTab,
 	reopenClosedTab,
+	reopenUnifiedClosedTab,
+	closeFileTab as closeFileTabHelper,
+	addAiTabToUnifiedHistory,
 	getActiveTab,
 	getWriteModeTab,
 	navigateToNextTab,
@@ -1121,6 +1124,7 @@ function MaestroConsoleInner() {
 					filePreviewTabs: [],
 					activeFileTabId: null,
 					unifiedTabOrder: [{ type: 'ai' as const, id: defaultTabId }],
+					unifiedClosedTabHistory: [],
 				};
 			}
 
@@ -1671,6 +1675,7 @@ function MaestroConsoleInner() {
 							filePreviewTabs: [],
 							activeFileTabId: null,
 							unifiedTabOrder: [{ type: 'ai' as const, id: initialTabId }],
+							unifiedClosedTabHistory: [],
 							customPath: parentSession.customPath,
 							customArgs: parentSession.customArgs,
 							customEnvVars: parentSession.customEnvVars,
@@ -5386,67 +5391,11 @@ You are taking over this conversation. Based on the context above, provide a bri
 			prev.map((s) => {
 				if (s.id !== activeSessionIdRef.current) return s;
 
-				// Find the tab to close
-				const tabToClose = s.filePreviewTabs.find((tab) => tab.id === tabId);
-				if (!tabToClose) return s;
+				// Use helper function to close file tab and add to unified history
+				const result = closeFileTabHelper(s, tabId);
+				if (!result) return s;
 
-				// Remove from filePreviewTabs
-				const updatedFilePreviewTabs = s.filePreviewTabs.filter(
-					(tab) => tab.id !== tabId
-				);
-
-				// Remove from unifiedTabOrder
-				const closedTabIndex = s.unifiedTabOrder.findIndex(
-					(ref) => ref.type === 'file' && ref.id === tabId
-				);
-				const updatedUnifiedTabOrder = s.unifiedTabOrder.filter(
-					(ref) => !(ref.type === 'file' && ref.id === tabId)
-				);
-
-				// Determine new active tab if we closed the active file tab
-				let newActiveFileTabId = s.activeFileTabId;
-				let newActiveTabId = s.activeTabId;
-
-				if (s.activeFileTabId === tabId) {
-					// This was the active tab - find the next tab in unifiedTabOrder
-					if (updatedUnifiedTabOrder.length > 0 && closedTabIndex !== -1) {
-						// Try to select the tab at the same position (or previous if at end)
-						const newIndex = Math.min(
-							closedTabIndex,
-							updatedUnifiedTabOrder.length - 1
-						);
-						const nextTabRef = updatedUnifiedTabOrder[newIndex];
-
-						if (nextTabRef.type === 'file') {
-							// Next tab is a file tab
-							newActiveFileTabId = nextTabRef.id;
-						} else {
-							// Next tab is an AI tab - switch to it
-							newActiveTabId = nextTabRef.id;
-							newActiveFileTabId = null;
-						}
-					} else if (updatedUnifiedTabOrder.length > 0) {
-						// Fallback: just select the first available tab
-						const firstTabRef = updatedUnifiedTabOrder[0];
-						if (firstTabRef.type === 'file') {
-							newActiveFileTabId = firstTabRef.id;
-						} else {
-							newActiveTabId = firstTabRef.id;
-							newActiveFileTabId = null;
-						}
-					} else {
-						// No tabs left - shouldn't happen as AI tabs should always exist
-						newActiveFileTabId = null;
-					}
-				}
-
-				return {
-					...s,
-					filePreviewTabs: updatedFilePreviewTabs,
-					unifiedTabOrder: updatedUnifiedTabOrder,
-					activeFileTabId: newActiveFileTabId,
-					activeTabId: newActiveTabId,
-				};
+				return result.session;
 			})
 		);
 	}, []);
@@ -5671,9 +5620,18 @@ You are taking over this conversation. Based on the context above, provide a bri
 				// Check if this is a wizard tab - wizard tabs should not be added to close history
 				const tab = s.aiTabs.find((t) => t.id === tabId);
 				const isWizardTab = tab && hasActiveWizard(tab);
+				// Find the unified index before closing
+				const unifiedIndex = s.unifiedTabOrder.findIndex(
+					(ref) => ref.type === 'ai' && ref.id === tabId
+				);
 				// Note: showUnreadOnly is accessed via ref pattern if needed, or we accept this dep
 				const result = closeTab(s, tabId, false, { skipHistory: isWizardTab }); // Don't filter for unread during close
-				return result ? result.session : s;
+				if (!result) return s;
+				// Also add to unified closed history (unless wizard tab) so it can be reopened with Cmd+Shift+T
+				if (!isWizardTab && tab) {
+					return addAiTabToUnifiedHistory(result.session, tab, unifiedIndex);
+				}
+				return result.session;
 			})
 		);
 	}, []);
@@ -8050,6 +8008,7 @@ You are taking over this conversation. Based on the context above, provide a bri
 				filePreviewTabs: [],
 				activeFileTabId: null,
 				unifiedTabOrder: [{ type: 'ai' as const, id: initialTabId }],
+				unifiedClosedTabHistory: [],
 				customPath: parentSession.customPath,
 				customArgs: parentSession.customArgs,
 				customEnvVars: parentSession.customEnvVars,
@@ -8234,6 +8193,7 @@ You are taking over this conversation. Based on the context above, provide a bri
 								filePreviewTabs: [],
 								activeFileTabId: null,
 								unifiedTabOrder: [{ type: 'ai' as const, id: initialTabId }],
+								unifiedClosedTabHistory: [],
 								customPath: session.customPath,
 								customArgs: session.customArgs,
 								customEnvVars: session.customEnvVars,
@@ -9526,6 +9486,7 @@ You are taking over this conversation. Based on the context above, provide a bri
 				filePreviewTabs: [],
 				activeFileTabId: null,
 				unifiedTabOrder: [{ type: 'ai' as const, id: initialTabId }],
+				unifiedClosedTabHistory: [],
 				// Nudge message - appended to every interactive user message
 				nudgeMessage,
 				// Per-agent config (path, args, env vars, model)
@@ -9695,6 +9656,7 @@ You are taking over this conversation. Based on the context above, provide a bri
 				filePreviewTabs: [],
 				activeFileTabId: null,
 				unifiedTabOrder: [{ type: 'ai' as const, id: initialTabId }],
+				unifiedClosedTabHistory: [],
 				// Auto Run configuration from wizard
 				autoRunFolderPath,
 				autoRunSelectedFile,
@@ -11734,6 +11696,7 @@ You are taking over this conversation. Based on the context above, provide a bri
 							filePreviewTabs: [],
 							activeFileTabId: null,
 							unifiedTabOrder: [{ type: 'ai' as const, id: initialTabId }],
+							unifiedClosedTabHistory: [],
 							customPath: activeSession.customPath,
 							customArgs: activeSession.customArgs,
 							customEnvVars: activeSession.customEnvVars,
@@ -11912,6 +11875,7 @@ You are taking over this conversation. Based on the context above, provide a bri
 					filePreviewTabs: [],
 					activeFileTabId: null,
 					unifiedTabOrder: [{ type: 'ai' as const, id: initialTabId }],
+					unifiedClosedTabHistory: [],
 					customPath: activeSession.customPath,
 					customArgs: activeSession.customArgs,
 					customEnvVars: activeSession.customEnvVars,
@@ -12064,6 +12028,7 @@ You are taking over this conversation. Based on the context above, provide a bri
 				filePreviewTabs: [],
 				activeFileTabId: null,
 				unifiedTabOrder: [{ type: 'ai' as const, id: initialTabId }],
+				unifiedClosedTabHistory: [],
 				customPath: createWorktreeSession.customPath,
 				customArgs: createWorktreeSession.customArgs,
 				customEnvVars: createWorktreeSession.customEnvVars,
@@ -12596,7 +12561,7 @@ You are taking over this conversation. Based on the context above, provide a bri
 		setSessions,
 		createTab,
 		closeTab,
-		reopenClosedTab,
+		reopenUnifiedClosedTab,
 		getActiveTab,
 		setRenameTabId,
 		setRenameTabInitialName,
@@ -14018,6 +13983,7 @@ You are taking over this conversation. Based on the context above, provide a bri
 							filePreviewTabs: [],
 							activeFileTabId: null,
 							unifiedTabOrder: [{ type: 'ai' as const, id: initialTabId }],
+							unifiedClosedTabHistory: [],
 							// Custom agent config
 							customPath: data.customPath,
 							customArgs: data.customArgs,

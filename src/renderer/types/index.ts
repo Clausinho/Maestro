@@ -436,6 +436,7 @@ export interface AITab {
 
 // Closed tab entry for undo functionality (Cmd+Shift+T)
 // Stores tab data with original position for restoration
+// This is the legacy interface for AI tabs only - kept for backwards compatibility
 export interface ClosedTab {
 	tab: AITab; // The closed tab data
 	index: number; // Original position in the tab array
@@ -478,6 +479,15 @@ export type UnifiedTabRef = { type: 'ai' | 'file'; id: string };
 export type UnifiedTab =
 	| { type: 'ai'; id: string; data: AITab }
 	| { type: 'file'; id: string; data: FilePreviewTab };
+
+/**
+ * Unified closed tab entry for undo functionality (Cmd+Shift+T).
+ * Can hold either an AITab or FilePreviewTab with type discrimination.
+ * Uses unifiedIndex for restoring position in the unified tab order.
+ */
+export type ClosedTabEntry =
+	| { type: 'ai'; tab: AITab; unifiedIndex: number; closedAt: number }
+	| { type: 'file'; tab: FilePreviewTab; unifiedIndex: number; closedAt: number };
 
 export interface Session {
 	id: string;
@@ -604,6 +614,9 @@ export interface Session {
 	activeFileTabId: string | null;
 	// Unified tab ordering - determines visual order of all tabs (AI and file)
 	unifiedTabOrder: UnifiedTabRef[];
+	// Stack of recently closed tabs (both AI and file) for undo (max 25, runtime-only, not persisted)
+	// Used by Cmd+Shift+T to restore any recently closed tab
+	unifiedClosedTabHistory: ClosedTabEntry[];
 
 	// Saved scroll position for terminal/shell output view
 	terminalScrollTop?: number;
