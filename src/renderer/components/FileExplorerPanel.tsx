@@ -892,7 +892,11 @@ function FileExplorerPanelInner(props: FileExplorerPanelProps) {
 			const isFolder = node.type === 'folder';
 			const expandedSet = new Set(session.fileExplorerExpanded || []);
 			const isExpanded = expandedSet.has(fullPath);
-			const isSelected = previewFile?.path === absolutePath;
+			// Check both legacy previewFile and active file tab for selection
+			const activeFileTabPath = session.activeFileTabId
+				? session.filePreviewTabs?.find((t) => t.id === session.activeFileTabId)?.path
+				: undefined;
+			const isSelected = previewFile?.path === absolutePath || activeFileTabPath === absolutePath;
 			const isKeyboardSelected =
 				activeFocus === 'right' && activeRightTab === 'files' && globalIndex === selectedFileIndex;
 
@@ -1000,6 +1004,8 @@ function FileExplorerPanelInner(props: FileExplorerPanelProps) {
 			session.changedFiles,
 			session.fileExplorerExpanded,
 			session.id,
+			session.activeFileTabId,
+			session.filePreviewTabs,
 			previewFile?.path,
 			activeFocus,
 			activeRightTab,
