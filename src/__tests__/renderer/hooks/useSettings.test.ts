@@ -138,6 +138,13 @@ describe('useSettings', () => {
 			expect(result.current.disableConfetti).toBe(false);
 		});
 
+		it('should have correct default values for tab naming settings', async () => {
+			const { result } = renderHook(() => useSettings());
+			await waitForSettingsLoaded(result);
+
+			expect(result.current.automaticTabNamingEnabled).toBe(true);
+		});
+
 		it('should have default shortcuts', async () => {
 			const { result } = renderHook(() => useSettings());
 			await waitForSettingsLoaded(result);
@@ -391,6 +398,17 @@ describe('useSettings', () => {
 
 			expect(result.current.disableGpuAcceleration).toBe(true);
 			expect(result.current.disableConfetti).toBe(true);
+		});
+
+		it('should load tab naming settings from saved values', async () => {
+			vi.mocked(window.maestro.settings.getAll).mockResolvedValue({
+				automaticTabNamingEnabled: false,
+			});
+
+			const { result } = renderHook(() => useSettings());
+			await waitForSettingsLoaded(result);
+
+			expect(result.current.automaticTabNamingEnabled).toBe(false);
 		});
 	});
 
@@ -772,6 +790,40 @@ describe('useSettings', () => {
 
 			expect(result.current.disableConfetti).toBe(true);
 			expect(window.maestro.settings.set).toHaveBeenCalledWith('disableConfetti', true);
+		});
+	});
+
+	describe('setter functions - tab naming settings', () => {
+		it('should update automaticTabNamingEnabled and persist to settings', async () => {
+			const { result } = renderHook(() => useSettings());
+			await waitForSettingsLoaded(result);
+
+			// Default is true, so toggle to false
+			act(() => {
+				result.current.setAutomaticTabNamingEnabled(false);
+			});
+
+			expect(result.current.automaticTabNamingEnabled).toBe(false);
+			expect(window.maestro.settings.set).toHaveBeenCalledWith('automaticTabNamingEnabled', false);
+		});
+
+		it('should toggle automaticTabNamingEnabled back to true', async () => {
+			// Start with false
+			vi.mocked(window.maestro.settings.getAll).mockResolvedValue({
+				automaticTabNamingEnabled: false,
+			});
+
+			const { result } = renderHook(() => useSettings());
+			await waitForSettingsLoaded(result);
+
+			expect(result.current.automaticTabNamingEnabled).toBe(false);
+
+			act(() => {
+				result.current.setAutomaticTabNamingEnabled(true);
+			});
+
+			expect(result.current.automaticTabNamingEnabled).toBe(true);
+			expect(window.maestro.settings.set).toHaveBeenCalledWith('automaticTabNamingEnabled', true);
 		});
 	});
 

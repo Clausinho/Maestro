@@ -2588,6 +2588,20 @@ interface MaestroAPI {
 			callback: (data: { contributionId: string; prNumber: number; prUrl: string }) => void
 		) => () => void;
 	};
+
+	// Tab Naming API (automatic tab name generation)
+	tabNaming: {
+		generateTabName: (config: {
+			userMessage: string;
+			agentType: string;
+			cwd: string;
+			sessionSshRemoteConfig?: {
+				enabled: boolean;
+				remoteId: string | null;
+				workingDirOverride?: string;
+			};
+		}) => Promise<string | null>;
+	};
 }
 
 declare global {

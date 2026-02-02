@@ -47,6 +47,7 @@ import { createGitApi } from './git';
 import { createFsApi } from './fs';
 import { createAgentsApi } from './agents';
 import { createSymphonyApi } from './symphony';
+import { createTabNamingApi } from './tabNaming';
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
@@ -176,6 +177,9 @@ contextBridge.exposeInMainWorld('maestro', {
 
 	// Symphony API (token donations / open source contributions)
 	symphony: createSymphonyApi(),
+
+	// Tab Naming API (automatic tab name generation)
+	tabNaming: createTabNamingApi(),
 });
 
 // Re-export factory functions for external consumers (e.g., tests)
@@ -243,6 +247,8 @@ export {
 	createAgentsApi,
 	// Symphony
 	createSymphonyApi,
+	// Tab Naming
+	createTabNamingApi,
 };
 
 // Re-export types for TypeScript consumers
@@ -433,3 +439,8 @@ export type {
 	CreateDraftPRResponse,
 	CompleteContributionResponse,
 } from './symphony';
+export type {
+	// From tabNaming
+	TabNamingApi,
+	TabNamingConfig,
+} from './tabNaming';

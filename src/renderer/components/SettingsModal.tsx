@@ -30,6 +30,7 @@ import {
 	Battery,
 	Monitor,
 	PartyPopper,
+	Tag,
 } from 'lucide-react';
 import { useSettings } from '../hooks';
 import type {
@@ -307,6 +308,9 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
 		setSshRemoteIgnorePatterns,
 		sshRemoteHonorGitignore,
 		setSshRemoteHonorGitignore,
+		// Automatic tab naming settings
+		automaticTabNamingEnabled,
+		setAutomaticTabNamingEnabled,
 	} = useSettings();
 
 	const [activeTab, setActiveTab] = useState<
@@ -1401,6 +1405,17 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
 								description='When enabled, new AI tabs will have the "History" toggle on by default, saving a synopsis after each completion'
 								checked={props.defaultSaveToHistory}
 								onChange={props.setDefaultSaveToHistory}
+								theme={theme}
+							/>
+
+							{/* Automatic Tab Naming */}
+							<SettingCheckbox
+								icon={Tag}
+								sectionLabel="Automatic Tab Naming"
+								title="Automatically name tabs based on first message"
+								description="When you send your first message to a new tab, an AI will analyze it and generate a descriptive tab name. The naming request runs in parallel and leaves no history."
+								checked={automaticTabNamingEnabled}
+								onChange={setAutomaticTabNamingEnabled}
 								theme={theme}
 							/>
 

@@ -324,6 +324,44 @@ Click the sidebar toggle (`Opt+Cmd+Left` / `Alt+Ctrl+Left`) to collapse the side
 - Hover for agent name tooltip
 - Click to select an agent
 
+## Tab Management
+
+Each agent session can have multiple tabs, allowing you to work on different tasks within the same project workspace.
+
+### Automatic Tab Naming
+
+When you send your first message to a new tab, Maestro automatically generates a descriptive name based on your request. This helps you identify tabs at a glance without manual renaming.
+
+**How it works:**
+1. When you start a new conversation in a tab, your first message is analyzed
+2. An AI generates a concise, relevant name (2-5 words)
+3. The tab name updates automatically once the name is generated
+4. If you've already renamed the tab, automatic naming is skipped
+
+**Examples of generated tab names:**
+| Your message | Generated name |
+|--------------|----------------|
+| "Help me implement user authentication with JWT" | JWT Auth Implementation |
+| "Fix the bug in the checkout flow" | Checkout Bug Fix |
+| "Add dark mode support to the app" | Dark Mode Support |
+| "Refactor the database queries" | Database Query Refactor |
+
+**Configuring automatic tab naming:**
+- Go to **Settings** (`Cmd+,` / `Ctrl+,`) → **General**
+- Toggle **Automatic Tab Naming** on or off
+- Default: Enabled
+
+<Note>
+Automatic tab naming uses the same AI agent as your session, including SSH remote configurations. The naming request runs in parallel with your main prompt, so there's no delay to your workflow.
+</Note>
+
+### Manual Tab Renaming
+
+You can always rename tabs manually:
+- Right-click a tab → **Rename Tab**
+- Or double-click the tab name to edit it directly
+- Manual names take precedence over automatic naming
+
 ## Session Management
 
 Browse, star, rename, and resume past sessions. The Session Explorer (`Cmd+Shift+L` / `Ctrl+Shift+L`) shows all conversations for an agent with search, filtering, and quick actions.

@@ -101,6 +101,9 @@ export const MODAL_PRIORITIES = {
 	/** Batch runner modal for scratchpad auto mode */
 	BATCH_RUNNER: 720,
 
+	/** Document selector modal (opens from BatchRunner to add documents) */
+	DOCUMENT_SELECTOR: 725,
+
 	/** Tab switcher modal (Opt+Cmd+T) */
 	TAB_SWITCHER: 710,
 
@@ -122,8 +125,8 @@ export const MODAL_PRIORITIES = {
 	/** Auto Run search bar (within expanded modal) */
 	AUTORUN_SEARCH: 706,
 
-	/** Playbook Exchange modal - browse and import community playbooks */
-	MARKETPLACE: 708,
+	/** Playbook Exchange modal - browse and import community playbooks (opens from BatchRunner or AutoRunExpanded, so needs higher priority than both) */
+	MARKETPLACE: 735,
 
 	/** Symphony modal - browse and contribute to open source projects */
 	SYMPHONY: 710,

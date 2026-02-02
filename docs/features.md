@@ -28,6 +28,7 @@ icon: sparkles
 - 🔍 **[Powerful Output Filtering](./general-usage)** - Search and filter AI output with include/exclude modes, regex support, and per-response local filters.
 - ⚡ **[Slash Commands](./slash-commands)** - Extensible command system with autocomplete. Create custom commands with template variables for your workflows. Includes bundled [Spec-Kit](./speckit-commands) for feature specifications and [OpenSpec](./openspec-commands) for change proposals.
 - 💾 **Draft Auto-Save** - Never lose work. Drafts are automatically saved and restored per session.
+- 🏷️ **[Automatic Tab Naming](./general-usage#automatic-tab-naming)** - Tabs are automatically named based on your first message. No more "New Session" clutter — each tab gets a descriptive, relevant name.
 - 🔔 **Custom Notifications** - Execute any command when agents complete tasks, perfect for audio alerts, logging, or integration with your notification stack.
 - 🎨 **[Beautiful Themes](https://github.com/pedramamini/Maestro/blob/main/THEMES.md)** - 17 built-in themes across dark (Dracula, Monokai, Nord, Tokyo Night, Catppuccin Mocha, Gruvbox Dark), light (GitHub, Solarized, One Light, Gruvbox Light, Catppuccin Latte, Ayu Light), and vibe (Pedurple, Maestro's Choice, Dre Synth, InQuest) categories, plus a fully customizable theme builder.
 - 💰 **Cost Tracking** - Real-time token usage and cost tracking per session and globally.

@@ -50,6 +50,7 @@ import { registerLeaderboardHandlers, LeaderboardHandlerDependencies } from './l
 import { registerNotificationsHandlers } from './notifications';
 import { registerSymphonyHandlers, SymphonyHandlerDependencies } from './symphony';
 import { registerAgentErrorHandlers } from './agent-error';
+import { registerTabNamingHandlers, TabNamingHandlerDependencies } from './tabNaming';
 import { AgentDetector } from '../../agent-detector';
 import { ProcessManager } from '../../process-manager';
 import { WebServer } from '../../web-server';
@@ -89,6 +90,8 @@ export type { LeaderboardHandlerDependencies };
 export { registerNotificationsHandlers };
 export { registerSymphonyHandlers };
 export { registerAgentErrorHandlers };
+export { registerTabNamingHandlers };
+export type { TabNamingHandlerDependencies };
 export type { AgentsHandlerDependencies };
 export type { ProcessHandlerDependencies };
 export type { PersistenceHandlerDependencies };
@@ -259,6 +262,13 @@ export function registerAllHandlers(deps: HandlerDependencies): void {
 	});
 	// Register agent error handlers (error state management)
 	registerAgentErrorHandlers();
+	// Register tab naming handlers for automatic tab naming
+	registerTabNamingHandlers({
+		getProcessManager: deps.getProcessManager,
+		getAgentDetector: deps.getAgentDetector,
+		agentConfigsStore: deps.agentConfigsStore,
+		settingsStore: deps.settingsStore,
+	});
 	// Setup logger event forwarding to renderer
 	setupLoggerEventForwarding(deps.getMainWindow);
 }

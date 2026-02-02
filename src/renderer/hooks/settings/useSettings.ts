@@ -342,6 +342,10 @@ export interface UseSettingsReturn {
 	setSshRemoteIgnorePatterns: (value: string[]) => void;
 	sshRemoteHonorGitignore: boolean;
 	setSshRemoteHonorGitignore: (value: boolean) => void;
+
+	// Automatic tab naming settings
+	automaticTabNamingEnabled: boolean;
+	setAutomaticTabNamingEnabled: (value: boolean) => void;
 }
 
 export function useSettings(): UseSettingsReturn {
@@ -493,6 +497,9 @@ export function useSettings(): UseSettingsReturn {
 		'*cache*',
 	]);
 	const [sshRemoteHonorGitignore, setSshRemoteHonorGitignoreState] = useState(true); // Default: honor .gitignore
+
+	// Automatic tab naming settings
+	const [automaticTabNamingEnabled, setAutomaticTabNamingEnabledState] = useState(true); // Default: enabled
 
 	// Wrapper functions that persist to electron-store
 	// PERF: All wrapped in useCallback to prevent re-renders
@@ -1296,6 +1303,12 @@ export function useSettings(): UseSettingsReturn {
 		window.maestro.settings.set('sshRemoteHonorGitignore', value);
 	}, []);
 
+	// Automatic tab naming toggle
+	const setAutomaticTabNamingEnabled = useCallback((value: boolean) => {
+		setAutomaticTabNamingEnabledState(value);
+		window.maestro.settings.set('automaticTabNamingEnabled', value);
+	}, []);
+
 	// Load settings from electron-store
 	// This function is called on mount and on system resume (after sleep/suspend)
 	// PERF: Use batch loading to reduce IPC calls from ~60 to 3
@@ -1368,6 +1381,7 @@ export function useSettings(): UseSettingsReturn {
 				const savedDisableConfetti = allSettings['disableConfetti'];
 				const savedSshRemoteIgnorePatterns = allSettings['sshRemoteIgnorePatterns'];
 				const savedSshRemoteHonorGitignore = allSettings['sshRemoteHonorGitignore'];
+				const savedAutomaticTabNamingEnabled = allSettings['automaticTabNamingEnabled'];
 
 				if (savedEnterToSendAI !== undefined) setEnterToSendAIState(savedEnterToSendAI as boolean);
 				if (savedEnterToSendTerminal !== undefined)
@@ -1722,6 +1736,11 @@ export function useSettings(): UseSettingsReturn {
 				if (savedSshRemoteHonorGitignore !== undefined) {
 					setSshRemoteHonorGitignoreState(savedSshRemoteHonorGitignore as boolean);
 				}
+
+				// Automatic tab naming settings
+				if (savedAutomaticTabNamingEnabled !== undefined) {
+					setAutomaticTabNamingEnabledState(savedAutomaticTabNamingEnabled as boolean);
+				}
 			} catch (error) {
 				console.error('[Settings] Failed to load settings:', error);
 			} finally {
@@ -1896,6 +1915,8 @@ export function useSettings(): UseSettingsReturn {
 			setSshRemoteIgnorePatterns,
 			sshRemoteHonorGitignore,
 			setSshRemoteHonorGitignore,
+			automaticTabNamingEnabled,
+			setAutomaticTabNamingEnabled,
 		}),
 		[
 			// State values
@@ -2037,6 +2058,8 @@ export function useSettings(): UseSettingsReturn {
 			setSshRemoteIgnorePatterns,
 			sshRemoteHonorGitignore,
 			setSshRemoteHonorGitignore,
+			automaticTabNamingEnabled,
+			setAutomaticTabNamingEnabled,
 		]
 	);
 }
