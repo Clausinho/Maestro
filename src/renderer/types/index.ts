@@ -465,6 +465,15 @@ export interface FilePreviewTab {
  */
 export type UnifiedTabRef = { type: 'ai' | 'file'; id: string };
 
+/**
+ * Unified tab entry for rendering in TabBar.
+ * Discriminated union that includes the full tab data for each type.
+ * Used by TabBar to render both AI and file tabs in a single list.
+ */
+export type UnifiedTab =
+	| { type: 'ai'; id: string; data: AITab }
+	| { type: 'file'; id: string; data: FilePreviewTab };
+
 export interface Session {
 	id: string;
 	groupId?: string;

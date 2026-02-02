@@ -19,7 +19,7 @@ import {
 	ChevronsRight,
 	Loader2,
 } from 'lucide-react';
-import type { AITab, Theme } from '../types';
+import type { AITab, Theme, FilePreviewTab, UnifiedTab } from '../types';
 import { hasDraft } from '../utils/tabHelpers';
 
 interface TabBarProps {
@@ -60,6 +60,16 @@ interface TabBarProps {
 	onCloseTabsLeft?: () => void;
 	/** Handler to close tabs to the right of active tab */
 	onCloseTabsRight?: () => void;
+
+	// === Unified Tab System Props (Phase 3) ===
+	/** Merged ordered list of AI and file preview tabs for unified rendering */
+	unifiedTabs?: UnifiedTab[];
+	/** Currently active file tab ID (null if an AI tab is active) */
+	activeFileTabId?: string | null;
+	/** Handler to select a file preview tab */
+	onFileTabSelect?: (tabId: string) => void;
+	/** Handler to close a file preview tab */
+	onFileTabClose?: (tabId: string) => void;
 }
 
 interface TabProps {
@@ -924,6 +934,11 @@ function TabBarInner({
 	onCloseOtherTabs,
 	onCloseTabsLeft,
 	onCloseTabsRight,
+	// Unified tab system props (Phase 3)
+	unifiedTabs: _unifiedTabs,
+	activeFileTabId: _activeFileTabId,
+	onFileTabSelect: _onFileTabSelect,
+	onFileTabClose: _onFileTabClose,
 }: TabBarProps) {
 	const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
 	const [dragOverTabId, setDragOverTabId] = useState<string | null>(null);
