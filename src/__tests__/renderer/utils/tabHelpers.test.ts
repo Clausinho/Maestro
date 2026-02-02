@@ -72,6 +72,9 @@ function createMockSession(overrides: Partial<Session> = {}): Session {
 		aiTabs: [],
 		activeTabId: '',
 		closedTabHistory: [],
+		filePreviewTabs: [],
+		activeFileTabId: null,
+		unifiedTabOrder: [],
 		...overrides,
 	};
 }
@@ -577,6 +580,22 @@ describe('tabHelpers', () => {
 
 			expect(result!.session.activeTabId).toBe('tab-2');
 			expect(result!.tab).toBe(tab2);
+		});
+
+		it('clears activeFileTabId when selecting an AI tab', () => {
+			const tab = createMockTab({ id: 'tab-1' });
+			const session = createMockSession({
+				aiTabs: [tab],
+				activeTabId: 'tab-1',
+				activeFileTabId: 'file-tab-1', // A file tab was active
+			});
+
+			const result = setActiveTab(session, 'tab-1');
+
+			// Should return a new session with activeFileTabId cleared
+			expect(result!.session).not.toBe(session);
+			expect(result!.session.activeFileTabId).toBeNull();
+			expect(result!.session.activeTabId).toBe('tab-1');
 		});
 	});
 

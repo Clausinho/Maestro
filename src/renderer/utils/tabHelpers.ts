@@ -440,19 +440,22 @@ export function setActiveTab(session: Session, tabId: string): SetActiveTabResul
 		return null;
 	}
 
-	// If already active, return current state (no mutation needed)
-	if (session.activeTabId === tabId) {
+	// If already active and no file tab is selected, return current state (no mutation needed)
+	if (session.activeTabId === tabId && session.activeFileTabId === null) {
 		return {
 			tab: targetTab,
 			session,
 		};
 	}
 
+	// When selecting an AI tab, deselect any active file preview tab
+	// This ensures only one tab type (AI or file) is active at a time
 	return {
 		tab: targetTab,
 		session: {
 			...session,
 			activeTabId: tabId,
+			activeFileTabId: null,
 		},
 	};
 }
