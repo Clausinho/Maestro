@@ -166,8 +166,14 @@ Full documentation and usage guide available at **[docs.runmaestro.ai](https://d
 - **Discord**: [Join Us](https://runmaestro.ai/discord)
 - **GitHub Issues**: [Report bugs & request features](https://github.com/pedramamini/Maestro/issues)
 
-## Contributing
+## Contributors
 
+## Contributors
+
+- [@pedramamini](https://github.com/pedramamini) - Creator and Benevolent Dictator
+- [@mattjay](https://github.com/mattjay) - Contributor and tester
+
+### Contributing
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture details, and contribution guidelines.
 
 ## License
