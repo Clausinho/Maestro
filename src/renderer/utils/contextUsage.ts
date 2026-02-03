@@ -6,7 +6,6 @@
  */
 
 import type { ToolType } from '../types';
-import type { UsageStats } from '../../shared/types';
 
 /**
  * Default context window sizes for different agents.

@@ -165,7 +165,6 @@ import {
 	setActiveTab,
 	createTab,
 	closeTab,
-	reopenClosedTab,
 	reopenUnifiedClosedTab,
 	closeFileTab as closeFileTabHelper,
 	addAiTabToUnifiedHistory,
@@ -3765,26 +3764,6 @@ function MaestroConsoleInner() {
 		activeSession?.projectRoot,
 	]);
 
-	// File preview navigation history - derived from active session (per-agent history)
-	const filePreviewHistory = useMemo(
-		() => activeSession?.filePreviewHistory ?? [],
-		[activeSession?.filePreviewHistory]
-	);
-	const filePreviewHistoryIndex = useMemo(
-		() => activeSession?.filePreviewHistoryIndex ?? -1,
-		[activeSession?.filePreviewHistoryIndex]
-	);
-
-	// PERF: Memoize sliced history arrays to prevent new array creation on every render
-	const backHistory = useMemo(
-		() => filePreviewHistory.slice(0, filePreviewHistoryIndex),
-		[filePreviewHistory, filePreviewHistoryIndex]
-	);
-	const forwardHistory = useMemo(
-		() => filePreviewHistory.slice(filePreviewHistoryIndex + 1),
-		[filePreviewHistory, filePreviewHistoryIndex]
-	);
-
 	// Per-tab navigation history for the active file tab
 	const activeFileTabHistory = useMemo(() => {
 		if (!activeSession?.activeFileTabId) return [];
@@ -3811,27 +3790,6 @@ function MaestroConsoleInner() {
 	// Can navigate back/forward in the current file tab
 	const fileTabCanGoBack = activeFileTabNavIndex > 0;
 	const fileTabCanGoForward = activeFileTabNavIndex < activeFileTabHistory.length - 1;
-
-	// Helper to update file preview history for the active session
-	const setFilePreviewHistory = useCallback(
-		(history: { name: string; content: string; path: string }[]) => {
-			if (!activeSessionId) return;
-			setSessions((prev) =>
-				prev.map((s) => (s.id === activeSessionId ? { ...s, filePreviewHistory: history } : s))
-			);
-		},
-		[activeSessionId]
-	);
-
-	const setFilePreviewHistoryIndex = useCallback(
-		(index: number) => {
-			if (!activeSessionId) return;
-			setSessions((prev) =>
-				prev.map((s) => (s.id === activeSessionId ? { ...s, filePreviewHistoryIndex: index } : s))
-			);
-		},
-		[activeSessionId]
-	);
 
 	/**
 	 * Open a file preview tab. If a tab with the same path already exists, select it.
@@ -5304,144 +5262,6 @@ You are taking over this conversation. Based on the context above, provide a bri
 	}, []);
 
 	/**
-	 * Open a file tab with async content loading (for SSH remote files).
-	 * Creates the tab immediately with loading state, fetches content, then updates the tab.
-	 * If a tab for this path already exists, selects it and optionally refreshes content.
-	 */
-	const handleOpenFileTabAsync = useCallback(
-		async (file: { path: string; name: string; sshRemoteId?: string }) => {
-			const currentSession = sessionsRef.current.find(
-				(s) => s.id === activeSessionIdRef.current
-			);
-			if (!currentSession) return;
-
-			// Get SSH remote ID from the file or from session (convert null to undefined)
-			const sshRemoteId =
-				file.sshRemoteId ||
-				currentSession.sshRemoteId ||
-				currentSession.sessionSshRemoteConfig?.remoteId ||
-				undefined;
-
-			// Check if a tab with this path already exists
-			const existingTab = currentSession.filePreviewTabs.find(
-				(tab) => tab.path === file.path
-			);
-
-			if (existingTab) {
-				// Tab exists - just select it
-				setSessions((prev) =>
-					prev.map((s) =>
-						s.id === currentSession.id
-							? { ...s, activeFileTabId: existingTab.id }
-							: s
-					)
-				);
-				return;
-			}
-
-			// Create a new file tab with loading state
-			const newTabId = generateId();
-			const extension = file.name.includes('.')
-				? '.' + file.name.split('.').pop()
-				: '';
-			const nameWithoutExtension = extension
-				? file.name.slice(0, -extension.length)
-				: file.name;
-
-			const newFileTab: FilePreviewTab = {
-				id: newTabId,
-				path: file.path,
-				name: nameWithoutExtension,
-				extension,
-				content: '', // Will be populated after fetch
-				scrollTop: 0,
-				searchQuery: '',
-				editMode: false,
-				editContent: undefined,
-				createdAt: Date.now(),
-				lastModified: 0, // Will be populated after fetch
-				sshRemoteId,
-				isLoading: true, // Show loading state
-			};
-
-			const newTabRef: UnifiedTabRef = { type: 'file', id: newTabId };
-
-			// Add the tab in loading state
-			setSessions((prev) =>
-				prev.map((s) => {
-					if (s.id !== currentSession.id) return s;
-					return {
-						...s,
-						filePreviewTabs: [...s.filePreviewTabs, newFileTab],
-						unifiedTabOrder: [...s.unifiedTabOrder, newTabRef],
-						activeFileTabId: newTabId,
-					};
-				})
-			);
-
-			// Fetch content and stat asynchronously
-			try {
-				const [content, stat] = await Promise.all([
-					window.maestro.fs.readFile(file.path, sshRemoteId),
-					window.maestro.fs.stat(file.path, sshRemoteId),
-				]);
-				// Parse lastModified from stat (modifiedAt is an ISO string)
-				const lastModified = stat?.modifiedAt ? new Date(stat.modifiedAt).getTime() : Date.now();
-				// Update the tab with loaded content and lastModified
-				setSessions((prev) =>
-					prev.map((s) => {
-						if (s.id !== currentSession.id) return s;
-						return {
-							...s,
-							filePreviewTabs: s.filePreviewTabs.map((tab) =>
-								tab.id === newTabId
-									? { ...tab, content, lastModified, isLoading: false }
-									: tab
-							),
-						};
-					})
-				);
-			} catch (error) {
-				console.error('[handleOpenFileTabAsync] Failed to load file:', error);
-				// Remove the tab on error (or could show error state)
-				setSessions((prev) =>
-					prev.map((s) => {
-						if (s.id !== currentSession.id) return s;
-						// Remove the failed tab
-						const updatedFileTabs = s.filePreviewTabs.filter(
-							(tab) => tab.id !== newTabId
-						);
-						const updatedTabOrder = s.unifiedTabOrder.filter(
-							(ref) => !(ref.type === 'file' && ref.id === newTabId)
-						);
-						// Select next available tab
-						const remainingTabs = updatedTabOrder.length;
-						let newActiveFileTabId: string | null = null;
-						let newActiveTabId = s.activeTabId;
-						if (remainingTabs > 0) {
-							const lastRef = updatedTabOrder[remainingTabs - 1];
-							if (lastRef.type === 'file') {
-								newActiveFileTabId = lastRef.id;
-							} else {
-								newActiveTabId = lastRef.id;
-								newActiveFileTabId = null;
-							}
-						}
-						return {
-							...s,
-							filePreviewTabs: updatedFileTabs,
-							unifiedTabOrder: updatedTabOrder,
-							activeFileTabId: newActiveFileTabId,
-							activeTabId: newActiveTabId,
-						};
-					})
-				);
-			}
-		},
-		[]
-	);
-
-	/**
 	 * Force close a file preview tab without confirmation.
 	 * Removes it from filePreviewTabs and unifiedTabOrder.
 	 * If this was the active file tab, selects the next tab in unifiedTabOrder (could be AI or file).
@@ -6556,71 +6376,6 @@ You are taking over this conversation. Based on the context above, provide a bri
 		},
 		[handleOpenFileTab]
 	);
-
-	const handleNavigateBack = useCallback(() => {
-		const currentSession = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current);
-		if (!currentSession) return;
-		const historyIndex = currentSession.filePreviewHistoryIndex ?? -1;
-		const history = currentSession.filePreviewHistory ?? [];
-		if (historyIndex > 0) {
-			const newIndex = historyIndex - 1;
-			const historyEntry = history[newIndex];
-			// Update the history index
-			setSessions((prev) =>
-				prev.map((s) =>
-					s.id === currentSession.id ? { ...s, filePreviewHistoryIndex: newIndex } : s
-				)
-			);
-			// Open or select the file tab
-			handleOpenFileTab({
-				path: historyEntry.path,
-				name: historyEntry.name,
-				content: historyEntry.content,
-			});
-		}
-	}, [handleOpenFileTab]);
-
-	const handleNavigateForward = useCallback(() => {
-		const currentSession = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current);
-		if (!currentSession) return;
-		const historyIndex = currentSession.filePreviewHistoryIndex ?? -1;
-		const history = currentSession.filePreviewHistory ?? [];
-		if (historyIndex < history.length - 1) {
-			const newIndex = historyIndex + 1;
-			const historyEntry = history[newIndex];
-			// Update the history index
-			setSessions((prev) =>
-				prev.map((s) =>
-					s.id === currentSession.id ? { ...s, filePreviewHistoryIndex: newIndex } : s
-				)
-			);
-			// Open or select the file tab
-			handleOpenFileTab({
-				path: historyEntry.path,
-				name: historyEntry.name,
-				content: historyEntry.content,
-			});
-		}
-	}, [handleOpenFileTab]);
-
-	const handleNavigateToIndex = useCallback((index: number) => {
-		const currentSession = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current);
-		if (!currentSession) return;
-		const history = currentSession.filePreviewHistory ?? [];
-		if (index >= 0 && index < history.length) {
-			const historyEntry = history[index];
-			// Update the history index
-			setSessions((prev) =>
-				prev.map((s) => (s.id === currentSession.id ? { ...s, filePreviewHistoryIndex: index } : s))
-			);
-			// Open or select the file tab
-			handleOpenFileTab({
-				path: historyEntry.path,
-				name: historyEntry.name,
-				content: historyEntry.content,
-			});
-		}
-	}, [handleOpenFileTab]);
 
 	const handleClearFilePreviewHistory = useCallback(() => {
 		const currentSession = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current);
