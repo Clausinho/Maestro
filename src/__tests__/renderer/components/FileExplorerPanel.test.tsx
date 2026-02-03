@@ -1701,6 +1701,32 @@ describe('FileExplorerPanel', () => {
 			expect(mockShell.openExternal).toHaveBeenCalledWith('file:///Users/test/project/package.json');
 		});
 
+		it('does not show Open in Default App option for SSH sessions', () => {
+			const sshSession = createMockSession({
+				sshRemoteId: 'ssh-remote-123',
+			});
+			const { container } = render(<FileExplorerPanel {...defaultProps} session={sshSession} />);
+			const fileItem = Array.from(container.querySelectorAll('[data-file-index]')).find((el) =>
+				el.textContent?.includes('package.json')
+			);
+			fireEvent.contextMenu(fileItem!, { clientX: 100, clientY: 200 });
+
+			expect(screen.queryByText('Open in Default App')).not.toBeInTheDocument();
+		});
+
+		it('does not show Open in Default App option for sessions with SSH remote config', () => {
+			const sshSession = createMockSession({
+				sessionSshRemoteConfig: { remoteId: 'ssh-config-456', enabled: true },
+			});
+			const { container } = render(<FileExplorerPanel {...defaultProps} session={sshSession} />);
+			const fileItem = Array.from(container.querySelectorAll('[data-file-index]')).find((el) =>
+				el.textContent?.includes('package.json')
+			);
+			fireEvent.contextMenu(fileItem!, { clientX: 100, clientY: 200 });
+
+			expect(screen.queryByText('Open in Default App')).not.toBeInTheDocument();
+		});
+
 		it('shows folder delete warning with item count', async () => {
 			// Mock countItems for the delete modal
 			const mockFs = {

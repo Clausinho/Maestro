@@ -1396,8 +1396,8 @@ function FileExplorerPanelInner(props: FileExplorerPanelProps) {
 									</button>
 								)}
 
-							{/* Open in Default App option - for files only */}
-							{contextMenu.node.type === 'file' && (
+							{/* Open in Default App option - for files only, not available over SSH */}
+							{contextMenu.node.type === 'file' && !sshRemoteId && (
 								<button
 									onClick={handleOpenInDefaultApp}
 									className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-white/10 transition-colors"

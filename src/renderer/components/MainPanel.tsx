@@ -930,14 +930,14 @@ export const MainPanel = React.memo(
 								}}
 								data-tour="header-controls"
 							>
-								<div className="flex items-center gap-4 min-w-0 overflow-hidden">
-									<div className="flex items-center gap-2 text-sm font-medium min-w-0 overflow-hidden">
+								<div className="flex items-center gap-4 min-w-0">
+									<div className="flex items-center gap-2 text-sm font-medium min-w-0">
 										{/* Session name - hidden at narrow widths (also shown in menu bar) */}
 										{showSessionName && (
-											<span className="shrink-0">{activeSession.name}</span>
+											<span className="shrink-0 truncate">{activeSession.name}</span>
 										)}
 										<div
-											className="relative overflow-visible"
+											className="relative shrink-0"
 											onMouseEnter={
 												activeSession.isGitRepo
 													? gitTooltip.triggerHandlers.onMouseEnter
