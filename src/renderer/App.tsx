@@ -29,6 +29,7 @@ import { AppOverlays } from './components/AppOverlays';
 import { PlaygroundPanel } from './components/PlaygroundPanel';
 import { DebugWizardModal } from './components/DebugWizardModal';
 import { DebugPackageModal } from './components/DebugPackageModal';
+import { WindowsWarningModal, exposeWindowsWarningModalDebug } from './components/WindowsWarningModal';
 import { GistPublishModal, type GistInfo } from './components/GistPublishModal';
 import {
 	MaestroWizard,
@@ -312,6 +313,9 @@ function MaestroConsoleInner() {
 		// Debug Package Modal
 		debugPackageModalOpen,
 		setDebugPackageModalOpen,
+		// Windows Warning Modal
+		windowsWarningModalOpen,
+		setWindowsWarningModalOpen,
 		// Confirmation Modal
 		confirmModalOpen,
 		setConfirmModalOpen,
@@ -571,6 +575,10 @@ function MaestroConsoleInner() {
 
 		// File tab refresh settings
 		fileTabAutoRefreshEnabled,
+
+		// Windows warning suppression
+		suppressWindowsWarning,
+		setSuppressWindowsWarning,
 	} = settings;
 
 	// --- KEYBOARD SHORTCUT HELPERS ---
@@ -1391,6 +1399,31 @@ function MaestroConsoleInner() {
 				setGhCliAvailable(false);
 			});
 	}, []);
+
+	// Show Windows warning modal on startup for Windows users (if not suppressed)
+	// Also expose a debug function to trigger the modal from console for testing
+	useEffect(() => {
+		// Expose debug function regardless of platform (for testing)
+		exposeWindowsWarningModalDebug(setWindowsWarningModalOpen);
+
+		// Only check platform when settings have loaded (so we know suppress preference)
+		if (!settingsLoaded) return;
+
+		// Skip if user has suppressed the warning
+		if (suppressWindowsWarning) return;
+
+		// Check if running on Windows using the power API (has platform info)
+		window.maestro.power
+			.getStatus()
+			.then((status) => {
+				if (status.platform === 'win32') {
+					setWindowsWarningModalOpen(true);
+				}
+			})
+			.catch((error) => {
+				console.error('[App] Failed to detect platform for Windows warning:', error);
+			});
+	}, [settingsLoaded, suppressWindowsWarning, setWindowsWarningModalOpen]);
 
 	// Load file gist URLs from settings on startup
 	useEffect(() => {
@@ -11267,10 +11300,34 @@ You are taking over this conversation. Based on the context above, provide a bri
 		const isGroupChatActive = !!activeGroupChatId;
 		const isDirectAIMode = activeSession && activeSession.inputMode === 'ai';
 
-		if (!isGroupChatActive && !isDirectAIMode) return;
-
 		const items = e.clipboardData.items;
 		const hasImage = Array.from(items).some((item) => item.type.startsWith('image/'));
+
+		// Handle text paste with whitespace trimming (for direct input only - GroupChatInput handles its own)
+		if (!hasImage && !isGroupChatActive) {
+			const text = e.clipboardData.getData('text/plain');
+			if (text) {
+				const trimmedText = text.trim();
+				// Only intercept if trimming actually changed the text
+				if (trimmedText !== text) {
+					e.preventDefault();
+					const target = e.target as HTMLTextAreaElement;
+					const start = target.selectionStart ?? 0;
+					const end = target.selectionEnd ?? 0;
+					const currentValue = target.value;
+					const newValue = currentValue.slice(0, start) + trimmedText + currentValue.slice(end);
+					setInputValue(newValue);
+					// Set cursor position after the pasted text
+					requestAnimationFrame(() => {
+						target.selectionStart = target.selectionEnd = start + trimmedText.length;
+					});
+				}
+			}
+			return;
+		}
+
+		// Image handling requires AI mode or group chat
+		if (!isGroupChatActive && !isDirectAIMode) return;
 
 		if (hasImage && isDirectAIMode && !isGroupChatActive && blockCodexResumeImages) {
 			e.preventDefault();
@@ -13720,6 +13777,17 @@ You are taking over this conversation. Based on the context above, provide a bri
 					theme={theme}
 					isOpen={debugPackageModalOpen}
 					onClose={handleCloseDebugPackage}
+				/>
+
+				{/* --- WINDOWS WARNING MODAL --- */}
+				<WindowsWarningModal
+					theme={theme}
+					isOpen={windowsWarningModalOpen}
+					onClose={() => setWindowsWarningModalOpen(false)}
+					onSuppressFuture={setSuppressWindowsWarning}
+					onOpenDebugPackage={() => setDebugPackageModalOpen(true)}
+					useBetaChannel={enableBetaUpdates}
+					onSetUseBetaChannel={setEnableBetaUpdates}
 				/>
 
 				{/* --- CELEBRATION OVERLAYS --- */}
