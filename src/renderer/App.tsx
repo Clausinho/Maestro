@@ -6187,17 +6187,14 @@ You are taking over this conversation. Based on the context above, provide a bri
 	// PERF: Memoized callbacks for SessionList props - these were inline arrow functions
 	const handleEditAgent = useCallback((session: Session) => {
 		setEditAgentSession(session);
-		setEditAgentModalOpen(true);
 	}, []);
 
 	const handleOpenCreatePRSession = useCallback((session: Session) => {
 		setCreatePRSession(session);
-		setCreatePRModalOpen(true);
 	}, []);
 
 	const handleQuickCreateWorktree = useCallback((session: Session) => {
 		setCreateWorktreeSession(session);
-		setCreateWorktreeModalOpen(true);
 	}, []);
 
 	const handleOpenWorktreeConfigSession = useCallback((session: Session) => {
@@ -6207,7 +6204,6 @@ You are taking over this conversation. Based on the context above, provide a bri
 
 	const handleDeleteWorktreeSession = useCallback((session: Session) => {
 		setDeleteWorktreeSession(session);
-		setDeleteWorktreeModalOpen(true);
 	}, []);
 
 	const handleToggleWorktreeExpanded = useCallback((sessionId: string) => {
@@ -12433,14 +12429,12 @@ You are taking over this conversation. Based on the context above, provide a bri
 	}, []);
 	const handleQuickActionsEditAgent = useCallback((session: Session) => {
 		setEditAgentSession(session);
-		setEditAgentModalOpen(true);
 	}, []);
 	const handleQuickActionsNewGroupChat = useCallback(() => setShowNewGroupChatModal(true), []);
 	const handleQuickActionsOpenMergeSession = useCallback(() => setMergeSessionModalOpen(true), []);
 	const handleQuickActionsOpenSendToAgent = useCallback(() => setSendToAgentModalOpen(true), []);
 	const handleQuickActionsOpenCreatePR = useCallback((session: Session) => {
 		setCreatePRSession(session);
-		setCreatePRModalOpen(true);
 	}, []);
 	const handleQuickActionsSummarizeAndContinue = useCallback(
 		() => handleSummarizeAndContinue(),
